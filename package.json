@@ -1,0 +1,38 @@
+{
+  "name": "briefly-cloud",
+  "version": "1.0.0",
+  "description": "Cloud-based AI productivity assistant powered by GPT-4o",
+  "scripts": {
+    "dev": "concurrently \"cd client && npm run dev\" \"cd server && python main.py\"",
+    "build": "cd client && npm run build",
+    "preview": "cd client && npm run preview",
+    "install-all": "npm install && cd client && npm install && cd ../server && pip install -r requirements.txt",
+    "start": "npm run dev",
+    "test": "cd tests && python -m pytest",
+    "test-api": "python tests/test_api_keys.py",
+    "test-integration": "python tests/test_complete_integration.py"
+  },
+  "keywords": [
+    "productivity",
+    "assistant",
+    "ai",
+    "cloud",
+    "gpt-4o",
+    "document-processing",
+    "vector-search",
+    "chat"
+  ],
+  "author": "Briefly Cloud Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "axios": "^1.6.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "python": ">=3.11.0"
+  }
+}
+

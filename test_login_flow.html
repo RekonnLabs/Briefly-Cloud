@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Flow Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .status { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Briefly Cloud - Login Flow Test</h1>
+    
+    <div class="test-section info">
+        <h3>Test Instructions</h3>
+        <p>This page tests the login flow and API endpoints to help debug the black screen issue.</p>
+        <ol>
+            <li>Make sure the backend server is running on localhost:3001</li>
+            <li>Click "Test API Endpoints" to verify backend connectivity</li>
+            <li>Try the login test with valid credentials</li>
+            <li>Check the results below</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>API Endpoint Tests</h3>
+        <button onclick="testEndpoints()">Test API Endpoints</button>
+        <div id="endpoint-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Login Test</h3>
+        <div>
+            <input type="email" id="email" placeholder="Email" value="test@example.com">
+            <input type="password" id="password" placeholder="Password" value="password123">
+            <button onclick="testLogin()">Test Login</button>
+        </div>
+        <div id="login-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Storage Status Test</h3>
+        <button onclick="testStorageStatus()">Test Storage Status</button>
+        <div id="storage-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Chat History Test</h3>
+        <button onclick="testChatHistory()">Test Chat History</button>
+        <div id="chat-results"></div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:3001';
+        
+        async function testEndpoints() {
+            const resultsDiv = document.getElementById('endpoint-results');
+            resultsDiv.innerHTML = '<p>Testing endpoints...</p>';
+            
+            const endpoints = [
+                '/health',
+                '/api/storage/status',
+                '/api/chat/history',
+                '/api/embed/status'
+            ];
+            
+            let results = '<h4>Endpoint Test Results:</h4>';
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(BASE_URL + endpoint);
+                    const data = await response.json();
+                    
+                    results += `
+                        <div class="${response.ok ? 'success' : 'error'}" style="margin: 10px 0; padding: 10px; border-radius: 3px;">
+                            <strong>${endpoint}</strong> - Status: ${response.status}
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } catch (error) {
+                    results += `
+                        <div class="error" style="margin: 10px 0; padding: 10px; border-radius: 3px;">
+                            <strong>${endpoint}</strong> - ERROR: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+            
+            resultsDiv.innerHTML = results;
+        }
+        
+        async function testLogin() {
+            const resultsDiv = document.getElementById('login-results');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            resultsDiv.innerHTML = '<p>Testing login...</p>';
+            
+            try {
+                const response = await fetch(BASE_URL + '/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('test_token', data.token);
+                    resultsDiv.innerHTML = `
+                        <div class="success">
+                            <h4>Login Successful!</h4>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="error">
+                            <h4>Login Failed</h4>
+                            <p>Status: ${response.status}</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <h4>Login Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testStorageStatus() {
+            const resultsDiv = document.getElementById('storage-results');
+            const token = localStorage.getItem('test_token');
+            
+            resultsDiv.innerHTML = '<p>Testing storage status...</p>';
+            
+            try {
+                const response = await fetch(BASE_URL + '/api/storage/status', {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+                
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = `
+                    <div class="${response.ok ? 'success' : 'error'}">
+                        <h4>Storage Status - ${response.status}</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <h4>Storage Status Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testChatHistory() {
+            const resultsDiv = document.getElementById('chat-results');
+            const token = localStorage.getItem('test_token');
+            
+            resultsDiv.innerHTML = '<p>Testing chat history...</p>';
+            
+            try {
+                const response = await fetch(BASE_URL + '/api/chat/history', {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+                
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = `
+                    <div class="${response.ok ? 'success' : 'error'}">
+                        <h4>Chat History - ${response.status}</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <h4>Chat History Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Auto-test endpoints on page load
+        window.onload = function() {
+            testEndpoints();
+        };
+    </script>
+</body>
+</html>

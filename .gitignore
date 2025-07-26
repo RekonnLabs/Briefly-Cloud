@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+dist/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+env/
+venv/
+
+# Models (local/desktop)
+resources/models/
+*.gguf
+*.bin
+
+# Supabase local dev
+.supabase/
+
+# Chat memory / runtime
+conversations.json
+settings.json
+*.sqlite
+
+# Electron / Tauri packaging
+out/
+*.asar
+
+# IDE / OS
+.DS_Store
+*.log
+*.bak
+
+# VS Code
+.vscode/
+
+# dotenv
+.env
+
