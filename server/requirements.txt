@@ -33,7 +33,7 @@ transformers==4.35.2
 huggingface-hub==0.17.3
 
 # Additional utilities
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
 requests==2.31.0
 
 # Document parsing libraries
