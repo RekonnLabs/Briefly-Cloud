@@ -16,7 +16,7 @@ supabase==2.3.4
 # Authentication and security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.1.2
+bcrypt==4.3.0
 
 # Stripe for payments
 stripe==8.2.0
