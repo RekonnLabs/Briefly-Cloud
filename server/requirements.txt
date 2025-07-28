@@ -44,7 +44,7 @@ xlrd==2.0.1
 python-pptx==0.6.23
 striprtf==0.0.26
 odfpy==1.4.1
-ebooklib==0.18
+ebooklib==0.19
 pyspellchecker==0.8.1
 # XML handled by Python stdlib
 
