@@ -15,19 +15,80 @@ import {
   Zap,
   Smartphone,
   Monitor,
-  Download
+  Download,
+  Loader2
 } from 'lucide-react';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
   userProfile: any;
   storageConnections: any;
+  onShowSettings?: () => void;
+  onStorageUpdate?: (connections: any) => void;
 }
 
-export default function OnboardingFlow({ onComplete, userProfile, storageConnections }: OnboardingFlowProps) {
+export default function OnboardingFlow({ onComplete, userProfile, storageConnections, onShowSettings, onStorageUpdate }: OnboardingFlowProps) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isConnecting, setIsConnecting] = useState<string | null>(null);
 
   const hasConnectedStorage = storageConnections.google.connected || storageConnections.microsoft.connected;
+
+  const connectStorage = async (provider: 'google' | 'microsoft') => {
+    if (!userProfile) return;
+    
+    setIsConnecting(provider);
+    
+    try {
+      const token = localStorage.getItem('supabase_token');
+      const response = await fetch(`/api/storage/${provider}/auth?user_id=${userProfile.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // For mobile, use same window redirect instead of popup
+        const isMobile = window.innerWidth < 768;
+        
+        if (isMobile) {
+          // Store current state and redirect
+          localStorage.setItem('oauth_provider', provider);
+          localStorage.setItem('oauth_return_url', window.location.href);
+          window.location.href = data.authorization_url;
+        } else {
+          // Desktop: use popup
+          const popup = window.open(
+            data.authorization_url, 
+            'oauth', 
+            'width=500,height=600,scrollbars=yes,resizable=yes'
+          );
+          
+          // Poll for popup closure
+          const pollTimer = setInterval(() => {
+            if (popup?.closed) {
+              clearInterval(pollTimer);
+              // Refresh storage connections
+              if (onStorageUpdate) {
+                // Trigger a refresh of storage connections
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+              }
+            }
+          }, 1000);
+        }
+      } else {
+        const error = await response.json();
+        console.error('Connection failed:', error);
+      }
+    } catch (error) {
+      console.error('Connection error:', error);
+    } finally {
+      setIsConnecting(null);
+    }
+  };
 
   // Helper functions - defined early to avoid hoisting issues
   const getTierBadgeColor = (tier: string) => {
@@ -56,7 +117,11 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
       content: (
         <div className="space-y-4 lg:space-y-6">
           <div className="text-center">
-            <Cloud className="h-12 w-12 lg:h-16 lg:w-16 mx-auto mb-4 text-blue-600" />
+            <img 
+              src="/Briefly Image.png" 
+              alt="Briefly Cloud Logo" 
+              className="h-12 w-12 lg:h-16 lg:w-16 mx-auto mb-4 object-contain"
+            />
             <h2 className="text-xl lg:text-2xl font-bold mb-2">Welcome to Briefly Cloud</h2>
             <p className="text-gray-600 mb-4 lg:mb-6 text-sm lg:text-base">
               Transform your documents into an intelligent knowledge base. 
@@ -116,7 +181,7 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
               <div className="p-3 lg:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h3 className="font-medium text-blue-800 mb-2 text-sm lg:text-base">Free Plan Includes:</h3>
                 <ul className="space-y-1 text-xs lg:text-sm text-blue-700">
-                  <li>• Google Drive integration</li>
+                  <li>• Google Drive or OneDrive integration</li>
                   <li>• Up to 100 AI chat messages per month</li>
                   <li>• GPT-3.5 Turbo model</li>
                   <li>• Basic document indexing</li>
@@ -126,7 +191,7 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
               <div className="p-3 lg:p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
                 <h3 className="font-medium text-purple-800 mb-2 text-sm lg:text-base">Upgrade to Pro for:</h3>
                 <ul className="space-y-1 text-xs lg:text-sm text-purple-700">
-                  <li>• OneDrive integration</li>
+                  <li>• Both Google Drive & OneDrive integration</li>
                   <li>• 10,000 AI chat messages per month</li>
                   <li>• GPT-4o model (latest & most capable)</li>
                   <li>• Priority processing</li>
@@ -201,9 +266,21 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
                 {storageConnections.google.connected ? (
                   <CheckCircle className="h-5 w-5 text-green-600" />
                 ) : (
-                  <Button size="sm" variant="outline" className="text-xs">
-                    <ExternalLink className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
-                    <span className="hidden sm:inline">Connect</span>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-xs" 
+                    onClick={() => connectStorage('google')}
+                    disabled={isConnecting === 'google'}
+                  >
+                    {isConnecting === 'google' ? (
+                      <Loader2 className="h-3 w-3 lg:h-4 lg:w-4 mr-1 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isConnecting === 'google' ? 'Connecting...' : 'Connect'}
+                    </span>
                   </Button>
                 )}
               </div>
@@ -220,9 +297,7 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
                   <p className="text-xs lg:text-sm text-gray-600 truncate">
                     {storageConnections.microsoft.connected 
                       ? `Connected as ${storageConnections.microsoft.email}`
-                      : userProfile?.subscription_tier === 'free'
-                        ? 'Requires Pro plan'
-                        : 'Access your OneDrive files'
+                      : 'Access your OneDrive files'
                     }
                   </p>
                 </div>
@@ -230,12 +305,22 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
               <div className="flex-shrink-0 ml-2">
                 {storageConnections.microsoft.connected ? (
                   <CheckCircle className="h-5 w-5 text-green-600" />
-                ) : userProfile?.subscription_tier === 'free' ? (
-                  <Badge variant="outline" className="text-xs">Pro</Badge>
                 ) : (
-                  <Button size="sm" variant="outline" className="text-xs">
-                    <ExternalLink className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
-                    <span className="hidden sm:inline">Connect</span>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-xs" 
+                    onClick={() => connectStorage('microsoft')}
+                    disabled={isConnecting === 'microsoft'}
+                  >
+                    {isConnecting === 'microsoft' ? (
+                      <Loader2 className="h-3 w-3 lg:h-4 lg:w-4 mr-1 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isConnecting === 'microsoft' ? 'Connecting...' : 'Connect'}
+                    </span>
                   </Button>
                 )}
               </div>

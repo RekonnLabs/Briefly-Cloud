@@ -49,7 +49,7 @@ class StorageConnection(BaseModel):
 # Google Drive OAuth configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/storage/google/callback")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3001/api/storage/google/callback")
 
 SCOPES = [
     'https://www.googleapis.com/auth/drive.readonly',
@@ -57,9 +57,10 @@ SCOPES = [
 ]
 
 # Microsoft OAuth configuration
-MICROSOFT_CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID")
-MICROSOFT_CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET")
-MICROSOFT_REDIRECT_URI = os.getenv("MICROSOFT_REDIRECT_URI", "http://localhost:8000/storage/microsoft/callback")
+MICROSOFT_CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
+MICROSOFT_CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
+MICROSOFT_TENANT_ID = os.getenv("AZURE_TENANT_ID")
+MICROSOFT_REDIRECT_URI = os.getenv("MICROSOFT_REDIRECT_URI", "http://localhost:3001/api/storage/microsoft/callback")
 
 MICROSOFT_SCOPES = [
     'https://graph.microsoft.com/Files.Read.All',

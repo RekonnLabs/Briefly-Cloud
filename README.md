@@ -9,18 +9,21 @@
 
 ## 📋 Overview
 
-Briefly Cloud is a cloud-native productivity assistant that uses advanced AI to help you interact with your documents, research, and knowledge base. Upload documents from cloud storage, ask questions, and get intelligent responses powered by GPT-4o and vector search technology.
+Briefly Cloud is a desktop AI productivity assistant that enables intelligent conversations with your documents. It features both cloud-based services and local LLM support, allowing you to upload documents, ask questions, and get AI-powered responses using either OpenAI's GPT-4o or local language models.
 
 ### ✨ Key Features
 
-- 🤖 **AI-Powered Chat** - Intelligent conversations about your documents using GPT-4o
+- 🤖 **Dual AI Support** - Use OpenAI GPT-4o or local language models (llama.cpp compatible)
 - 📄 **Multi-Format Support** - PDF, DOCX, TXT, MD, CSV, XLSX, PPTX and more
-- 🔍 **Semantic Search** - Vector-based search across your entire knowledge base
-- ☁️ **Cloud Storage** - Google Drive and OneDrive integration
-- 🔐 **Secure Auth** - OAuth 2.0 with Google and Microsoft
-- 💳 **Subscription Tiers** - Stripe-powered billing system
-- 📱 **Mobile PWA** - Progressive Web App with offline support
-- 👥 **Team Ready** - Built for collaboration and sharing
+- 🔍 **Vector Search** - ChromaDB-powered semantic search across documents
+- 📁 **Local File Processing** - Direct folder indexing and document upload
+- ☁️ **Cloud Integration** - Google Drive and OneDrive OAuth support
+- � **Autherntication** - Supabase-powered user management
+- � ***Subscription System** - Stripe billing with multiple tiers
+- �️* **Desktop App** - Electron-wrapped for cross-platform deployment
+- 🧠 **LLM Management** - Built-in interface for local model selection and control
+- 🚦 **Usage Tracking** - Tier-based limits and monitoring
+- � **Onbboarding** - Guided setup for new users
 
 ## 🚀 Quick Start
 
@@ -68,30 +71,56 @@ npm run test-api  # Verify your API keys work
 npm run dev
 ```
 
-Visit `http://localhost:5173` for the web app and `http://localhost:8000` for the API.
+Visit `http://localhost:5173` for the web app and `http://localhost:3001` for the API.
+
+## � Currenet Status
+
+### ✅ **Working Features**
+- **Local Chat**: Chat interface with local LLM support
+- **Document Processing**: Upload and index documents (PDF, DOCX, TXT, etc.)
+- **Vector Search**: ChromaDB-powered semantic search across documents
+- **Settings Management**: LLM settings, theme preferences, folder selection
+- **File Management**: Local file upload and processing
+- **Conversation History**: Persistent chat conversations
+- **Debug Tools**: Built-in debugging and testing interfaces
+
+### 🚧 **Cloud Features** (Requires API Keys)
+- **Authentication**: Supabase-powered user management
+- **Cloud Storage**: Google Drive and OneDrive integration
+- **Subscription Billing**: Stripe payment processing
+- **Usage Tracking**: Tier-based limits and monitoring
+- **OpenAI Integration**: GPT-4o cloud AI responses
+
+### 🎯 **Development Mode**
+The application runs in development mode by default and includes:
+- Test mode accessible via `?test=1` URL parameter
+- Debug panel for troubleshooting
+- Local file processing without cloud dependencies
+- Comprehensive error handling and logging
 
 ## 🔧 Required API Keys
 
 You need to obtain API keys from these services:
 
-### 🤖 **OpenAI** (Required)
+### 🤖 **OpenAI** (Optional - for cloud AI)
 - Get API key from: https://platform.openai.com/api-keys
 - Add to `server/.env`: `OPENAI_API_KEY=sk-your-key`
+- **Note**: Can use local LLMs instead via LLM Settings
 
-### 🗄️ **Chroma Cloud** (Required)
+### 🗄️ **ChromaDB Cloud** (Required for vector search)
 - Sign up at: https://www.trychroma.com/
 - Add to `server/.env`: `CHROMA_API_KEY=ck-your-key`
 
-### 🗃️ **Supabase** (Required)
+### 🗃️ **Supabase** (Required for authentication)
 - Create project at: https://supabase.com/
 - Add URL and keys to `server/.env`
 
-### 💳 **Stripe** (Required)
+### 💳 **Stripe** (Required for billing)
 - Get keys from: https://dashboard.stripe.com/
 - Add secret key to `server/.env`
 - Add public key to `client/.env`
 
-### 🔐 **OAuth Services** (Required)
+### 🔐 **OAuth Services** (Required for cloud storage)
 - **Google**: https://console.cloud.google.com/
 - **Microsoft**: https://portal.azure.com/
 
@@ -120,23 +149,38 @@ npm test
 Briefly_Cloud/
 ├── client/                 # React frontend (Vite + TypeScript)
 │   ├── src/
-│   │   ├── components/     # React components
+│   │   ├── components/     # UI components
+│   │   │   ├── ui/         # Radix UI components
+│   │   │   ├── App.tsx     # Main application
+│   │   │   ├── ChatWindow.tsx # Chat interface
+│   │   │   ├── CloudSettings.tsx # Cloud storage settings
+│   │   │   ├── LlmSettings.tsx # Local LLM management
+│   │   │   ├── OnboardingFlow.tsx # User onboarding
+│   │   │   ├── UsageLimits.tsx # Usage tracking UI
+│   │   │   └── ...         # Other components
 │   │   ├── hooks/          # Custom React hooks
-│   │   ├── lib/           # Utilities and API client
-│   │   └── utils/         # Helper functions
-│   ├── public/            # Static assets & PWA files
-│   ├── .env.example       # Client environment template
+│   │   ├── lib/            # Utilities and API client
+│   │   └── utils/          # Helper functions
+│   ├── public/             # Static assets & PWA files
 │   └── package.json
-├── server/                # FastAPI backend
-│   ├── routes/            # API route handlers
-│   ├── main.py           # Main server application
-│   ├── vector_store.py   # Vector database operations
-│   ├── requirements.txt  # Python dependencies
-│   └── .env.example      # Server environment template
-├── tests/                # Test suite
-├── Docs/                 # Documentation
-├── SETUP_GUIDE.md        # Detailed setup instructions
-└── README.md             # This file
+├── server/                 # FastAPI backend
+│   ├── routes/             # API route handlers
+│   │   ├── auth.py         # Authentication endpoints
+│   │   ├── chat.py         # Chat/conversation endpoints
+│   │   ├── embed.py        # Document embedding endpoints
+│   │   ├── storage.py      # Cloud storage endpoints
+│   │   └── usage.py        # Usage tracking endpoints
+│   ├── utils/              # Backend utilities
+│   ├── main.py             # Main server application
+│   ├── vector_store.py     # ChromaDB vector operations
+│   └── requirements.txt    # Python dependencies
+├── tests/                  # Test suite
+├── test_files/             # Sample documents for testing
+├── Docs/                   # Project documentation
+├── data/                   # Application data files
+├── uploads/                # File upload directory
+├── *.bat                   # Windows batch scripts
+└── README.md               # This file
 ```
 
 ## 🔐 Security Features
@@ -150,12 +194,13 @@ Briefly_Cloud/
 
 ## 📊 Subscription Tiers
 
-| Tier | Price | Documents | Features |
-|------|-------|-----------|----------|
-| **Free** | $0/month | 10 docs | Basic chat, limited search |
-| **Pro** | $9/month | 1,000 docs | Advanced AI, full search |
-| **Team** | $29/month | Unlimited | Collaboration, sharing |
-| **Enterprise** | $99/month | Unlimited | Custom AI, priority support |
+| Tier            | Price      | Documents   | Features                        |
+|-----------------|------------|-------------|---------------------------------|
+| **Free**        | $0/month   | 10 docs     | Basic chat, limited search      |
+| **Pro**         | $30/month  | 1,000 docs  | Advanced AI, full search        |
+| **Pro (BYOK)**  | $15/month  | 1,000 docs  | Bring Your Own Key, full search |
+| **Team**        | Coming Soon| -           | Collaboration, sharing          |
+| **Enterprise**  | Coming Soon| -           | Custom AI, priority support     |
 
 ## 🛠️ Development
 
@@ -172,16 +217,25 @@ npm run test-integration  # Run integration tests
 
 ### API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/auth/login` | User authentication |
-| `POST` | `/auth/register` | User registration |
-| `POST` | `/upload` | Document upload |
-| `POST` | `/chat` | AI chat interface |
-| `POST` | `/search` | Vector search |
-| `GET` | `/conversations` | Chat history |
-| `GET` | `/profile` | User profile |
-| `GET` | `/health` | Health check |
+| Method | Endpoint                    | Description                    |
+|--------|-----------------------------|--------------------------------|
+| `GET`  | `/health`                   | Health check                   |
+| `GET`  | `/api/settings`             | Get application settings       |
+| `POST` | `/api/settings`             | Save application settings      |
+| `POST` | `/api/chat`                 | AI chat with context           |
+| `GET`  | `/api/conversations`        | Get conversation history       |
+| `GET`  | `/api/conversations/{id}`   | Get specific conversation      |
+| `DELETE` | `/api/conversations/{id}` | Delete conversation            |
+| `POST` | `/api/upload`               | Upload and process files       |
+| `GET`  | `/api/files`                | Get uploaded files list        |
+| `POST` | `/api/parse_folder`         | Index folder for search        |
+| `GET`  | `/api/vector_stats`         | Vector store statistics        |
+
+**Cloud API Routes** (when available):
+- `/api/auth/*` - Authentication endpoints
+- `/api/storage/*` - Cloud storage integration  
+- `/api/embed/*` - Document embedding services
+- `/api/usage/*` - Usage tracking and limits
 
 ## 📱 Mobile & PWA Support
 
@@ -191,6 +245,22 @@ Briefly Cloud includes Progressive Web App features:
 - **Install prompts** for native app experience
 - **Responsive design** for all screen sizes
 - **Touch-optimized** interface
+
+## 🧠 Local LLM Support
+
+Briefly Cloud supports both cloud-based and local language models:
+
+### Local LLM Features
+- **Model Management**: Built-in UI for selecting and managing local models
+- **llama.cpp Compatible**: Supports any model compatible with llama.cpp server
+- **GPU Detection**: Automatic detection of CUDA, MPS, and CPU backends
+- **Default Model**: OpenChat model configured as default
+- **API Endpoint**: Local server runs on `http://127.0.0.1:8080/v1/chat/completions`
+
+### Usage Modes
+- **Cloud Mode**: Use OpenAI GPT-4o with API key
+- **Local Mode**: Run models locally via LLM Settings interface
+- **Hybrid Mode**: Switch between cloud and local as needed
 
 ## 🚀 Deployment
 
@@ -202,6 +272,7 @@ npm run dev
 ### Production Build
 ```bash
 npm run build
+# Start production server (configure production environment first)
 npm start
 ```
 
@@ -224,37 +295,41 @@ Ensure all environment variables are set for production:
 ## 📚 Documentation
 
 - **Setup Guide**: `SETUP_GUIDE.md` - **Start here for configuration**
+- **Production Checklist**: `PRODUCTION_READINESS_CHECKLIST.md`
 - **Troubleshooting**: `TROUBLESHOOTING_GUIDE.md`
-- **Mobile Deployment**: `Docs/MOBILE_DEPLOYMENT_GUIDE.md`
-- **API Documentation**: `Docs/PRD.md`
+- **Testing Guide**: `TESTING_CHECKLIST.md`
+- **API Documentation**: Auto-generated at `http://localhost:3001/docs`
 
 ## 🆘 Support
 
 - 📖 **Setup Issues**: Check `SETUP_GUIDE.md`
 - 🔧 **API Problems**: Run `npm run test-api`
-- 🐛 **Bugs**: Report via GitHub issues
-- 💬 **Discussions**: Join our community
-- 📧 **Email**: support@brieflycloud.com
+- 🧪 **Integration Tests**: Run `npm run test-integration`
+- � ***Bugs**: Report via GitHub issues
+- � **EDiscussions**: Join our community
 
 ## 🎯 Roadmap
 
-### ✅ Phase 1: Core Features (Complete)
-- Document processing and AI chat
-- Vector search and authentication
-- Mobile PWA support
-- Cloud storage integration
+### ✅ Phase 1: Core Desktop Features (Complete)
+- Local document processing and AI chat
+- Vector search with ChromaDB
+- Local LLM support with llama.cpp
+- File upload and folder indexing
+- Settings management and themes
 
-### 🚧 Phase 2: Advanced Features (In Progress)
-- Voice integration and audio processing
-- Advanced analytics dashboard
+### 🚧 Phase 2: Cloud Integration (In Progress)
+- User authentication with Supabase
+- Cloud storage integration (Google Drive, OneDrive)
+- Subscription billing with Stripe
+- Usage tracking and tier management
+- OpenAI GPT-4o integration
+
+### 📋 Phase 3: Advanced Features (Planned)
 - Real-time collaboration
-- Multi-model AI support
-
-### 📋 Phase 3: Enterprise (Planned)
-- Custom AI training
-- Advanced security features
-- API integrations
-- White-label solutions
+- Advanced analytics dashboard
+- Voice integration and audio processing
+- Mobile PWA optimization
+- API integrations and webhooks
 
 ## 📄 License
 
@@ -262,17 +337,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **OpenAI** for GPT-4o API
-- **Chroma** for vector database
-- **Supabase** for backend services
+- **ChromaDB** for vector database and semantic search
+- **FastAPI** for the robust Python backend framework
+- **React** and **Vite** for the modern frontend experience
+- **Radix UI** for accessible component primitives
+- **llama.cpp** for local LLM inference capabilities
+- **OpenAI** for GPT-4o API integration
+- **Supabase** for authentication services
 - **Stripe** for payment processing
-- **React** and **FastAPI** communities
 
 ---
 
 **Built with ❤️ for the future of knowledge work**
-
-⚠️ **Remember**: Configure your API keys in the `.env` files before starting! See `SETUP_GUIDE.md` for detailed instructions.
-
-*Ready to transform how you work with documents? Configure your keys and get started!* 🌟
-

@@ -1,16 +1,17 @@
+/// <reference types="react" />
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { 
-  Send, 
-  Brain, 
-  User, 
-  FileText, 
-  RefreshCw, 
-  AlertCircle, 
+import {
+  Send,
+  Brain,
+  User,
+  FileText,
+  RefreshCw,
+  AlertCircle,
   CheckCircle,
   Cloud,
   Settings,
@@ -51,13 +52,15 @@ interface ChatWindowProps {
   storageConnections: StorageConnections;
   onIndexingStart?: (progress: any) => void;
   onIndexingProgress?: (progress: any) => void;
+  onShowSettings?: () => void;
 }
 
-export default function ChatWindow({ 
-  userProfile, 
-  storageConnections, 
+export default function ChatWindow({
+  userProfile,
+  storageConnections,
   onIndexingStart,
-  onIndexingProgress 
+  onIndexingProgress,
+  onShowSettings
 }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -66,7 +69,7 @@ export default function ChatWindow({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [hasIndexedDocuments, setHasIndexedDocuments] = useState(false);
   const [isCheckingIndex, setIsCheckingIndex] = useState(true);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -128,7 +131,7 @@ export default function ChatWindow({
           // Show welcome message
           setMessages([{
             id: 'welcome',
-            content: hasConnectedStorage 
+            content: hasConnectedStorage
               ? 'Welcome to Briefly Cloud! I can help you search and analyze your documents. Start by indexing your files, then ask me anything!'
               : 'Welcome to Briefly Cloud! Please connect your cloud storage in Settings to get started.',
             role: 'assistant',
@@ -149,7 +152,7 @@ export default function ChatWindow({
         // Show welcome message on other errors
         setMessages([{
           id: 'welcome',
-          content: hasConnectedStorage 
+          content: hasConnectedStorage
             ? 'Welcome to Briefly Cloud! I can help you search and analyze your documents. Start by indexing your files, then ask me anything!'
             : 'Welcome to Briefly Cloud! Please connect your cloud storage in Settings to get started.',
           role: 'assistant',
@@ -161,7 +164,7 @@ export default function ChatWindow({
       // Show welcome message on error
       setMessages([{
         id: 'welcome',
-        content: hasConnectedStorage 
+        content: hasConnectedStorage
           ? 'Welcome to Briefly Cloud! I can help you search and analyze your documents. Start by indexing your files, then ask me anything!'
           : 'Welcome to Briefly Cloud! Please connect your cloud storage in Settings to get started.',
         role: 'assistant',
@@ -218,7 +221,7 @@ export default function ChatWindow({
 
       if (response.ok) {
         const data = await response.json();
-        
+
         if (onIndexingStart) {
           onIndexingStart({ processed: 0, total: data.total_files, status: 'Starting indexing...' });
         }
@@ -234,7 +237,7 @@ export default function ChatWindow({
 
             if (progressResponse.ok) {
               const progressData = await progressResponse.json();
-              
+
               if (onIndexingProgress) {
                 onIndexingProgress(progressData);
               }
@@ -278,7 +281,7 @@ export default function ChatWindow({
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
-    
+
     // Check usage limits
     if (userProfile && userProfile.usage_count >= userProfile.usage_limit) {
       const limitMessage: Message = {
@@ -319,7 +322,7 @@ export default function ChatWindow({
 
       if (response.ok) {
         const data = await response.json();
-        
+
         const assistantMessage: Message = {
           id: `msg_${Date.now()}_assistant`,
           content: data.response,
@@ -327,9 +330,9 @@ export default function ChatWindow({
           timestamp: data.timestamp || new Date().toISOString(),
           retrieved_chunks: data.retrieved_chunks || []
         };
-        
+
         setMessages(prev => [...prev, assistantMessage]);
-        
+
         if (data.conversation_id) {
           setConversationId(data.conversation_id);
         }
@@ -341,7 +344,7 @@ export default function ChatWindow({
       } else {
         const errorData = await response.json();
         let errorContent = 'Sorry, I encountered an error processing your request.';
-        
+
         if (response.status === 400 && errorData.detail?.includes('BYOK')) {
           errorContent = `❌ OpenAI API Error: ${errorData.detail}\n\nPlease check your API key in Settings or contact support if the issue persists.`;
         } else if (response.status === 429) {
@@ -362,7 +365,7 @@ export default function ChatWindow({
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      
+
       const errorMessage: Message = {
         id: `msg_${Date.now()}_error`,
         content: 'Sorry, I encountered a network error. Please check your connection and try again.',
@@ -389,7 +392,7 @@ export default function ChatWindow({
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffSec = Math.floor(diffMs / 1000);
-    
+
     if (diffSec < 60) return 'just now';
     if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
     if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
@@ -413,7 +416,7 @@ export default function ChatWindow({
               </Badge>
             )}
           </div>
-          
+
           <div className="flex items-center gap-2">
             {/* Citations toggle - hidden on mobile */}
             <label className="hidden sm:flex items-center cursor-pointer select-none">
@@ -425,7 +428,7 @@ export default function ChatWindow({
               />
               <span className="text-xs text-gray-500">Citations</span>
             </label>
-            
+
             {/* Storage status indicator */}
             <div className="flex items-center gap-1">
               {storageConnections.google.connected && (
@@ -472,7 +475,7 @@ export default function ChatWindow({
                   Link Google Drive or OneDrive to get started
                 </p>
               </div>
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" onClick={onShowSettings}>
                 <Settings className="h-4 w-4 mr-1" />
                 Settings
               </Button>
@@ -499,30 +502,30 @@ export default function ChatWindow({
                   </AvatarFallback>
                 </Avatar>
               )}
-              
+
               <div className={cn(
                 "max-w-[85%] lg:max-w-[70%]",
                 msg.role === 'user' && "order-first"
               )}>
                 <div className={cn(
                   "rounded-2xl px-3 py-2 lg:px-4 lg:py-3",
-                  msg.role === 'user' 
-                    ? "bg-blue-600 text-white ml-auto" 
+                  msg.role === 'user'
+                    ? "bg-blue-600 text-white ml-auto"
                     : msg.error
-                    ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                    : "bg-gray-100 dark:bg-gray-800"
+                      ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                      : "bg-gray-100 dark:bg-gray-800"
                 )}>
                   <p className={cn(
                     "text-sm lg:text-base whitespace-pre-wrap",
-                    msg.role === 'user' 
-                      ? "text-white" 
+                    msg.role === 'user'
+                      ? "text-white"
                       : msg.error
-                      ? "text-red-800 dark:text-red-200"
-                      : "text-gray-900 dark:text-gray-100"
+                        ? "text-red-800 dark:text-red-200"
+                        : "text-gray-900 dark:text-gray-100"
                   )}>
                     {msg.content}
                   </p>
-                  
+
                   {/* Citations - Mobile optimized */}
                   {msg.role === 'assistant' && showCitations && msg.retrieved_chunks && msg.retrieved_chunks.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
@@ -542,7 +545,7 @@ export default function ChatWindow({
                     </div>
                   )}
                 </div>
-                
+
                 <div className="text-xs text-gray-500 mt-1 px-1">
                   {formatRelativeTime(msg.timestamp)}
                 </div>
@@ -557,7 +560,7 @@ export default function ChatWindow({
               )}
             </div>
           ))}
-          
+
           {isLoading && (
             <div className="flex justify-start gap-3">
               <Avatar className="w-7 h-7 lg:w-8 lg:h-8 bg-blue-600 flex-shrink-0">
@@ -573,7 +576,7 @@ export default function ChatWindow({
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
@@ -584,11 +587,11 @@ export default function ChatWindow({
           <Textarea
             ref={textareaRef}
             placeholder={
-              !hasConnectedStorage 
-                ? "Connect storage to get started..." 
+              !hasConnectedStorage
+                ? "Connect storage to get started..."
                 : !hasIndexedDocuments
-                ? "Index your documents first..."
-                : "Ask me anything about your documents..."
+                  ? "Index your documents first..."
+                  : "Ask me anything about your documents..."
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -598,8 +601,8 @@ export default function ChatWindow({
             disabled={!canChat || isLoading}
             maxLength={4000}
           />
-          <Button 
-            className="absolute right-2 bottom-2 h-8 w-8 lg:h-10 lg:w-10"
+          <Button
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 lg:h-10 lg:w-10"
             size="sm"
             onClick={handleSendMessage}
             disabled={!input.trim() || !canChat || isLoading}
@@ -607,14 +610,14 @@ export default function ChatWindow({
             <Send className="h-3 w-3 lg:h-4 lg:w-4" />
           </Button>
         </div>
-        
+
         {/* Input footer - Mobile optimized */}
         <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
           <span className="hidden sm:inline">Press Enter to send, Shift+Enter for new line</span>
           <span className="sm:hidden">Tap to send</span>
           <span>{input.length}/4000</span>
         </div>
-        
+
         {userProfile && userProfile.usage_count >= userProfile.usage_limit * 0.9 && (
           <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded text-xs text-orange-800 dark:text-orange-200">
             You're approaching your monthly limit ({userProfile.usage_count}/{userProfile.usage_limit} messages used)

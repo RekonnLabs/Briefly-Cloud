@@ -81,18 +81,12 @@ function CloudSettings({ onClose, userProfile, storageConnections, onStorageUpda
   const connectStorage = async (provider: 'google' | 'microsoft') => {
     if (!userProfile) return;
     
-    // Check tier restrictions
-    if (provider === 'microsoft' && userProfile.subscription_tier === 'free') {
-      setError('OneDrive requires a Pro subscription. Please upgrade your plan.');
-      return;
-    }
-    
     setIsConnecting(provider);
     setError(null);
     
     try {
       const token = localStorage.getItem('supabase_token');
-      const response = await fetch(`/api/storage/${provider}/auth`, {
+      const response = await fetch(`/api/storage/${provider}/auth?user_id=${userProfile.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -423,9 +417,7 @@ function CloudSettings({ onClose, userProfile, storageConnections, onStorageUpda
                   <p className="text-xs lg:text-sm text-gray-600 truncate">
                     {storageConnections.microsoft.connected 
                       ? `Connected as ${storageConnections.microsoft.email}`
-                      : userProfile?.subscription_tier === 'free'
-                        ? 'Requires Pro plan'
-                        : 'Not connected'
+                      : 'Not connected'
                     }
                   </p>
                 </div>
@@ -451,21 +443,16 @@ function CloudSettings({ onClose, userProfile, storageConnections, onStorageUpda
                 ) : (
                   <Button
                     onClick={() => connectStorage('microsoft')}
-                    disabled={
-                      isConnecting === 'microsoft' || 
-                      userProfile?.subscription_tier === 'free'
-                    }
+                    disabled={isConnecting === 'microsoft'}
                     size="sm"
                     className="text-xs"
                   >
                     {isConnecting === 'microsoft' ? (
                       <Loader2 className="h-3 w-3 lg:h-4 lg:w-4 mr-1 animate-spin" />
-                    ) : userProfile?.subscription_tier === 'free' ? (
-                      <Crown className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
                     ) : (
                       <ExternalLink className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
                     )}
-                    {userProfile?.subscription_tier === 'free' ? 'Pro' : 'Connect'}
+                    {isConnecting === 'microsoft' ? 'Connecting...' : 'Connect'}
                   </Button>
                 )}
               </div>

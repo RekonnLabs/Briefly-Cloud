@@ -7,7 +7,7 @@ import LlmSettings from './LlmSettings';
 import OnboardingFlow from './OnboardingFlow';
 import IndexingProgress from './IndexingProgress';
 import ThemeProvider from './ThemeProvider';
-import DebugPanel from './DebugPanel';
+
 import SimpleTest from './SimpleTest';
 
 interface UserProfile {
@@ -32,7 +32,7 @@ interface StorageConnections {
 function App() {
   // Enable test mode by adding ?test=1 to URL
   const isTestMode = new URLSearchParams(window.location.search).get('test') === '1';
-  
+
   if (isTestMode) {
     return <SimpleTest />;
   }
@@ -61,7 +61,7 @@ function App() {
     try {
       const token = localStorage.getItem('supabase_token');
       console.log('App: Token check:', token ? 'Token exists' : 'No token found');
-      
+
       if (!token) {
         console.log('App: No token found, showing login screen');
         setIsLoading(false);
@@ -77,7 +77,7 @@ function App() {
       }
 
       console.log('App: Validating token with server...');
-      
+
       // Check if token is valid and get user profile
       const response = await fetch('/api/auth/profile', {
         headers: {
@@ -90,7 +90,7 @@ function App() {
         console.log('App: User profile loaded successfully');
         setUserProfile(profile);
         setIsAuthenticated(true);
-        
+
         // Only check storage connections if authentication succeeded
         try {
           const hasConnectedStorage = await checkStorageConnections();
@@ -166,7 +166,7 @@ function App() {
         localStorage.setItem('supabase_token', data.token);
         setUserProfile(data.user);
         setIsAuthenticated(true);
-        
+
         // Check if user needs onboarding
         const hasConnectedStorage = await checkStorageConnections();
         if (!hasConnectedStorage) {
@@ -194,7 +194,7 @@ function App() {
 
       if (response.ok) {
         const data = await response.json();
-        
+
         // Signup successful - user needs to confirm email first
         // Success message will be shown by the AuthForm component
         // Don't set authentication state - user needs to confirm email first
@@ -365,6 +365,8 @@ function App() {
             onComplete={handleOnboardingComplete}
             userProfile={userProfile}
             storageConnections={storageConnections}
+            onShowSettings={() => setShowSettings(true)}
+            onStorageUpdate={setStorageConnections}
           />
         </div>
       </ThemeProvider>
@@ -377,7 +379,12 @@ function App() {
         {/* Mobile Header */}
         <header className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-3">
+              <img
+                src="/Briefly Image.png"
+                alt="Briefly Cloud Logo"
+                className="h-8 w-8 object-contain"
+              />
               <h1 className="text-lg font-bold">Briefly Cloud</h1>
               {userProfile && (
                 <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -397,11 +404,18 @@ function App() {
         {/* Desktop Header */}
         <header className="hidden lg:block bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Briefly Cloud</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">AI-powered document assistant</p>
+            <div className="flex items-center gap-4">
+              <img
+                src="/Briefly Image.png"
+                alt="Briefly Cloud Logo"
+                className="h-10 w-10 object-contain"
+              />
+              <div>
+                <h1 className="text-2xl font-bold">Briefly Cloud</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">AI-powered document assistant</p>
+              </div>
             </div>
-            
+
             <div className="flex items-center gap-4">
               {userProfile && (
                 <div className="flex items-center gap-3">
@@ -421,7 +435,7 @@ function App() {
                   </div>
                 </div>
               )}
-              
+
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
                   <Settings className="h-4 w-4 mr-1" />
@@ -458,6 +472,7 @@ function App() {
                   setIndexingProgress(progress);
                 }}
                 onIndexingProgress={setIndexingProgress}
+                onShowSettings={() => setShowSettings(true)}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -473,12 +488,7 @@ function App() {
         {/* Mobile Menu */}
         <MobileMenu />
 
-        {/* Debug Panel - Remove in production */}
-        <DebugPanel 
-          userProfile={userProfile}
-          storageConnections={storageConnections}
-          isAuthenticated={isAuthenticated}
-        />
+
 
         {/* Settings Modals */}
         {showSettings && (
