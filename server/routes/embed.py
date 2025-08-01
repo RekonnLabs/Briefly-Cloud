@@ -13,8 +13,20 @@ from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import httpx
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+# Google API imports (optional for serverless deployment)
+try:
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    GOOGLE_API_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Google API libraries not available: {e}")
+    GOOGLE_API_AVAILABLE = False
+    # Create dummy classes for compatibility
+    class Credentials:
+        def __init__(self, *args, **kwargs):
+            pass
+    def build(*args, **kwargs):
+        raise HTTPException(status_code=501, detail="Google API not available in this deployment")
 import io
 import tempfile
 
@@ -25,9 +37,29 @@ import openpyxl
 from pptx import Presentation
 import json
 
-# ML imports
-from sentence_transformers import SentenceTransformer
-import chromadb
+# ML imports (optional for serverless deployment)
+try:
+    from sentence_transformers import SentenceTransformer
+    import chromadb
+    from chromadb.config import Settings
+    ML_LIBRARIES_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"ML libraries not available: {e}")
+    ML_LIBRARIES_AVAILABLE = False
+    # Create dummy classes for compatibility
+    class SentenceTransformer:
+        def __init__(self, *args, **kwargs):
+            pass
+        def encode(self, *args, **kwargs):
+            raise HTTPException(status_code=501, detail="ML libraries not available in this deployment")
+    
+    class chromadb:
+        @staticmethod
+        def Client(*args, **kwargs):
+            raise HTTPException(status_code=501, detail="ChromaDB not available in this deployment")
+    
+    class Settings:
+        pass
 
 # Import usage limits
 from utils.usage_limits import (
@@ -35,7 +67,6 @@ from utils.usage_limits import (
     UsageLimitError,
     format_storage_size
 )
-from chromadb.config import Settings
 
 # Load environment variables
 load_dotenv()

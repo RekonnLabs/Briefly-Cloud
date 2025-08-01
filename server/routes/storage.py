@@ -10,11 +10,41 @@ from typing import Optional, Dict, Any, List
 import os
 import logging
 from dotenv import load_dotenv
-from google.auth.transport.requests import Request as GoogleRequest
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-import msal
+# Google API imports (optional for serverless deployment)
+try:
+    from google.auth.transport.requests import Request as GoogleRequest
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import Flow
+    from googleapiclient.discovery import build
+    GOOGLE_API_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Google API libraries not available: {e}")
+    GOOGLE_API_AVAILABLE = False
+    # Create dummy classes for compatibility
+    class Credentials:
+        def __init__(self, *args, **kwargs):
+            pass
+    class Flow:
+        @staticmethod
+        def from_client_config(*args, **kwargs):
+            raise HTTPException(status_code=501, detail="Google API not available in this deployment")
+    def build(*args, **kwargs):
+        raise HTTPException(status_code=501, detail="Google API not available in this deployment")
+
+# Microsoft MSAL import (optional for serverless deployment)
+try:
+    import msal
+    MSAL_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"MSAL library not available: {e}")
+    MSAL_AVAILABLE = False
+    # Create dummy class for compatibility
+    class msal:
+        class ConfidentialClientApplication:
+            def __init__(self, *args, **kwargs):
+                pass
+            def acquire_token_by_authorization_code(self, *args, **kwargs):
+                raise HTTPException(status_code=501, detail="MSAL not available in this deployment")
 import httpx
 from supabase import create_client, Client
 

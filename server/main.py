@@ -255,9 +255,21 @@ if ROUTES_AVAILABLE:
 else:
     logger.warning("Running in legacy mode - cloud routes not available")
 
-# Legacy API Routes for backward compatibility
+# Legacy API Routes for backward compatibility (only if vector_store is available)
 from fastapi import BackgroundTasks
-from vector_store import build_vector_index, get_vector_store_stats
+
+# Try to import vector store functions (optional for serverless deployment)
+try:
+    from vector_store import build_vector_index, get_vector_store_stats
+    VECTOR_STORE_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Vector store not available: {e}")
+    VECTOR_STORE_AVAILABLE = False
+    # Create dummy functions for compatibility
+    def build_vector_index(*args, **kwargs):
+        raise HTTPException(status_code=501, detail="Vector store not available in this deployment")
+    def get_vector_store_stats(*args, **kwargs):
+        raise HTTPException(status_code=501, detail="Vector store not available in this deployment")
 
 class ParseFolderRequest(BaseModel):
     folder_path: str

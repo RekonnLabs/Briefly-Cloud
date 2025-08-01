@@ -15,9 +15,29 @@ from datetime import datetime
 from dotenv import load_dotenv
 import openai
 from supabase import create_client, Client
-import chromadb
-from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+# ML imports (optional for serverless deployment)
+try:
+    import chromadb
+    from chromadb.config import Settings
+    from sentence_transformers import SentenceTransformer
+    ML_LIBRARIES_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"ML libraries not available: {e}")
+    ML_LIBRARIES_AVAILABLE = False
+    # Create dummy classes for compatibility
+    class SentenceTransformer:
+        def __init__(self, *args, **kwargs):
+            pass
+        def encode(self, *args, **kwargs):
+            raise HTTPException(status_code=501, detail="ML libraries not available in this deployment")
+    
+    class chromadb:
+        @staticmethod
+        def Client(*args, **kwargs):
+            raise HTTPException(status_code=501, detail="ChromaDB not available in this deployment")
+    
+    class Settings:
+        pass
 
 # Import usage limits
 from utils.usage_limits import (
