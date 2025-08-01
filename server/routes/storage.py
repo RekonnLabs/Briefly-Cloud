@@ -49,7 +49,7 @@ class StorageConnection(BaseModel):
 # Google Drive OAuth configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3001/api/storage/google/callback")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://briefly-cloud-backend.vercel.app/api/storage/google/callback")
 
 SCOPES = [
     'https://www.googleapis.com/auth/drive.readonly',
@@ -60,7 +60,7 @@ SCOPES = [
 MICROSOFT_CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
 MICROSOFT_CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET")
 MICROSOFT_TENANT_ID = os.getenv("AZURE_TENANT_ID")
-MICROSOFT_REDIRECT_URI = os.getenv("MICROSOFT_REDIRECT_URI", "http://localhost:3001/api/storage/microsoft/callback")
+MICROSOFT_REDIRECT_URI = os.getenv("MICROSOFT_REDIRECT_URI", "https://briefly-cloud-backend.vercel.app/api/storage/microsoft/callback")
 
 MICROSOFT_SCOPES = [
     'https://graph.microsoft.com/Files.Read.All',
@@ -147,7 +147,8 @@ async def google_callback(code: str, state: str):
         
         logger.info(f"Google Drive connected for user {user_id}")
         
-        return RedirectResponse(url=f"http://localhost:3000/settings?google_connected=true")
+        frontend_url = os.getenv("FRONTEND_URL", "https://rekonnlabs.com")
+        return RedirectResponse(url=f"{frontend_url}/briefly/app?google_connected=true")
         
     except Exception as e:
         logger.error(f"Google callback error: {e}")
@@ -226,7 +227,8 @@ async def microsoft_callback(code: str, state: str):
             
             logger.info(f"OneDrive connected for user {user_id}")
             
-            return RedirectResponse(url=f"http://localhost:3000/settings?microsoft_connected=true")
+            frontend_url = os.getenv("FRONTEND_URL", "https://rekonnlabs.com")
+            return RedirectResponse(url=f"{frontend_url}/briefly/app?microsoft_connected=true")
         else:
             raise HTTPException(status_code=400, detail="Failed to get access token")
             

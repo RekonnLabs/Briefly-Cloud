@@ -37,3 +37,25 @@ out/
 # dotenv
 .env
 
+# Temporary/Debug files
+*_FIX*.md
+*_EMERGENCY*.md
+TESTING_*.md
+TROUBLESHOOTING*.md
+debug_*.py
+test_*.html
+fix-*.bat
+fix_*.sql
+setup-*.bat
+
+# Runtime data
+data/
+uploads/
+logs/
+test_files/
+indexed_files.json
+
+# Build artifacts
+dist/
+build/
+

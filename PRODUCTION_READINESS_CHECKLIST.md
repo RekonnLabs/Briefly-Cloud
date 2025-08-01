@@ -16,7 +16,12 @@ DEBUG=False
 LOG_LEVEL=WARNING
 
 # Update URLs for production
-ALLOWED_ORIGINS=https://yourdomain.com,https://app.brieflycloud.com
+ALLOWED_ORIGINS=https://rekonnlabs.com,https://www.rekonnlabs.com
+FRONTEND_URL=https://rekonnlabs.com
+
+# OAuth Redirect URIs
+GOOGLE_REDIRECT_URI=https://briefly-cloud-backend.vercel.app/api/storage/google/callback
+MICROSOFT_REDIRECT_URI=https://briefly-cloud-backend.vercel.app/api/storage/microsoft/callback
 ```
 
 **Client (.env):**

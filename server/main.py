@@ -34,15 +34,26 @@ except ImportError as e:
 
 app = FastAPI(title="Briefly Cloud Backend", version="1.0.0")
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring"""
+    return {"status": "healthy", "service": "briefly-cloud-backend"}
+
 # CORS middleware
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+allowed_origins.extend([
+    "https://rekonnlabs.com",
+    "https://www.rekonnlabs.com",
+    "https://rekonnlabs.vercel.app",
+    "http://127.0.0.1:5173", 
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://localhost:3000"
+])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5173", 
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://localhost:3000"
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -62,7 +73,7 @@ class ChatRequest(BaseModel):
 class SettingsModel(BaseModel):
     referenceFolder: Optional[str] = None
     theme: str = "system"
-    llmApiUrl: str = "http://127.0.0.1:8080/v1/chat/completions"
+    llmApiUrl: str = "https://api.openai.com/v1/chat/completions"
     llmApiKey: Optional[str] = None
     modelPath: Optional[str] = None
     port: int = 8080
@@ -99,7 +110,7 @@ def get_settings() -> Dict[str, Any]:
     default_settings = {
         "referenceFolder": None,
         "theme": "system",
-        "llmApiUrl": "http://127.0.0.1:8080/v1/chat/completions",
+        "llmApiUrl": "https://api.openai.com/v1/chat/completions",
         "llmApiKey": None,
         "modelPath": "OpenChat",  # Set OpenChat as the default model
         "port": 8080,
@@ -153,7 +164,7 @@ def get_settings() -> Dict[str, Any]:
 async def call_llm_api(messages: List[Dict[str, str]], settings: Dict[str, Any], max_tokens: int = 2048) -> Dict[str, Any]:
     """Call the bundled LLM API"""
     try:
-        llm_url = settings.get("llmApiUrl", "http://127.0.0.1:8080/v1/chat/completions")
+        llm_url = settings.get("llmApiUrl", "https://api.openai.com/v1/chat/completions")
         
         # Prepare the request payload
         payload = {
