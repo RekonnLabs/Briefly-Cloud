@@ -59,3 +59,25 @@ indexed_files.json
 dist/
 build/
 
+# Large directories and files
+LLM Models/
+backups/
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Additional Python cache
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+

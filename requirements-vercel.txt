@@ -1,0 +1,39 @@
+# Briefly Cloud - Production Optimized Dependencies
+# Lightweight version for serverless deployment
+
+# Core FastAPI dependencies (minimal versions)
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+aiofiles==24.1.0
+python-dotenv==1.0.0
+httpx==0.25.2
+pydantic==2.5.0
+
+# Supabase client
+supabase==2.3.4
+
+# Authentication and security (lightweight)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Stripe for payments
+stripe==8.2.0
+
+# Essential utilities only
+python-dateutil==2.8.2
+requests==2.31.0
+
+# Minimal document parsing (removed heavy PDF/ML libraries)
+python-docx==1.1.0
+
+# External API clients only (no local ML processing)
+openai==1.3.0
+
+# Note: Removed for size optimization:
+# - chromadb (use Chroma Cloud API)
+# - transformers (use OpenAI API)  
+# - sentence-transformers (use OpenAI embeddings)
+# - scipy, scikit-learn, numpy (not needed for API-only approach)
+# - pdfplumber, openpyxl, xlrd, python-pptx (use lightweight alternatives)
+# - pyspellchecker, ebooklib, odfpy, striprtf (optional features)

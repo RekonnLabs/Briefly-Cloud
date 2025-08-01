@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY server/requirements.txt .
+# Copy optimized requirements first for better caching
+COPY requirements-vercel.txt ./requirements.txt
 
-# Install Python dependencies
+# Install Python dependencies (optimized for size)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the server code
