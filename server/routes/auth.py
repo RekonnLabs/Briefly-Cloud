@@ -19,15 +19,8 @@ load_dotenv()
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Initialize Supabase client
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_ANON_KEY")
-
-if not supabase_url or not supabase_key:
-    logger.error(f"Missing Supabase credentials: URL={supabase_url}, KEY={'SET' if supabase_key else 'MISSING'}")
-    raise ValueError("Supabase credentials not found in environment variables")
-
-supabase: Client = create_client(supabase_url, supabase_key)
+# Import shared Supabase client
+from utils.supabase_client import get_supabase_client
 
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -84,14 +77,14 @@ TIER_LIMITS = {
 async def login(request: LoginRequest):
     """Login user with email and password"""
     try:
-        response = supabase.auth.sign_in_with_password({
+        response = get_supabase_client().auth.sign_in_with_password({
             "email": request.email,
             "password": request.password
         })
         
         if response.user:
             # Get user profile from database
-            user_data = supabase.table('users').select('*').eq('id', response.user.id).execute()
+            user_data = get_supabase_client().table('users').select('*').eq('id', response.user.id).execute()
             
             if user_data.data:
                 user_profile = user_data.data[0]
@@ -140,12 +133,12 @@ async def login(request: LoginRequest):
                 
                 try:
                     # Use upsert to avoid duplicate key errors
-                    result = supabase.table('users').upsert(new_user).execute()
+                    result = get_supabase_client().table('users').upsert(new_user).execute()
                     logger.info(f"User profile created successfully for {response.user.email}")
                 except Exception as db_error:
                     logger.error(f"User creation failed: {db_error}")
                     # Try to get existing user
-                    user_data = supabase.table('users').select('*').eq('id', response.user.id).execute()
+                    user_data = get_supabase_client().table('users').select('*').eq('id', response.user.id).execute()
                     if user_data.data:
                         new_user = user_data.data[0]
                     else:
@@ -184,7 +177,7 @@ async def login(request: LoginRequest):
 async def signup(request: SignupRequest):
     """Register new user"""
     try:
-        response = supabase.auth.sign_up({
+        response = get_supabase_client().auth.sign_up({
             "email": request.email,
             "password": request.password
         })
@@ -216,7 +209,7 @@ async def signup(request: SignupRequest):
             
             try:
                 # Use upsert to handle existing users gracefully
-                supabase.table('users').upsert(new_user).execute()
+                get_supabase_client().table('users').upsert(new_user).execute()
                 logger.info(f"User profile created/updated for {request.email}")
             except Exception as db_error:
                 logger.warning(f"User profile creation failed: {db_error}")
@@ -250,7 +243,7 @@ async def signup(request: SignupRequest):
 async def logout():
     """Logout user"""
     try:
-        supabase.auth.sign_out()
+        get_supabase_client().auth.sign_out()
         return {"message": "Logged out successfully"}
     except Exception as e:
         logger.error(f"Logout error: {e}")
@@ -269,7 +262,7 @@ async def get_profile(request: Request):
         
         # Verify token with Supabase
         try:
-            user_response = supabase.auth.get_user(token)
+            user_response = get_supabase_client().auth.get_user(token)
             
             if not user_response or not user_response.user:
                 logger.warning(f"Invalid token - no user found")
@@ -289,7 +282,7 @@ async def get_profile(request: Request):
                 raise HTTPException(status_code=401, detail="Authentication failed")
         
         # Get user profile from database
-        user_data = supabase.table('users').select('*').eq('id', user_id).execute()
+        user_data = get_supabase_client().table('users').select('*').eq('id', user_id).execute()
         
         if user_data.data:
             user_profile = user_data.data[0]
@@ -318,7 +311,7 @@ async def get_profile(request: Request):
                 "chat_messages_count": 0,
                 "chat_messages_limit": 100
             }
-            supabase.table('users').insert(new_user).execute()
+            get_supabase_client().table('users').insert(new_user).execute()
             
             return {
                 "id": user_id,
@@ -344,7 +337,7 @@ async def update_tier(user_id: str, new_tier: str):
         if new_tier not in TIER_LIMITS:
             raise HTTPException(status_code=400, detail="Invalid tier")
             
-        supabase.table('users').update({
+        get_supabase_client().table('users').update({
             "subscription_tier": new_tier
         }).eq('id', user_id).execute()
         
@@ -367,7 +360,7 @@ async def create_stripe_checkout(user_id: str, tier: str):
             raise HTTPException(status_code=400, detail="Invalid tier for checkout")
             
         # Get user data
-        user_data = supabase.table('users').select('*').eq('id', user_id).execute()
+        user_data = get_supabase_client().table('users').select('*').eq('id', user_id).execute()
         if not user_data.data:
             raise HTTPException(status_code=404, detail="User not found")
             
@@ -384,7 +377,7 @@ async def create_stripe_checkout(user_id: str, tier: str):
             customer_id = customer.id
             
             # Update user with Stripe customer ID
-            supabase.table('users').update({
+            get_supabase_client().table('users').update({
                 "stripe_customer_id": customer_id
             }).eq('id', user_id).execute()
         
@@ -428,7 +421,7 @@ async def stripe_webhook(request: Request):
             tier = session['metadata']['tier']
             
             # Update user tier
-            supabase.table('users').update({
+            get_supabase_client().table('users').update({
                 "subscription_tier": tier
             }).eq('id', user_id).execute()
             
@@ -440,12 +433,12 @@ async def stripe_webhook(request: Request):
             customer_id = subscription['customer']
             
             # Find user by Stripe customer ID
-            user_data = supabase.table('users').select('*').eq('stripe_customer_id', customer_id).execute()
+            user_data = get_supabase_client().table('users').select('*').eq('stripe_customer_id', customer_id).execute()
             if user_data.data:
                 user_id = user_data.data[0]['id']
                 
                 # Downgrade to free tier
-                supabase.table('users').update({
+                get_supabase_client().table('users').update({
                     "subscription_tier": "free"
                 }).eq('id', user_id).execute()
                 

@@ -33,9 +33,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize services
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_ANON_KEY")
-supabase: Client = create_client(supabase_url, supabase_key)
+# Import shared Supabase client
+from utils.supabase_client import get_supabase_client
 
 # Initialize OpenAI
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -106,7 +105,7 @@ async def chat_endpoint(request: ChatRequest):
         )
         
         # Get user profile and tier info
-        user_data = supabase.table('users').select('*').eq('id', request.user_id).execute()
+        user_data = get_supabase_client().table('users').select('*').eq('id', request.user_id).execute()
         if not user_data.data:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -165,7 +164,7 @@ async def check_usage_limits(user_id: str, tier: str) -> bool:
         
         # Get current month usage
         current_month = datetime.utcnow().strftime('%Y-%m')
-        usage_data = supabase.table('usage_logs').select('*').eq('user_id', user_id).eq('action', 'chat').gte('created_at', f'{current_month}-01').execute()
+        usage_data = get_supabase_client().table('usage_logs').select('*').eq('user_id', user_id).eq('action', 'chat').gte('created_at', f'{current_month}-01').execute()
         
         current_usage = len(usage_data.data)
         return current_usage < max_calls
@@ -218,7 +217,7 @@ async def get_relevant_context(user_id: str, query: str, max_chunks: int = 5) ->
 async def get_conversation_history(conversation_id: str) -> List[Dict[str, str]]:
     """Get conversation history from database"""
     try:
-        conv_data = supabase.table('conversations').select('messages').eq('id', conversation_id).execute()
+        conv_data = get_supabase_client().table('conversations').select('messages').eq('id', conversation_id).execute()
         
         if conv_data.data:
             return conv_data.data[0]['messages']
@@ -449,7 +448,7 @@ async def log_usage(user_id: str, action: str, details: Dict[str, Any]):
             "cost_cents": 0  # Will be calculated based on model and usage
         }
         
-        supabase.table('usage_logs').insert(usage_data).execute()
+        get_supabase_client().table('usage_logs').insert(usage_data).execute()
         
     except Exception as e:
         logger.error(f"Usage logging error: {e}")
@@ -458,7 +457,7 @@ async def log_usage(user_id: str, action: str, details: Dict[str, Any]):
 async def get_user_conversations(user_id: str):
     """Get user's conversation list"""
     try:
-        conversations = supabase.table('conversations').select('id, title, created_at, updated_at').eq('user_id', user_id).order('updated_at', desc=True).execute()
+        conversations = get_supabase_client().table('conversations').select('id, title, created_at, updated_at').eq('user_id', user_id).order('updated_at', desc=True).execute()
         
         return {"conversations": conversations.data}
         
@@ -476,7 +475,7 @@ async def create_conversation(user_id: str, title: Optional[str] = None):
             "messages": []
         }
         
-        result = supabase.table('conversations').insert(conversation_data).execute()
+        result = get_supabase_client().table('conversations').insert(conversation_data).execute()
         
         return {"conversation": result.data[0]}
         
@@ -490,7 +489,7 @@ async def get_usage_stats(user_id: str):
     try:
         # Get current month usage
         current_month = datetime.utcnow().strftime('%Y-%m')
-        usage_data = supabase.table('usage_logs').select('*').eq('user_id', user_id).gte('created_at', f'{current_month}-01').execute()
+        usage_data = get_supabase_client().table('usage_logs').select('*').eq('user_id', user_id).gte('created_at', f'{current_month}-01').execute()
         
         # Count by action type
         usage_stats = {}
@@ -499,7 +498,7 @@ async def get_usage_stats(user_id: str):
             usage_stats[action] = usage_stats.get(action, 0) + 1
         
         # Get user tier limits
-        user_data = supabase.table('users').select('subscription_tier').eq('id', user_id).execute()
+        user_data = get_supabase_client().table('users').select('subscription_tier').eq('id', user_id).execute()
         tier = user_data.data[0]['subscription_tier'] if user_data.data else 'free'
         tier_limits = TIER_LIMITS.get(tier, TIER_LIMITS['free'])
         
@@ -519,7 +518,7 @@ async def get_user_api_key(user_id: str) -> Optional[str]:
     """Get user's decrypted API key for BYOK"""
     try:
         # Get encrypted API key from user settings
-        settings_data = supabase.table('user_settings').select('*').eq('user_id', user_id).eq('key', 'openai_api_key').execute()
+        settings_data = get_supabase_client().table('user_settings').select('*').eq('user_id', user_id).eq('key', 'openai_api_key').execute()
         
         if settings_data.data:
             # In production, this should be properly encrypted/decrypted
@@ -552,12 +551,12 @@ async def get_user_chat_history(user_id: str):
     """Get chat history for a specific user"""
     try:
         # Get conversations from database
-        conversations_data = supabase.table('conversations').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
+        conversations_data = get_supabase_client().table('conversations').select('*').eq('user_id', user_id).order('updated_at', desc=True).execute()
         
         conversations = []
         for conv in conversations_data.data:
             # Get messages for this conversation
-            messages_data = supabase.table('messages').select('*').eq('conversation_id', conv['id']).order('created_at', asc=True).execute()
+            messages_data = get_supabase_client().table('messages').select('*').eq('conversation_id', conv['id']).order('created_at', asc=True).execute()
             
             conversations.append({
                 "id": conv['id'],

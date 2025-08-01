@@ -27,9 +27,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize Supabase
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_ANON_KEY")
-supabase: Client = create_client(supabase_url, supabase_key)
+# Import shared Supabase client
+from utils.supabase_client import get_supabase_client
 
 router = APIRouter(prefix="/api/usage", tags=["usage"])
 
@@ -130,7 +129,7 @@ async def get_user_usage_events(
 ) -> List[UsageEvent]:
     """Get recent usage events for a user"""
     try:
-        query = supabase.table('usage_events').select('*').eq('user_id', user_id)
+        query = get_supabase_client().table('usage_events').select('*').eq('user_id', user_id)
         
         if event_type:
             query = query.eq('event_type', event_type)

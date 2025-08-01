@@ -44,9 +44,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_ANON_KEY")
-supabase: Client = create_client(supabase_url, supabase_key)
+# Import shared Supabase client
+from utils.supabase_client import get_supabase_client
 
 # Initialize embedding model
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -119,7 +118,7 @@ async def start_embedding(
         )
         
         # Validate user and storage connection
-        token_data = supabase.table('oauth_tokens').select('*').eq('user_id', request.user_id).eq('provider', request.source).execute()
+        token_data = get_supabase_client().table('oauth_tokens').select('*').eq('user_id', request.user_id).eq('provider', request.source).execute()
         
         if not token_data.data:
             raise HTTPException(status_code=404, detail=f"{request.source.title()} storage not connected")
@@ -132,7 +131,7 @@ async def start_embedding(
             "input_data": request.dict()
         }
         
-        job_result = supabase.table('job_logs').insert(job_data).execute()
+        job_result = get_supabase_client().table('job_logs').insert(job_data).execute()
         job_id = job_result.data[0]['id']
         
         # Start background processing
@@ -158,7 +157,7 @@ async def start_embedding(
 async def get_embedding_status(job_id: str):
     """Get embedding job status"""
     try:
-        job_data = supabase.table('job_logs').select('*').eq('id', job_id).execute()
+        job_data = get_supabase_client().table('job_logs').select('*').eq('id', job_id).execute()
         
         if not job_data.data:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -190,7 +189,7 @@ async def process_documents_background(
         await update_job_status(job_id, "processing", {"message": "Starting document processing..."})
         
         # Get OAuth tokens
-        token_data = supabase.table('oauth_tokens').select('*').eq('user_id', user_id).eq('provider', source).execute()
+        token_data = get_supabase_client().table('oauth_tokens').select('*').eq('user_id', user_id).eq('provider', source).execute()
         token_info = token_data.data[0]
         
         # Get files from cloud storage
@@ -289,7 +288,7 @@ async def update_job_status(job_id: str, status: str, output_data: Dict[str, Any
         if status == "completed" or status == "failed":
             update_data["completed_at"] = datetime.utcnow().isoformat()
             
-        supabase.table('job_logs').update(update_data).eq('id', job_id).execute()
+        get_supabase_client().table('job_logs').update(update_data).eq('id', job_id).execute()
         
     except Exception as e:
         logger.error(f"Failed to update job status: {e}")
@@ -581,7 +580,7 @@ async def store_document_chunks(
                 "metadata": chunk.metadata
             }
             
-            supabase.table('document_chunks').insert(chunk_data).execute()
+            get_supabase_client().table('document_chunks').insert(chunk_data).execute()
         
         logger.info(f"Stored {len(chunks)} chunks for file {file_info['name']}")
         
@@ -615,7 +614,7 @@ async def store_file_metadata(
         }
         
         # Upsert file metadata
-        supabase.table('file_metadata').upsert(metadata).execute()
+        get_supabase_client().table('file_metadata').upsert(metadata).execute()
         
     except Exception as e:
         logger.error(f"File metadata storage error: {e}")
@@ -624,7 +623,7 @@ async def store_file_metadata(
 async def get_processed_files(user_id: str):
     """Get list of processed files for user"""
     try:
-        files_data = supabase.table('file_metadata').select('*').eq('user_id', user_id).eq('processed', True).execute()
+        files_data = get_supabase_client().table('file_metadata').select('*').eq('user_id', user_id).eq('processed', True).execute()
         return {"files": files_data.data}
         
     except Exception as e:
@@ -651,7 +650,7 @@ async def get_user_embed_status(user_id: str):
     """Get embedding status for a specific user"""
     try:
         # Get job logs for this user
-        jobs_data = supabase.table('job_logs').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(10).execute()
+        jobs_data = get_supabase_client().table('job_logs').select('*').eq('user_id', user_id).order('created_at', desc=True).limit(10).execute()
         
         running_jobs = [job for job in jobs_data.data if job['status'] == 'running']
         completed_jobs = [job for job in jobs_data.data if job['status'] == 'completed']

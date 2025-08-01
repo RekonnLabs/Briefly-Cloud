@@ -25,9 +25,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_ANON_KEY")
-supabase: Client = create_client(supabase_url, supabase_key)
+# Import shared Supabase client
+from utils.supabase_client import get_supabase_client
 
 router = APIRouter(prefix="/storage", tags=["cloud_storage"])
 
@@ -136,10 +135,10 @@ async def google_callback(code: str, state: str):
         }
         
         # Upsert token (insert or update)
-        supabase.table('oauth_tokens').upsert(token_data).execute()
+        get_supabase_client().table('oauth_tokens').upsert(token_data).execute()
         
         # Update user settings
-        supabase.table('user_settings').upsert({
+        get_supabase_client().table('user_settings').upsert({
             "user_id": user_id,
             "key": "google_drive_connected",
             "value": {"connected": True, "email": user_info.get('email')}
@@ -216,10 +215,10 @@ async def microsoft_callback(code: str, state: str):
             }
             
             # Upsert token (insert or update)
-            supabase.table('oauth_tokens').upsert(token_data).execute()
+            get_supabase_client().table('oauth_tokens').upsert(token_data).execute()
             
             # Update user settings
-            supabase.table('user_settings').upsert({
+            get_supabase_client().table('user_settings').upsert({
                 "user_id": user_id,
                 "key": "onedrive_connected",
                 "value": {"connected": True, "email": user_info.get('mail') or user_info.get('userPrincipalName')}
@@ -250,7 +249,7 @@ async def get_storage_status(user_id: str):
     """Get current cloud storage connection status"""
     try:
         # Get storage connections from settings
-        settings_data = supabase.table('user_settings').select('*').eq('user_id', user_id).execute()
+        settings_data = get_supabase_client().table('user_settings').select('*').eq('user_id', user_id).execute()
         
         connections = {
             "google": StorageConnection(provider="google", connected=False),
@@ -284,7 +283,7 @@ async def get_google_drive_files(user_id: str, limit: int = 50):
     """Get files from user's Google Drive"""
     try:
         # Get stored tokens
-        token_data = supabase.table('oauth_tokens').select('*').eq('user_id', user_id).eq('provider', 'google').execute()
+        token_data = get_supabase_client().table('oauth_tokens').select('*').eq('user_id', user_id).eq('provider', 'google').execute()
         
         if not token_data.data:
             raise HTTPException(status_code=404, detail="Google Drive not connected")
@@ -333,7 +332,7 @@ async def get_onedrive_files(user_id: str, limit: int = 50):
     """Get files from user's OneDrive"""
     try:
         # Get stored tokens
-        token_data = supabase.table('oauth_tokens').select('*').eq('user_id', user_id).eq('provider', 'microsoft').execute()
+        token_data = get_supabase_client().table('oauth_tokens').select('*').eq('user_id', user_id).eq('provider', 'microsoft').execute()
         
         if not token_data.data:
             raise HTTPException(status_code=404, detail="OneDrive not connected")
@@ -383,11 +382,11 @@ async def disconnect_storage(provider: str, user_id: str):
             raise HTTPException(status_code=400, detail="Invalid provider")
             
         # Remove OAuth tokens
-        supabase.table('oauth_tokens').delete().eq('user_id', user_id).eq('provider', provider).execute()
+        get_supabase_client().table('oauth_tokens').delete().eq('user_id', user_id).eq('provider', provider).execute()
         
         # Update settings
         setting_key = f"{provider}_drive_connected" if provider == "google" else "onedrive_connected"
-        supabase.table('user_settings').delete().eq('user_id', user_id).eq('key', setting_key).execute()
+        get_supabase_client().table('user_settings').delete().eq('user_id', user_id).eq('key', setting_key).execute()
         
         logger.info(f"Disconnected {provider} for user {user_id}")
         
