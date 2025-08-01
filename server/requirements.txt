@@ -1,9 +1,9 @@
-# Briefly Cloud - Python Dependencies
-# Optimized for Python 3.11.9
+# Briefly Cloud - Production Optimized Dependencies
+# Railway/Vercel deployment with essential OAuth functionality
 
 # Core FastAPI dependencies
 fastapi==0.104.1
-uvicorn[standard]==0.24.0
+uvicorn==0.24.0
 python-multipart==0.0.6
 aiofiles==24.1.0
 python-dotenv==1.0.0
@@ -16,35 +16,30 @@ supabase==2.3.4
 # Authentication and security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.1.2
 
 # Stripe for payments
 stripe==8.2.0
 
-# Scientific computing
-numpy==1.25.2
-scipy==1.11.4
-scikit-learn==1.3.2
-
-# Vector store and ML - Fixed versions for compatibility
-chromadb==0.4.15
-sentence-transformers==2.2.2
-transformers==4.35.2
-huggingface-hub==0.17.3
-
-# Additional utilities
+# Essential utilities
 python-dateutil==2.8.2
 requests==2.31.0
 
-# Document parsing libraries
-pdfplumber==0.10.3
+# Document parsing (lightweight)
 python-docx==1.1.0
-openpyxl==3.1.2
-xlrd==2.0.1
-python-pptx==0.6.23
-striprtf==0.0.26
-odfpy==1.4.1
-ebooklib==0.18
-pyspellchecker==0.8.1
-# XML handled by Python stdlib
+
+# External API clients
+openai==1.3.0
+
+# Google API libraries (required for OAuth)
+google-auth==2.23.4
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+google-api-python-client==2.108.0
+
+# Microsoft Graph API
+msal==1.24.1
+
+# Deployment Mode: API-only (external ML services)
+# Heavy ML libraries removed: chromadb, transformers, sentence-transformers
+# Size reduction: ~6GB → ~500MB
 

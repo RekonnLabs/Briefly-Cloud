@@ -18,7 +18,7 @@ try:
     from googleapiclient.discovery import build
     GOOGLE_API_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"Google API libraries not available: {e}")
+    print(f"Google API libraries not available: {e}")
     GOOGLE_API_AVAILABLE = False
     # Create dummy classes for compatibility
     class Credentials:
@@ -36,7 +36,7 @@ try:
     import msal
     MSAL_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"MSAL library not available: {e}")
+    print(f"MSAL library not available: {e}")
     MSAL_AVAILABLE = False
     # Create dummy class for compatibility
     class msal:

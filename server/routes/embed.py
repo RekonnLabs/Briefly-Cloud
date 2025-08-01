@@ -19,7 +19,7 @@ try:
     from googleapiclient.discovery import build
     GOOGLE_API_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"Google API libraries not available: {e}")
+    print(f"Google API libraries not available: {e}")
     GOOGLE_API_AVAILABLE = False
     # Create dummy classes for compatibility
     class Credentials:
@@ -44,7 +44,7 @@ try:
     from chromadb.config import Settings
     ML_LIBRARIES_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"ML libraries not available: {e}")
+    print(f"ML libraries not available: {e}")
     ML_LIBRARIES_AVAILABLE = False
     # Create dummy classes for compatibility
     class SentenceTransformer:

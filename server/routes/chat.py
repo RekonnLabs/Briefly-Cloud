@@ -22,7 +22,7 @@ try:
     from sentence_transformers import SentenceTransformer
     ML_LIBRARIES_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"ML libraries not available: {e}")
+    print(f"ML libraries not available: {e}")
     ML_LIBRARIES_AVAILABLE = False
     # Create dummy classes for compatibility
     class SentenceTransformer:
