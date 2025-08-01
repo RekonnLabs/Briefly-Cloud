@@ -34,10 +34,20 @@ except ImportError as e:
 
 app = FastAPI(title="Briefly Cloud Backend", version="1.0.0")
 
+# Startup logging
+logger.info("🚀 Briefly Cloud Backend starting...")
+logger.info(f"Python path: {os.getcwd()}")
+logger.info(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring"""
-    return {"status": "healthy", "service": "briefly-cloud-backend"}
+    return {"status": "healthy", "service": "briefly-cloud-backend", "timestamp": "2025-08-01"}
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"message": "Briefly Cloud Backend API", "status": "running"}
 
 # CORS middleware
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")

@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'server'))
 
 # Import the FastAPI app from server
-from server.main import app
+from main import app
 
 # Export for Railway
 __all__ = ['app']
