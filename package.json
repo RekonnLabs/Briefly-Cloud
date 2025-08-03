@@ -1,7 +1,7 @@
 {
   "name": "briefly-cloud",
   "version": "1.0.0",
-  "description": "Cloud-based AI productivity assistant powered by GPT-4o",
+  "description": "Cloud-based AI productivity assistant powered by GPT-4 Turbo",
   "scripts": {
     "dev": "concurrently \"cd client && npm run dev\" \"cd server && python main.py\"",
     "build": "cd client && npm run build",
@@ -17,7 +17,7 @@
     "assistant",
     "ai",
     "cloud",
-    "gpt-4o",
+    "gpt-4-turbo",
     "document-processing",
     "vector-search",
     "chat"

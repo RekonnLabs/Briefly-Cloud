@@ -36,14 +36,20 @@ TEST_USERS = {
 # Expected tier limits
 TIER_LIMITS = {
     "free": {
-        "max_llm_calls": 100,
+        "documents": 25,
+        "chat_messages": 100,
+        "api_calls": 250,
+        "storage_bytes": 104857600,
         "model": "gpt-3.5-turbo",
         "storage_providers": ["google"],
         "features": ["basic_indexing", "basic_chat"]
     },
     "pro": {
-        "max_llm_calls": 10000,
-        "model": "gpt-4o", 
+        "documents": 500,
+        "chat_messages": 400,
+        "api_calls": 1000,
+        "storage_bytes": 1073741824,
+        "model": "gpt-4-turbo", 
         "storage_providers": ["google", "microsoft"],
         "features": ["advanced_indexing", "priority_chat", "onedrive"]
     },
@@ -164,10 +170,10 @@ async def test_model_access():
     
     model_tests = [
         ("free", "gpt-3.5-turbo", True),
-        ("free", "gpt-4o", False),
+        ("free", "gpt-4-turbo", False),
         ("pro", "gpt-3.5-turbo", True),
-        ("pro", "gpt-4o", True),
-        ("pro_byok", "gpt-4o", True),
+        ("pro", "gpt-4-turbo", True),
+        ("pro_byok", "gpt-4-turbo", True),
         ("pro_byok", "byok", True)
     ]
     

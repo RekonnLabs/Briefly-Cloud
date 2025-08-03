@@ -521,12 +521,23 @@ function App() {
 
 // Authentication Form Component
 function AuthForm({ onLogin, onSignup }: { onLogin: (email: string, password: string) => Promise<void>; onSignup: (email: string, password: string) => Promise<void> }) {
-  const [isLogin, setIsLogin] = useState(true);
+  // Check URL parameters to determine initial mode
+  const urlParams = new URLSearchParams(window.location.search);
+  const mode = urlParams.get('mode');
+  const [isLogin, setIsLogin] = useState(mode !== 'signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const handleModeSwitch = () => {
+    setIsLogin(!isLogin);
+    setError('');
+    setSuccess('');
+    setEmail('');
+    setPassword('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -541,9 +552,23 @@ function AuthForm({ onLogin, onSignup }: { onLogin: (email: string, password: st
         await onSignup(email, password);
         setSuccess('Account created successfully! Please check your email for a confirmation link, then sign in.');
         setIsLogin(true); // Switch to login mode after successful signup
+        setEmail(''); // Clear form fields
+        setPassword('');
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      let errorMessage = err.message || 'Authentication failed';
+
+      // Provide more user-friendly error messages
+      if (errorMessage.includes('Invalid email or password')) {
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+      } else if (errorMessage.includes('Email not confirmed')) {
+        errorMessage = 'Please check your email and click the confirmation link before signing in.';
+      } else if (errorMessage.includes('User already registered')) {
+        errorMessage = 'An account with this email already exists. Please sign in instead.';
+        setIsLogin(true);
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -556,6 +581,30 @@ function AuthForm({ onLogin, onSignup }: { onLogin: (email: string, password: st
         <p className="text-gray-600 mt-2">
           {isLogin ? 'Sign in to your account' : 'Create your account'}
         </p>
+      </div>
+
+      {/* Mode indicator tabs */}
+      <div className="flex bg-gray-100 rounded-lg p-1">
+        <button
+          type="button"
+          onClick={() => !isLogin && handleModeSwitch()}
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${isLogin
+            ? 'bg-white text-gray-900 shadow-sm'
+            : 'text-gray-500 hover:text-gray-700'
+            }`}
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => isLogin && handleModeSwitch()}
+          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${!isLogin
+            ? 'bg-white text-gray-900 shadow-sm'
+            : 'text-gray-500 hover:text-gray-700'
+            }`}
+        >
+          Sign Up
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -603,16 +652,6 @@ function AuthForm({ onLogin, onSignup }: { onLogin: (email: string, password: st
           {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Sign Up')}
         </Button>
       </form>
-
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={() => setIsLogin(!isLogin)}
-          className="text-sm text-blue-600 hover:text-blue-500"
-        >
-          {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-        </button>
-      </div>
     </div>
   );
 }

@@ -182,9 +182,10 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
                 <h3 className="font-medium text-blue-800 mb-2 text-sm lg:text-base">Free Plan Includes:</h3>
                 <ul className="space-y-1 text-xs lg:text-sm text-blue-700">
                   <li>• Google Drive or OneDrive integration</li>
-                  <li>• Up to 100 AI chat messages per month</li>
+                  <li>• Up to 25 documents</li>
+                  <li>• 100 AI chat messages per month</li>
                   <li>• GPT-3.5 Turbo model</li>
-                  <li>• Basic document indexing</li>
+                  <li>• 100 MB storage</li>
                 </ul>
               </div>
               
@@ -192,10 +193,11 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
                 <h3 className="font-medium text-purple-800 mb-2 text-sm lg:text-base">Upgrade to Pro for:</h3>
                 <ul className="space-y-1 text-xs lg:text-sm text-purple-700">
                   <li>• Both Google Drive & OneDrive integration</li>
-                  <li>• 10,000 AI chat messages per month</li>
-                  <li>• GPT-4o model (latest & most capable)</li>
+                  <li>• Up to 500 documents</li>
+                  <li>• 400 AI chat messages per month</li>
+                  <li>• GPT-4 Turbo model (latest & most capable)</li>
+                  <li>• 1 GB storage</li>
                   <li>• Priority processing</li>
-                  <li>• Advanced features</li>
                 </ul>
                 <Button className="mt-3 w-full lg:w-auto" size="sm">
                   <Zap className="h-4 w-4 mr-1" />
@@ -210,8 +212,10 @@ export default function OnboardingFlow({ onComplete, userProfile, storageConnect
               <h3 className="font-medium text-green-800 mb-2 text-sm lg:text-base">Pro Plan Benefits:</h3>
               <ul className="space-y-1 text-xs lg:text-sm text-green-700">
                 <li>• Google Drive & OneDrive integration</li>
-                <li>• 10,000 AI chat messages per month</li>
-                <li>• GPT-4o model access</li>
+                <li>• Up to 5,000 documents</li>
+                <li>• 2,000 AI chat messages per month</li>
+                <li>• GPT-4 Turbo model access</li>
+                <li>• 10 GB storage</li>
                 <li>• Priority processing & support</li>
               </ul>
             </div>

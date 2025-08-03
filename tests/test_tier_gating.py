@@ -148,7 +148,7 @@ class TierGatingTester:
         # Expected models by tier
         expected_models = {
             "free": "gpt-3.5-turbo",
-            "pro": "gpt-4o", 
+            "pro": "gpt-4-turbo", 
             "pro_byok": "byok"
         }
         

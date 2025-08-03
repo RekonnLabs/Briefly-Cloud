@@ -55,21 +55,21 @@ class TierInfo(BaseModel):
 TIER_LIMITS = {
     "free": TierInfo(
         tier="free",
-        max_files=10,
+        max_files=25,
         max_llm_calls=100,
-        features=["basic_chat", "google_drive"]
+        features=["basic_chat", "google_drive", "gpt_3_5_turbo"]
     ),
     "pro": TierInfo(
         tier="pro", 
-        max_files=1000,
-        max_llm_calls=10000,
-        features=["advanced_chat", "google_drive", "onedrive", "priority_support"]
+        max_files=500,
+        max_llm_calls=400,
+        features=["advanced_chat", "google_drive", "onedrive", "priority_support", "gpt_4_turbo"]
     ),
     "pro_byok": TierInfo(
         tier="pro_byok",
-        max_files=10000, 
-        max_llm_calls=-1,  # unlimited with own key
-        features=["byok", "advanced_chat", "google_drive", "onedrive", "priority_support"]
+        max_files=5000, 
+        max_llm_calls=2000,
+        features=["byok", "advanced_chat", "google_drive", "onedrive", "priority_support", "gpt_4_turbo"]
     )
 }
 

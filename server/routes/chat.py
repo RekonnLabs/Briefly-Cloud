@@ -85,7 +85,7 @@ class ChatRequest(BaseModel):
     message: str
     user_id: str
     conversation_id: Optional[str] = None
-    model: str = "gpt-4o"
+    model: str = "gpt-4-turbo"
     stream: bool = True
 
 class ChatResponse(BaseModel):
@@ -101,9 +101,27 @@ class ContextChunk(BaseModel):
 
 # Subscription tier limits
 TIER_LIMITS = {
-    "free": {"max_llm_calls": 100, "model": "gpt-3.5-turbo"},
-    "pro": {"max_llm_calls": 10000, "model": "gpt-4o"},
-    "pro_byok": {"max_llm_calls": -1, "model": "byok"}  # unlimited with own key
+    "free": {
+        "documents": 25,
+        "chat_messages": 100,
+        "api_calls": 250,
+        "storage_bytes": 104857600,  # 100 MB
+        "model": "gpt-3.5-turbo"
+    },
+    "pro": {
+        "documents": 500,
+        "chat_messages": 400,
+        "api_calls": 1000,
+        "storage_bytes": 1073741824,  # 1 GB
+        "model": "gpt-4-turbo"
+    },
+    "pro_byok": {
+        "documents": 5000,
+        "chat_messages": 2000,
+        "api_calls": 5000,
+        "storage_bytes": 10737418240,  # 10 GB
+        "model": "byok"
+    }
 }
 
 @router.post("/")
@@ -177,10 +195,10 @@ async def check_usage_limits(user_id: str, tier: str) -> bool:
     """Check if user has exceeded their usage limits"""
     try:
         tier_limits = TIER_LIMITS.get(tier, TIER_LIMITS['free'])
-        max_calls = tier_limits['max_llm_calls']
+        max_calls = tier_limits['chat_messages']
         
-        if max_calls == -1:  # Unlimited for BYOK
-            return True
+        if tier == 'pro_byok':  # BYOK has higher limits but not unlimited
+            max_calls = tier_limits['chat_messages']
         
         # Get current month usage
         current_month = datetime.utcnow().strftime('%Y-%m')
@@ -255,7 +273,7 @@ def determine_model(tier: str, api_key_hash: Optional[str], requested_model: str
     if tier == 'pro_byok' and api_key_hash:
         return 'byok'
     elif tier == 'pro':
-        return 'gpt-4o'
+        return 'gpt-4-turbo'  # Updated to GPT-4.1 (GPT-4 Turbo)
     else:
         return 'gpt-3.5-turbo'
 
@@ -309,7 +327,7 @@ Please answer the user's question based on this context. If the context doesn't 
                 user_openai.api_key = user_api_key
                 
                 response = await user_openai.ChatCompletion.acreate(
-                    model="gpt-4o",  # Default to GPT-4o for BYOK
+                    model="gpt-4-turbo",  # Default to GPT-4 Turbo for BYOK
                     messages=messages,
                     stream=True,
                     max_tokens=1000,
@@ -407,7 +425,7 @@ Please answer the user's question based on this context. If the context doesn't 
                     user_openai.api_key = user_api_key
                     
                     response = await user_openai.ChatCompletion.acreate(
-                        model="gpt-4o",  # Default to GPT-4o for BYOK
+                        model="gpt-4-turbo",  # Default to GPT-4 Turbo for BYOK
                         messages=messages,
                         max_tokens=1000,
                         temperature=0.7

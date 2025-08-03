@@ -334,7 +334,7 @@ function CloudSettings({ onClose, userProfile, storageConnections, onStorageUpda
                   <span className="text-sm font-medium text-blue-800">Upgrade to Pro</span>
                 </div>
                 <p className="text-xs lg:text-sm text-blue-700 mb-3">
-                  Get OneDrive support, 10,000 monthly messages, and GPT-4o access.
+                  Get OneDrive support, 500 documents, 400 monthly messages, 1GB storage, and GPT-4 Turbo access.
                 </p>
                 <Button size="sm" className="w-full sm:w-auto">
                   <Crown className="h-4 w-4 mr-1" />
