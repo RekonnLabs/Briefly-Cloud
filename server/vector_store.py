@@ -12,6 +12,10 @@ from pathlib import Path
 import threading
 import time
 from dotenv import load_dotenv
+# Configure logging first (before ML imports)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Optional imports for ML libraries (graceful degradation for serverless deployment)
 try:
     import chromadb
@@ -39,9 +43,7 @@ import traceback
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Logger already configured above
 
 # Global lock to prevent concurrent indexing
 vector_index_lock = threading.Lock()
