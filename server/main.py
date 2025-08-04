@@ -306,22 +306,7 @@ async def vector_stats_endpoint():
     stats = get_vector_store_stats()
     return stats
 
-@app.get("/")
-async def root():
-    return {"message": "Briefly Solo Backend with Bundled LLM", "version": "1.0.0"}
 
-@app.get("/health")
-async def health_check():
-    """
-    Stubbed health check endpoint for compatibility. Always returns healthy.
-    Remove or customize as needed for your deployment.
-    """
-    from datetime import datetime
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "note": "This endpoint is stubbed and does not check LLM or vector store health."
-    }
 
 @app.get("/api/settings")
 async def get_settings_endpoint():
