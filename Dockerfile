@@ -20,8 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire server directory maintaining structure
 COPY server/ ./server/
 
-# Copy the main entry point
+# Copy the main entry point and test files
 COPY main.py ./
+COPY test_minimal.py ./
 
 # Create logs directory
 RUN mkdir -p logs

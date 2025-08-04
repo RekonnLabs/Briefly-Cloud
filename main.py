@@ -1,34 +1,61 @@
 #!/usr/bin/env python3
 """
-Railway deployment entry point
+Railway deployment entry point - MINIMAL TEST VERSION
 """
-import sys
 import os
-from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# Load environment variables
-load_dotenv()
+# Create minimal FastAPI app for testing
+app = FastAPI(title="Minimal Test Backend", version="1.0.0")
 
-# Add server directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'server'))
+# Add CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for testing
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
-# Import the FastAPI app from server
-from server.main import app
+@app.get("/")
+async def root():
+    return {"message": "Minimal test backend is running", "status": "success"}
 
-# Export for Railway - this is what uvicorn will use
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": "minimal-test"}
+
+@app.get("/api/test")
+async def api_test():
+    return {
+        "message": "API endpoint working",
+        "environment": os.getenv("ENVIRONMENT", "unknown"),
+        "port": os.getenv("PORT", "unknown")
+    }
+
+@app.get("/api/diagnostics")
+async def diagnostics():
+    return {
+        "status": "running",
+        "environment_vars": {
+            "PORT": os.getenv("PORT", "Not set"),
+            "ENVIRONMENT": os.getenv("ENVIRONMENT", "Not set"),
+            "PWD": os.getenv("PWD", "Not set")
+        },
+        "routes": [
+            "/",
+            "/health", 
+            "/api/test",
+            "/api/diagnostics"
+        ]
+    }
+
+# Export for Railway
 __all__ = ['app']
 
 if __name__ == "__main__":
     import uvicorn
-    
-    # Get port from environment variable
     port = int(os.environ.get("PORT", 8000))
-    
-    print(f"Starting server on port {port}")
-    
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=port,
-        log_level="info"
-    )
+    print(f"Starting minimal test server on port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
