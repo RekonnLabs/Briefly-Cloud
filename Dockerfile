@@ -17,8 +17,8 @@ COPY server/requirements.txt ./requirements.txt
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire server directory
-COPY server/ ./
+# Copy the entire server directory maintaining structure
+COPY server/ ./server/
 
 # Copy the main entry point
 COPY main.py ./
