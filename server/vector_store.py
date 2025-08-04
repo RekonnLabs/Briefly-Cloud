@@ -12,12 +12,28 @@ from pathlib import Path
 import threading
 import time
 from dotenv import load_dotenv
-import chromadb
-from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
-import numpy as np
-# Required for GPU/CPU detection and embedding device selection
-import torch
+# Optional imports for ML libraries (graceful degradation for serverless deployment)
+try:
+    import chromadb
+    from chromadb.config import Settings
+    from sentence_transformers import SentenceTransformer
+    import numpy as np
+    import torch
+    ML_LIBRARIES_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"ML libraries not available: {e}")
+    ML_LIBRARIES_AVAILABLE = False
+    # Create dummy classes for compatibility
+    class chromadb:
+        pass
+    class Settings:
+        pass
+    class SentenceTransformer:
+        def __init__(self, *args, **kwargs):
+            pass
+    np = None
+    torch = None
+
 import traceback
 
 # Load environment variables
@@ -90,6 +106,12 @@ class ChromaVectorStore:
             persist_directory: Directory to persist ChromaDB data
             collection_name: Name of the ChromaDB collection
         """
+        if not ML_LIBRARIES_AVAILABLE:
+            logger.warning("ChromaVectorStore initialized but ML libraries not available")
+            self.available = False
+            return
+            
+        self.available = True
         self.persist_directory = Path(persist_directory)
         self.persist_directory.mkdir(parents=True, exist_ok=True)
         self.collection_name = collection_name
@@ -455,6 +477,11 @@ def build_vector_index(folder_path: str, force_rebuild: bool = False) -> bool:
     Returns:
         True if successful, False otherwise
     """
+    # Check if ML libraries are available
+    if not ML_LIBRARIES_AVAILABLE:
+        logger.warning("ML libraries not available, vector indexing disabled")
+        return False
+        
     try:
         import os
         from pathlib import Path
@@ -721,6 +748,15 @@ def get_vector_store_stats() -> Dict[str, Any]:
     Returns:
         Dictionary with vector store statistics
     """
+    # Check if ML libraries are available
+    if not ML_LIBRARIES_AVAILABLE:
+        return {
+            "status": "disabled",
+            "reason": "ML libraries not available",
+            "collections": 0,
+            "total_documents": 0
+        }
+        
     try:
         vector_store = ChromaVectorStore()
         return vector_store.get_collection_stats()

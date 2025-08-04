@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Backend Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Backend Connection Test</h1>
+
+    <div>
+        <label for="apiUrl">Backend URL:</label>
+        <input type="text" id="apiUrl" value="https://briefly-cloud-production.up.railway.app"
+            style="width: 400px; padding: 5px;">
+        <button onclick="testConnection()">Test Connection</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        async function testConnection() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="info">Testing connection...</div>';
+
+            const tests = [
+                { name: 'Root Endpoint', url: apiUrl + '/' },
+                { name: 'Health Check', url: apiUrl + '/health' },
+                { name: 'Diagnostics', url: apiUrl + '/api/diagnostics' },
+                { name: 'Storage Health', url: apiUrl + '/api/storage/health' },
+                { name: 'Auth Health', url: apiUrl + '/api/auth/health' }
+            ];
+
+            let results = '';
+
+            for (const test of tests) {
+                try {
+                    const response = await fetch(test.url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                        }
+                    });
+
+                    const data = await response.text();
+                    let jsonData;
+                    try {
+                        jsonData = JSON.parse(data);
+                    } catch (e) {
+                        jsonData = data;
+                    }
+
+                    if (response.ok) {
+                        results += `<div class="result success">
+                            <strong>✅ ${test.name}</strong> (${response.status})
+                            <pre>${JSON.stringify(jsonData, null, 2)}</pre>
+                        </div>`;
+                    } else {
+                        results += `<div class="result error">
+                            <strong>❌ ${test.name}</strong> (${response.status})
+                            <pre>${JSON.stringify(jsonData, null, 2)}</pre>
+                        </div>`;
+                    }
+                } catch (error) {
+                    results += `<div class="result error">
+                        <strong>❌ ${test.name}</strong> (Network Error)
+                        <pre>${error.message}</pre>
+                    </div>`;
+                }
+            }
+
+            resultsDiv.innerHTML = results;
+        }
+
+        // Auto-test on page load
+        window.onload = () => {
+            setTimeout(testConnection, 1000);
+        };
+    </script>
+</body>
+
+</html>

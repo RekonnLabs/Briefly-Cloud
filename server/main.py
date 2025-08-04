@@ -44,6 +44,50 @@ async def health_check():
     """Health check endpoint for monitoring"""
     return {"status": "healthy", "service": "briefly-cloud-backend", "timestamp": "2025-08-01"}
 
+@app.get("/api/diagnostics")
+async def diagnostics():
+    """Comprehensive diagnostic endpoint for troubleshooting"""
+    import platform
+    from datetime import datetime
+    
+    # Check route availability
+    available_routes = []
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            available_routes.append({
+                "path": route.path,
+                "methods": list(route.methods) if route.methods else ["GET"]
+            })
+    
+    # Environment info
+    env_info = {
+        "PORT": os.getenv("PORT", "Not set"),
+        "ENVIRONMENT": os.getenv("ENVIRONMENT", "Not set"),
+        "ALLOWED_ORIGINS": os.getenv("ALLOWED_ORIGINS", "Not set"),
+        "SUPABASE_URL": "Set" if os.getenv("SUPABASE_URL") else "Not set",
+        "SUPABASE_KEY": "Set" if os.getenv("SUPABASE_ANON_KEY") else "Not set",
+        "OPENAI_API_KEY": "Set" if os.getenv("OPENAI_API_KEY") else "Not set"
+    }
+    
+    return {
+        "status": "healthy",
+        "service": "briefly-cloud-backend",
+        "timestamp": datetime.now().isoformat(),
+        "server_info": {
+            "python_version": platform.python_version(),
+            "platform": platform.platform(),
+            "working_directory": os.getcwd()
+        },
+        "environment": env_info,
+        "routes_loaded": ROUTES_AVAILABLE,
+        "total_routes": len(available_routes),
+        "sample_routes": available_routes[:10],  # First 10 routes
+        "ml_libraries": {
+            "chromadb_available": "chromadb" in sys.modules,
+            "sentence_transformers_available": "sentence_transformers" in sys.modules
+        }
+    }
+
 @app.get("/")
 async def root():
     """Root endpoint"""
