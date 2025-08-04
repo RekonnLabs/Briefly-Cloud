@@ -20,6 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire server directory
 COPY server/ ./
 
+# Copy the main entry point
+COPY main.py ./
+
 # Create logs directory
 RUN mkdir -p logs
 
@@ -31,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # Run the FastAPI application with Railway's PORT
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD python main.py
