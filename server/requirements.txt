@@ -18,7 +18,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
 # Stripe for payments
-stripe==8.2.0
+stripe==12.4.0
 
 # Essential utilities
 python-dateutil==2.8.2
