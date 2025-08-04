@@ -31,10 +31,34 @@ import io
 import tempfile
 
 # Document processing imports
-import pdfplumber
-from docx import Document
-import openpyxl
-from pptx import Presentation
+try:
+    import pdfplumber
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+    print("pdfplumber not available - PDF processing disabled")
+
+try:
+    from docx import Document
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+    print("python-docx not available - DOCX processing disabled")
+
+try:
+    import openpyxl
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
+    print("openpyxl not available - Excel processing disabled")
+
+try:
+    from pptx import Presentation
+    PPTX_AVAILABLE = True
+except ImportError:
+    PPTX_AVAILABLE = False
+    print("python-pptx not available - PowerPoint processing disabled")
+
 import json
 
 # ML imports (optional for serverless deployment)
@@ -504,6 +528,10 @@ async def extract_and_chunk_text(content: bytes, file_info: Dict) -> List[Docume
 def extract_pdf_text(content: bytes) -> str:
     """Extract text from PDF content"""
     try:
+        if not PDFPLUMBER_AVAILABLE:
+            logger.warning("PDF processing not available - pdfplumber not installed")
+            return ""
+        
         with tempfile.NamedTemporaryFile() as tmp_file:
             tmp_file.write(content)
             tmp_file.flush()
@@ -559,6 +587,10 @@ def extract_pptx_text(content: bytes) -> str:
 def extract_xlsx_text(content: bytes) -> str:
     """Extract text from XLSX content"""
     try:
+        if not OPENPYXL_AVAILABLE:
+            logger.warning("Excel processing not available - openpyxl not installed")
+            return ""
+        
         with tempfile.NamedTemporaryFile() as tmp_file:
             tmp_file.write(content)
             tmp_file.flush()
