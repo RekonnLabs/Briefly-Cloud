@@ -551,6 +551,15 @@ async def get_uploaded_files():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 3001))
+    
+    # Handle port configuration more robustly
+    try:
+        port_env = os.getenv("PORT", "8000")
+        port = int(port_env)
+        logger.info(f"Starting server on port {port}")
+    except (ValueError, TypeError) as e:
+        logger.error(f"Invalid PORT environment variable: {port_env}, using default 8000")
+        port = 8000
+    
     uvicorn.run(app, host="0.0.0.0", port=port)
 

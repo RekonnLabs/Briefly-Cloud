@@ -100,6 +100,13 @@ MICROSOFT_SCOPES = [
 async def google_auth(user_id: str):
     """Initiate Google Drive OAuth flow"""
     try:
+        # Check if Google API libraries are available
+        if not GOOGLE_API_AVAILABLE:
+            raise HTTPException(
+                status_code=501, 
+                detail="Google API libraries not available in this deployment. Please install google-auth-oauthlib and google-api-python-client."
+            )
+        
         # Check if OAuth credentials are configured
         if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET or GOOGLE_CLIENT_ID == "your_google_client_id_here":
             raise HTTPException(
