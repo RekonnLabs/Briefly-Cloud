@@ -36,4 +36,17 @@ if __name__ == "__main__":
         port = 8000
     
     logger.info(f"🚀 Starting Briefly Cloud Backend on 0.0.0.0:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    logger.info(f"Environment variables: PORT={os.getenv('PORT')}, HOST={os.getenv('HOST')}")
+    
+    try:
+        uvicorn.run(
+            app, 
+            host="0.0.0.0", 
+            port=port,
+            log_level="info",
+            access_log=True,
+            reload=False
+        )
+    except Exception as e:
+        logger.error(f"❌ Failed to start uvicorn server: {e}")
+        raise
