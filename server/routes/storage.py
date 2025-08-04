@@ -100,6 +100,13 @@ MICROSOFT_SCOPES = [
 async def google_auth(user_id: str):
     """Initiate Google Drive OAuth flow"""
     try:
+        # Check if OAuth credentials are configured
+        if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET or GOOGLE_CLIENT_ID == "your_google_client_id_here":
+            raise HTTPException(
+                status_code=400, 
+                detail="Google OAuth credentials not configured. Please contact support to enable Google Drive integration."
+            )
+        
         flow = Flow.from_client_config(
             {
                 "web": {
@@ -122,6 +129,8 @@ async def google_auth(user_id: str):
         
         return {"authorization_url": authorization_url}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Google auth error: {e}")
         raise HTTPException(status_code=500, detail="Failed to initiate Google auth")
@@ -187,6 +196,13 @@ async def google_callback(code: str, state: str):
 async def microsoft_auth(user_id: str):
     """Initiate Microsoft OneDrive OAuth flow"""
     try:
+        # Check if OAuth credentials are configured
+        if not MICROSOFT_CLIENT_ID or not MICROSOFT_CLIENT_SECRET or MICROSOFT_CLIENT_ID == "your_azure_client_id_here":
+            raise HTTPException(
+                status_code=400, 
+                detail="Microsoft OAuth credentials not configured. Please contact support to enable OneDrive integration."
+            )
+        
         app = msal.ConfidentialClientApplication(
             MICROSOFT_CLIENT_ID,
             authority="https://login.microsoftonline.com/common",
@@ -426,3 +442,18 @@ async def disconnect_storage(provider: str, user_id: str):
         logger.error(f"Disconnect storage error: {e}")
         raise HTTPException(status_code=500, detail="Failed to disconnect storage")
 
+
+@router.get("/health")
+async def storage_health():
+    """Health check for storage service with OAuth configuration status"""
+    google_configured = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_CLIENT_ID != "your_google_client_id_here")
+    microsoft_configured = bool(MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET and MICROSOFT_CLIENT_ID != "your_azure_client_id_here")
+    
+    return {
+        "status": "ok", 
+        "service": "storage",
+        "oauth_configured": {
+            "google": google_configured,
+            "microsoft": microsoft_configured
+        }
+    }
