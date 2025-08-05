@@ -5,20 +5,21 @@ Railway deployment entry point - imports the full server
 import os
 import sys
 
-# Get the correct paths - Railway runs from railway_app directory
-current_dir = os.path.dirname(os.path.abspath(__file__))  # /app/railway_app
-parent_dir = os.path.dirname(current_dir)  # /app
-server_dir = os.path.join(parent_dir, 'server')  # /app/server
+# Get the correct paths - Railway runs from /app directory
+# __file__ shows /app/main.py, so we're already in the app directory
+app_dir = '/app'  # Railway app directory
+server_dir = os.path.join(app_dir, 'server')  # /app/server
 
-print(f"__file__: {__file__}")
-print(f"Current directory: {current_dir}")
-print(f"Parent directory: {parent_dir}")
+print(f"App directory: {app_dir}")
 print(f"Server directory: {server_dir}")
 print(f"Server directory exists: {os.path.exists(server_dir)}")
-print(f"Contents of parent directory: {os.listdir(parent_dir) if os.path.exists(parent_dir) else 'Not found'}")
+if os.path.exists(server_dir):
+    print(f"Contents of server directory: {os.listdir(server_dir)}")
+else:
+    print(f"Contents of app directory: {os.listdir(app_dir) if os.path.exists(app_dir) else 'Not found'}")
 
 # Add directories to Python path
-sys.path.insert(0, parent_dir)
+sys.path.insert(0, app_dir)
 sys.path.insert(0, server_dir)
 
 # Change working directory to server for relative imports
