@@ -1,65 +1,52 @@
 #!/usr/bin/env python3
 """
-Clean Railway deployment entry point
+Railway deployment entry point - imports the full server
 """
 import os
 import sys
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-# Create FastAPI app
-app = FastAPI(
-    title="Briefly Cloud Backend",
-    version="1.0.0",
-    description="AI-powered document chat assistant"
-)
+# Add server directory to Python path
+server_dir = os.path.join(os.path.dirname(__file__), 'server')
+sys.path.insert(0, server_dir)
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
+# Change to server directory for relative imports
+os.chdir(server_dir)
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "Briefly Cloud Backend API",
-        "status": "running",
-        "version": "1.0.0"
-    }
+print(f"🚀 Starting Briefly Cloud Backend")
+print(f"Server directory: {server_dir}")
+print(f"Server directory exists: {os.path.exists(server_dir)}")
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "briefly-cloud-backend"
-    }
-
-@app.get("/api/diagnostics")
-async def diagnostics():
-    """Diagnostic endpoint"""
-    return {
-        "status": "healthy",
-        "service": "briefly-cloud-backend",
-        "python_version": sys.version,
-        "environment": {
-            "PORT": os.getenv("PORT", "Not set"),
-            "ENVIRONMENT": os.getenv("ENVIRONMENT", "production")
-        },
-        "available_routes": [
-            "/",
-            "/health",
-            "/api/diagnostics"
-        ]
-    }
+# Import the actual FastAPI app from server/main.py
+try:
+    from main import app
+    print("✅ Successfully imported full server app with all routes")
+except ImportError as e:
+    print(f"❌ Failed to import server app: {e}")
+    # Fallback to minimal app
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    
+    app = FastAPI(title="Briefly Cloud Backend - Minimal", version="1.0.0")
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
+    
+    @app.get("/health")
+    async def health_check():
+        return {"status": "unhealthy", "error": f"Failed to load full server: {e}"}
+    
+    @app.get("/")
+    async def root():
+        return {"message": "Minimal fallback server", "error": str(e)}
 
 # For Railway deployment
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
+    print(f"🚀 Starting server on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
