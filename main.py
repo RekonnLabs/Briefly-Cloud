@@ -13,12 +13,26 @@ sys.path.insert(0, server_dir)
 os.chdir(server_dir)
 
 print(f"🚀 Starting Briefly Cloud Backend")
+print(f"Current working directory: {os.getcwd()}")
+print(f"Contents of /app: {os.listdir('/app')}")
 print(f"Server directory: {server_dir}")
 print(f"Server directory exists: {os.path.exists(server_dir)}")
 
+# Check if server directory exists anywhere
+for root, dirs, files in os.walk('/app'):
+    if 'server' in dirs:
+        print(f"Found server directory at: {root}/server")
+        server_dir = os.path.join(root, 'server')
+        break
+
 # Import the actual FastAPI app from server/main.py
 try:
-    from main import app
+    # Import the server main module directly to avoid circular import
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("server_main", os.path.join(server_dir, "main.py"))
+    server_main = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(server_main)
+    app = server_main.app
     print("✅ Successfully imported full server app with all routes")
 except ImportError as e:
     print(f"❌ Failed to import server app: {e}")

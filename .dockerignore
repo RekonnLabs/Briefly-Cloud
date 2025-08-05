@@ -76,3 +76,6 @@ Docs/
 tests/
 .github/
 .kiro/
+
+# Make sure server directory is NOT excluded
+# server/ - DO NOT UNCOMMENT THIS LINE
