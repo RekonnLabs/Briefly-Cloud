@@ -1,0 +1,27 @@
+# Ignore Node.js files for Railway Python deployment
+package.json
+package-lock.json
+node_modules/
+client/
+*.js
+*.ts
+*.jsx
+*.tsx
+
+# Ignore development files
+.git/
+.vscode/
+.kiro/
+tests/
+Docs/
+
+# Ignore other deployment configs
+vercel.json
+.vercel/
+.env.vercel
+
+# Ignore backup and test files
+*.backup
+*test*.py
+*test*.html
+*test*.json
