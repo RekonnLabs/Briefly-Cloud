@@ -1,62 +1,32 @@
 #!/usr/bin/env python3
 """
-Clean Railway deployment entry point
+Railway deployment entry point - imports the full server
 """
 import os
 import sys
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-# Create FastAPI app
-app = FastAPI(
-    title="Briefly Cloud Backend",
-    version="1.0.0",
-    description="AI-powered document chat assistant"
-)
+# Add parent directory and server directory to path
+parent_dir = os.path.dirname(os.path.dirname(__file__))
+server_dir = os.path.join(parent_dir, 'server')
+sys.path.insert(0, parent_dir)
+sys.path.insert(0, server_dir)
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
+# Change working directory to server for relative imports
+os.chdir(server_dir)
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "Briefly Cloud Backend API",
-        "status": "running",
-        "version": "1.0.0"
-    }
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "briefly-cloud-backend"
-    }
-
-@app.get("/api/diagnostics")
-async def diagnostics():
-    """Diagnostic endpoint"""
-    return {
-        "status": "healthy",
-        "service": "briefly-cloud-backend",
-        "python_version": sys.version,
-        "environment": {
-            "PORT": os.getenv("PORT", "Not set"),
-            "ENVIRONMENT": os.getenv("ENVIRONMENT", "production")
-        },
-        "available_routes": [
-            "/",
-            "/health",
-            "/api/diagnostics"
-        ]
-    }
+# Import the actual FastAPI app from server/main.py
+try:
+    from main import app
+    print("✅ Successfully imported full server app with all routes")
+except ImportError as e:
+    print(f"❌ Failed to import server app: {e}")
+    # Fallback to minimal app
+    from fastapi import FastAPI
+    app = FastAPI(title="Briefly Cloud Backend - Minimal", version="1.0.0")
+    
+    @app.get("/health")
+    async def health_check():
+        return {"status": "unhealthy", "error": f"Failed to load full server: {e}"}
 
 # For Railway deployment
 if __name__ == "__main__":
