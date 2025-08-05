@@ -5,41 +5,33 @@ Railway deployment entry point - imports the full server
 import os
 import sys
 
-# Get the correct paths - Check multiple possible locations
-current_dir = '/app'
-possible_server_paths = [
-    '/app/server',           # If server is in same directory
-    '/app/../server',        # If we need to go up one level
-    '/server',               # If server is at root
-    '/app/Briefly_Cloud/server'  # If full path is preserved
-]
+# Get the correct paths - Now that entire project is copied
+app_root = '/app'  # Railway copies entire project to /app
+server_dir = os.path.join(app_root, 'server')  # /app/server
 
-print(f"Current directory: {current_dir}")
-print("Checking possible server locations:")
-server_dir = None
-for path in possible_server_paths:
-    exists = os.path.exists(path)
-    print(f"  {path}: {'EXISTS' if exists else 'NOT FOUND'}")
-    if exists and server_dir is None:
-        server_dir = path
-        print(f"  -> Using this path!")
-
-if server_dir:
-    print(f"Selected server directory: {server_dir}")
-    print(f"Contents: {os.listdir(server_dir)}")
+print(f"App root: {app_root}")
+print(f"Server directory: {server_dir}")
+print(f"Server directory exists: {os.path.exists(server_dir)}")
+if os.path.exists(server_dir):
+    print(f"Contents of server directory: {os.listdir(server_dir)}")
 else:
-    print("No server directory found!")
-    print(f"Contents of current directory: {os.listdir(current_dir)}")
+    print(f"Contents of app root: {os.listdir(app_root)}")
+    print("Available directories:")
+    for item in os.listdir(app_root):
+        item_path = os.path.join(app_root, item)
+        if os.path.isdir(item_path):
+            print(f"  📁 {item}/")
+        else:
+            print(f"  📄 {item}")
 
 # Add directories to Python path and change working directory
-if server_dir and os.path.exists(server_dir):
-    parent_of_server = os.path.dirname(server_dir)
-    sys.path.insert(0, parent_of_server)
+if os.path.exists(server_dir):
+    sys.path.insert(0, app_root)
     sys.path.insert(0, server_dir)
     os.chdir(server_dir)
     print(f"✅ Changed working directory to: {server_dir}")
 else:
-    print(f"❌ No valid server directory found")
+    print(f"❌ Server directory not found: {server_dir}")
 
 # Import the actual FastAPI app from server/main.py
 try:
