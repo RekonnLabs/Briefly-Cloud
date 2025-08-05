@@ -6,14 +6,16 @@ import os
 import sys
 
 # Get the correct paths - Railway runs from railway_app directory
-current_dir = os.path.dirname(__file__)  # /app/railway_app
+current_dir = os.path.dirname(os.path.abspath(__file__))  # /app/railway_app
 parent_dir = os.path.dirname(current_dir)  # /app
 server_dir = os.path.join(parent_dir, 'server')  # /app/server
 
+print(f"__file__: {__file__}")
 print(f"Current directory: {current_dir}")
 print(f"Parent directory: {parent_dir}")
 print(f"Server directory: {server_dir}")
 print(f"Server directory exists: {os.path.exists(server_dir)}")
+print(f"Contents of parent directory: {os.listdir(parent_dir) if os.path.exists(parent_dir) else 'Not found'}")
 
 # Add directories to Python path
 sys.path.insert(0, parent_dir)
