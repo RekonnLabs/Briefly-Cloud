@@ -1,1 +1,1 @@
-web: python railway_app/test_server.py
+web: uvicorn railway_app.test_server:app --host 0.0.0.0 --port $PORT
