@@ -116,19 +116,5 @@ async def embed_status():
 
 print("✅ Simple server setup complete")
 
-# For Railway deployment - simplified startup
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    print(f"🚀 Starting server on port {port}")
-    print(f"🌐 Host: 0.0.0.0")
-    print(f"📱 App: {app}")
-    
-    # Use Railway-recommended uvicorn configuration
-    uvicorn.run(
-        app, 
-        host="0.0.0.0", 
-        port=port,
-        log_level="info",
-        access_log=True
-    )
+# Railway deployment disabled - using root main.py instead
+print("🚫 railway_app/main.py is disabled - using root main.py")
