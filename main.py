@@ -39,13 +39,9 @@ if not os.path.exists(server_dir):
         print("❌ Server directory not found anywhere")
 
 if os.path.exists(server_dir):
-    # Add server directory to Python path
+    # Add server directory to Python path (but don't change working directory)
     sys.path.insert(0, server_dir)
     sys.path.insert(0, os.path.dirname(server_dir))
-    
-    # Change to server directory for relative imports
-    os.chdir(server_dir)
-    print(f"✅ Changed working directory to: {server_dir}")
     print(f"✅ Added to Python path: {server_dir}")
     
     # Check server directory contents
@@ -53,7 +49,7 @@ if os.path.exists(server_dir):
     
     # Check if main.py exists
     main_py_path = os.path.join(server_dir, 'main.py')
-    print(f"main.py exists: {os.path.exists(main_py_path)}")
+    print(f"server/main.py exists: {os.path.exists(main_py_path)}")
     
     # Check if routes directory exists
     routes_dir = os.path.join(server_dir, 'routes')
@@ -66,23 +62,18 @@ else:
 # Import the actual FastAPI app from server/main.py
 try:
     if os.path.exists(server_dir):
-        # Try direct import first
-        try:
-            from main import app
-            print("✅ Successfully imported server app with direct import")
-        except ImportError:
-            # Fallback to importlib method
-            import importlib.util
-            main_py_path = os.path.join(server_dir, "main.py")
-            if os.path.exists(main_py_path):
-                print(f"Trying to load main.py from: {main_py_path}")
-                spec = importlib.util.spec_from_file_location("server_main", main_py_path)
-                server_main = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(server_main)
-                app = server_main.app
-                print("✅ Successfully imported server app using importlib")
-            else:
-                raise ImportError(f"main.py not found at {main_py_path}")
+        # Use importlib method to avoid circular import
+        import importlib.util
+        main_py_path = os.path.join(server_dir, "main.py")
+        if os.path.exists(main_py_path):
+            print(f"Loading server main.py from: {main_py_path}")
+            spec = importlib.util.spec_from_file_location("server_main", main_py_path)
+            server_main = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(server_main)
+            app = server_main.app
+            print("✅ Successfully imported server app using importlib")
+        else:
+            raise ImportError(f"main.py not found at {main_py_path}")
     else:
         raise ImportError("Server directory not found")
         
