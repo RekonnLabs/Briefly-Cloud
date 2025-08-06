@@ -5,37 +5,92 @@ Railway deployment entry point - imports the full server
 import os
 import sys
 
-# Add server directory to Python path
-server_dir = os.path.join(os.path.dirname(__file__), 'server')
-sys.path.insert(0, server_dir)
-
-# Change to server directory for relative imports
-os.chdir(server_dir)
+# Debug environment variables
+print("🔍 Environment Debug:")
+print(f"PORT: {os.getenv('PORT', 'Not set')}")
+print(f"ENVIRONMENT: {os.getenv('ENVIRONMENT', 'Not set')}")
+print(f"SUPABASE_URL: {'Set' if os.getenv('SUPABASE_URL') else 'Not set'}")
+print(f"OPENAI_API_KEY: {'Set' if os.getenv('OPENAI_API_KEY') else 'Not set'}")
+print(f"Python version: {sys.version}")
+print(f"Python executable: {sys.executable}")
 
 print(f"🚀 Starting Briefly Cloud Backend")
-print(f"Current working directory: {os.getcwd()}")
-print(f"Contents of /app: {os.listdir('/app')}")
-print(f"Server directory: {server_dir}")
+print(f"Script location: {__file__}")
+print(f"Script directory: {os.path.dirname(__file__)}")
+
+# Find server directory
+server_dir = os.path.join(os.path.dirname(__file__), 'server')
+print(f"Expected server directory: {server_dir}")
 print(f"Server directory exists: {os.path.exists(server_dir)}")
 
-# Check if server directory exists anywhere
-for root, dirs, files in os.walk('/app'):
-    if 'server' in dirs:
-        print(f"Found server directory at: {root}/server")
-        server_dir = os.path.join(root, 'server')
-        break
+if not os.path.exists(server_dir):
+    print(f"Contents of script directory: {os.listdir(os.path.dirname(__file__))}")
+    print("Searching for server directory...")
+    
+    # Check if server directory exists anywhere
+    for root, dirs, files in os.walk(os.path.dirname(__file__) or '.'):
+        if 'server' in dirs:
+            found_server = os.path.join(root, 'server')
+            print(f"Found server directory at: {found_server}")
+            server_dir = found_server
+            break
+    
+    if not os.path.exists(server_dir):
+        print("❌ Server directory not found anywhere")
+
+if os.path.exists(server_dir):
+    # Add server directory to Python path
+    sys.path.insert(0, server_dir)
+    sys.path.insert(0, os.path.dirname(server_dir))
+    
+    # Change to server directory for relative imports
+    os.chdir(server_dir)
+    print(f"✅ Changed working directory to: {server_dir}")
+    print(f"✅ Added to Python path: {server_dir}")
+    
+    # Check server directory contents
+    print(f"Server directory contents: {os.listdir(server_dir)}")
+    
+    # Check if main.py exists
+    main_py_path = os.path.join(server_dir, 'main.py')
+    print(f"main.py exists: {os.path.exists(main_py_path)}")
+    
+    # Check if routes directory exists
+    routes_dir = os.path.join(server_dir, 'routes')
+    print(f"routes directory exists: {os.path.exists(routes_dir)}")
+    if os.path.exists(routes_dir):
+        print(f"routes contents: {os.listdir(routes_dir)}")
+else:
+    print(f"❌ Cannot proceed without server directory")
 
 # Import the actual FastAPI app from server/main.py
 try:
-    # Import the server main module directly to avoid circular import
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("server_main", os.path.join(server_dir, "main.py"))
-    server_main = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(server_main)
-    app = server_main.app
-    print("✅ Successfully imported full server app with all routes")
-except ImportError as e:
+    if os.path.exists(server_dir):
+        # Try direct import first
+        try:
+            from main import app
+            print("✅ Successfully imported server app with direct import")
+        except ImportError:
+            # Fallback to importlib method
+            import importlib.util
+            main_py_path = os.path.join(server_dir, "main.py")
+            if os.path.exists(main_py_path):
+                print(f"Trying to load main.py from: {main_py_path}")
+                spec = importlib.util.spec_from_file_location("server_main", main_py_path)
+                server_main = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(server_main)
+                app = server_main.app
+                print("✅ Successfully imported server app using importlib")
+            else:
+                raise ImportError(f"main.py not found at {main_py_path}")
+    else:
+        raise ImportError("Server directory not found")
+        
+except Exception as e:
     print(f"❌ Failed to import server app: {e}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Python path: {sys.path}")
+    
     # Fallback to minimal app
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
@@ -57,6 +112,18 @@ except ImportError as e:
     @app.get("/")
     async def root():
         return {"message": "Minimal fallback server", "error": str(e)}
+    
+    @app.get("/debug")
+    async def debug_info():
+        return {
+            "server_dir": server_dir,
+            "server_exists": os.path.exists(server_dir) if server_dir else False,
+            "working_directory": os.getcwd(),
+            "python_path": sys.path,
+            "script_directory_contents": os.listdir(os.path.dirname(__file__)) if os.path.dirname(__file__) else "N/A",
+            "current_dir_contents": os.listdir('.') if os.path.exists('.') else "N/A",
+            "import_error": str(e)
+        }
 
 # For Railway deployment
 if __name__ == "__main__":
