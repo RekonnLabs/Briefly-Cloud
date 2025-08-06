@@ -17,7 +17,7 @@ export function getApiBaseUrl() {
     }
     
     // For production deployments, use the actual Railway URL
-    return 'https://briefly-cloud-production.up.railway.app';
+    return 'https://web-production-375ea.up.railway.app';
   }
   
   // Fallback for Electron or other environments
