@@ -6,24 +6,24 @@ Transform your documents into intelligent conversations with AI — powered by G
 
 ## Overview
 
-**Briefly Cloud** is a desktop and cloud AI productivity assistant that enables intelligent conversations with your documents. It supports both OpenAI GPT-4 Turbo and local LLMs, document upload, smart search, and seamless cloud integration with Google Drive & OneDrive.
+**Briefly Cloud** is a unified Next.js AI productivity assistant that enables intelligent conversations with your documents. Built with a modern TypeScript architecture, it eliminates CORS issues and provides seamless integration between frontend and backend functionality. Supports OpenAI GPT-4 Turbo, document upload, smart search, and cloud integration with Google Drive & OneDrive.
 
 ---
 
 ## ✨ Key Features
 
-- 🤖 **Dual AI Support**: OpenAI GPT-4 Turbo or local language models (llama.cpp compatible)
+- 🤖 **AI Integration**: OpenAI GPT-4 Turbo with BYOK (Bring Your Own Key) support
 - 📄 **Multi-Format Support**: PDF, DOCX, TXT, MD, CSV, XLSX, PPTX and more
 - 🔍 **Vector Search**: ChromaDB-powered semantic search across documents
-- 📁 **Local File Processing**: Folder indexing and direct upload
-- ☁️ **Cloud Integration**: Google Drive and OneDrive OAuth
-- 🛡️ **Authentication**: Supabase-powered user management
+- 📁 **File Processing**: Direct upload and cloud storage integration
+- ☁️ **Cloud Integration**: Google Drive and OneDrive OAuth via NextAuth.js
+- 🛡️ **Authentication**: NextAuth.js with Supabase backend
 - 💳 **Subscription System**: Stripe billing with Free, Pro, and Pro BYOK tiers
-- 🖥️ **Desktop App**: Electron-wrapped for cross-platform deployment
-- 🧠 **LLM Management**: Local model selection & control
+- 🚀 **Unified Architecture**: Next.js 14 with App Router (no CORS issues)
+- 🔒 **Type Safety**: End-to-end TypeScript from frontend to API routes
 - 🚦 **Usage Tracking**: Tier-based limits and monitoring
-- 🧑‍💻 **Onboarding**: Guided setup for new users
-- 📱 **PWA**: Installable & mobile-ready
+- 🧑‍💻 **Developer Experience**: Single codebase with hot reload
+- 📱 **PWA Ready**: Installable & mobile-optimized
 
 ---
 
@@ -45,29 +45,43 @@ Transform your documents into intelligent conversations with AI — powered by G
 ### Prerequisites
 
 - Node.js 18+ & npm
-- Python 3.11+
-- Configured .env files with your API keys
+- Configured .env.local file with your API keys
 
 ### Install & Run
 
 ```bash
-# Install all dependencies (server + client)
-npm run install-all
+# Install dependencies
+npm install
 
-# Start development servers (frontend + backend)
+# Copy environment template
+cp .env.example .env.local
+
+# Start unified development server
 npm run dev
+```
 
-Access the app: http://localhost:5173
+Access the app: http://localhost:3000
 
-API docs: http://localhost:8000/docs
+API routes available at: http://localhost:3000/api/*
 
+### Project Structure
+
+```
 Briefly_Cloud/
-├── client/         # React frontend (Vite + TypeScript)
-├── server/         # FastAPI backend & routes
-├── tests/          # Test suites
-├── Docs/           # Project documentation & specs
-├── SETUP_GUIDE.md  # Setup & environment instructions
-└── README.md
+├── app/                    # Next.js App Router
+│   ├── api/               # API route handlers
+│   │   ├── auth/          # NextAuth.js authentication
+│   │   ├── upload/        # File upload endpoints
+│   │   ├── embed/         # Document processing
+│   │   ├── chat/          # AI chat functionality
+│   │   └── storage/       # Cloud storage integration
+│   ├── components/        # React components
+│   ├── lib/               # Utility functions
+│   └── (pages)/           # App Router pages
+├── tests/                 # Test suites (Jest + Playwright)
+├── docs/                  # Project documentation
+└── README.md              # This file
+```
 
 
  Support & Contributions
@@ -80,11 +94,32 @@ Contribute via pull requests (see CONTRIBUTING.md if available)
 📄 License
 This project is licensed under the MIT License — see the LICENSE file for details.
 
-🙏 Acknowledgments
-OpenAI — GPT-4 Turbo API
-Chroma — Vector DB backend
-Supabase — Auth & DB services
-Stripe — Payment processing
-FastAPI & React communities
+## 🏗️ Architecture
+
+**Unified Next.js Application** deployed on Vercel:
+- **Frontend**: React 18 with TypeScript and TailwindCSS
+- **Backend**: Next.js API routes with TypeScript
+- **Authentication**: NextAuth.js with Google/Microsoft OAuth
+- **Database**: Supabase PostgreSQL with Row Level Security
+- **Vector Search**: ChromaDB Cloud for document embeddings
+- **AI**: OpenAI GPT-4 Turbo with embedding generation
+- **Payments**: Stripe for subscription management
+
+## 📚 Documentation
+
+- [Development Setup](docs/DEVELOPMENT_SETUP.md) - Complete setup guide
+- [Migration Guide](docs/MIGRATION_GUIDE.md) - Migration from legacy architecture
+- [API Reference](docs/API_REFERENCE.md) - API endpoints documentation
+- [OAuth Setup](OAUTH_SETUP_GUIDE.md) - OAuth provider configuration
+
+## 🙏 Acknowledgments
+
+- **OpenAI** — GPT-4 Turbo API & Embeddings
+- **Vercel** — Unified deployment platform
+- **Next.js** — Full-stack React framework
+- **ChromaDB** — Vector database backend
+- **Supabase** — Auth & database services
+- **Stripe** — Payment processing
+- **NextAuth.js** — Authentication library
 
 Built with ❤️ by RekonnLabs — transforming knowledge work with AI.

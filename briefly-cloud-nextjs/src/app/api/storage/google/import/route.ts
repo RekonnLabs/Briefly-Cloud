@@ -1,0 +1,85 @@
+import { NextResponse } from 'next/server'
+import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
+import { ApiResponse } from '@/app/lib/api-utils'
+import { rateLimitConfigs } from '@/app/lib/rate-limit'
+import { google } from 'googleapis'
+import { createClient } from '@supabase/supabase-js'
+import { extractTextFromBuffer } from '@/app/lib/document-extractor'
+import { createTextChunks } from '@/app/lib/document-extractor'
+import { storeDocumentChunks } from '@/app/lib/document-chunker'
+import { createEmbeddingsService } from '@/app/lib/embeddings'
+import { storeDocumentVectors } from '@/app/lib/vector-storage'
+
+const schema = {
+  // Expect { fileId: string }
+}
+
+async function importGoogleFileHandler(request: Request, context: ApiContext): Promise<NextResponse> {
+  const { user } = context
+  if (!user) return ApiResponse.unauthorized('User not authenticated')
+  const body = await request.json().catch(() => ({})) as { fileId?: string }
+  if (!body.fileId) return ApiResponse.badRequest('fileId is required')
+
+  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+  const { data: token } = await supabase
+    .from('oauth_tokens')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('provider', 'google')
+    .single()
+
+  if (!token?.access_token) return ApiResponse.badRequest('Google account not connected')
+
+  const oauth2Client = new google.auth.OAuth2()
+  oauth2Client.setCredentials({ access_token: token.access_token, refresh_token: token.refresh_token })
+  const drive = google.drive({ version: 'v3', auth: oauth2Client })
+
+  // Get file metadata
+  const meta = await drive.files.get({ fileId: body.fileId, fields: 'id, name, mimeType, size' })
+  // Download file content
+  const res = await drive.files.get({ fileId: body.fileId, alt: 'media' }, { responseType: 'arraybuffer' })
+  const buffer = Buffer.from(res.data as ArrayBuffer)
+
+  // Create file metadata row
+  const { data: created } = await supabase
+    .from('file_metadata')
+    .insert({
+      user_id: user.id,
+      name: meta.data.name,
+      path: `google:${meta.data.id}`,
+      size: Number(meta.data.size || buffer.byteLength),
+      mime_type: meta.data.mimeType,
+      source: 'google',
+      external_id: meta.data.id,
+      external_url: `https://drive.google.com/file/d/${meta.data.id}/view`,
+      processed: false,
+      processing_status: 'pending',
+      metadata: { provider: 'google' },
+    })
+    .select()
+    .single()
+
+  const fileId = created.id
+  // Extract text → chunks → embeddings → store
+  const extraction = await extractTextFromBuffer(buffer, meta.data.mimeType!, meta.data.name!)
+  const chunks = createTextChunks(extraction.text, fileId, meta.data.name!, meta.data.mimeType!, 1000)
+  await storeDocumentChunks(chunks as any, user.id, fileId)
+
+  const embeddings = await createEmbeddingsService().generateBatchEmbeddings(chunks.map(c => c.content))
+  await storeDocumentVectors(chunks as any, embeddings.embeddings.map(e => e.embedding), user.id, meta.data.name!)
+
+  await supabase
+    .from('file_metadata')
+    .update({ processed: true, processing_status: 'completed' })
+    .eq('id', fileId)
+
+  return ApiResponse.success({ file_id: fileId, name: meta.data.name })
+}
+
+export const POST = createProtectedApiHandler(importGoogleFileHandler, {
+  rateLimit: rateLimitConfigs.embedding,
+  logging: { enabled: true, includeBody: true },
+})
+
+
+

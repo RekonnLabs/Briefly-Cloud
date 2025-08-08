@@ -1,0 +1,69 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import AuthForm from '@/app/components/auth/AuthForm'
+
+export default function SignInPage() {
+  const router = useRouter()
+
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data.token) {
+          // Store token for legacy compatibility
+          localStorage.setItem('supabase_token', data.data.token)
+          router.push('/')
+        } else {
+          throw new Error(data.error || 'Login failed')
+        }
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Login failed')
+      }
+    } catch (error) {
+      console.error('Login failed:', error)
+      throw error
+    }
+  }
+
+  const handleSignup = async (email: string, password: string) => {
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (!data.success) {
+          throw new Error(data.error || 'Signup failed')
+        }
+        // Success message will be shown by the AuthForm component
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Signup failed')
+      }
+    } catch (error) {
+      console.error('Signup failed:', error)
+      throw error
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+      <AuthForm onLogin={handleLogin} onSignup={handleSignup} />
+    </div>
+  )
+}
