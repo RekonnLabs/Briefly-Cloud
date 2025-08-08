@@ -1,0 +1,203 @@
+{
+  "security": [
+    {
+      "name": "Environment Variables Security",
+      "status": "ERROR",
+      "critical": true,
+      "error": "Missing required environment variable: NEXTAUTH_SECRET"
+    },
+    {
+      "name": "API Security Headers",
+      "status": "PASSED",
+      "critical": true,
+      "details": true
+    },
+    {
+      "name": "Authentication Configuration",
+      "status": "ERROR",
+      "critical": true,
+      "error": "Auth configuration file not found"
+    },
+    {
+      "name": "Input Validation",
+      "status": "ERROR",
+      "critical": true,
+      "error": "Validation schemas directory not found"
+    },
+    {
+      "name": "HTTPS Enforcement",
+      "status": "PASSED",
+      "critical": true,
+      "details": true
+    }
+  ],
+  "performance": [
+    {
+      "name": "Bundle Size Analysis",
+      "status": "PASSED",
+      "critical": false,
+      "metrics": {
+        "estimatedSize": "1.9MB"
+      },
+      "details": "Bundle size within acceptable limits"
+    },
+    {
+      "name": "API Response Times",
+      "status": "PASSED",
+      "critical": true,
+      "metrics": {
+        "responseTime": "105ms"
+      },
+      "details": "API response time: 105ms"
+    },
+    {
+      "name": "Database Query Performance",
+      "status": "PASSED",
+      "critical": true,
+      "metrics": {
+        "avgQueryTime": "45ms"
+      },
+      "details": "Database queries performing within acceptable limits"
+    },
+    {
+      "name": "Memory Usage Optimization",
+      "status": "PASSED",
+      "critical": false,
+      "metrics": {
+        "heapUsed": "5MB"
+      },
+      "details": "Current heap usage: 5MB"
+    },
+    {
+      "name": "Caching Configuration",
+      "status": "WARNING",
+      "critical": false,
+      "details": "Next.js config file not found"
+    }
+  ],
+  "api": [
+    {
+      "endpoint": "/api/health",
+      "method": "GET",
+      "status": "PASSED",
+      "responseTime": 142,
+      "statusCode": 200
+    },
+    {
+      "endpoint": "/api/auth/session",
+      "method": "GET",
+      "status": "PASSED",
+      "responseTime": 126,
+      "statusCode": 200
+    },
+    {
+      "endpoint": "/api/upload",
+      "method": "POST",
+      "status": "FAILED",
+      "responseTime": 187,
+      "statusCode": 401
+    },
+    {
+      "endpoint": "/api/chat",
+      "method": "POST",
+      "status": "FAILED",
+      "responseTime": 127,
+      "statusCode": 401
+    },
+    {
+      "endpoint": "/api/search",
+      "method": "POST",
+      "status": "FAILED",
+      "responseTime": 188,
+      "statusCode": 401
+    }
+  ],
+  "database": [
+    {
+      "name": "Supabase Connection",
+      "status": "ERROR",
+      "critical": true,
+      "error": "Supabase configuration missing"
+    },
+    {
+      "name": "Database Schema",
+      "status": "PASSED",
+      "critical": true,
+      "details": true
+    },
+    {
+      "name": "Index Performance",
+      "status": "PASSED",
+      "critical": false,
+      "details": true
+    },
+    {
+      "name": "Connection Pool",
+      "status": "PASSED",
+      "critical": true,
+      "details": true
+    }
+  ],
+  "services": [
+    {
+      "name": "OpenAI API",
+      "status": "ERROR",
+      "critical": true,
+      "error": "OpenAI API key not configured"
+    },
+    {
+      "name": "Stripe API",
+      "status": "ERROR",
+      "critical": true,
+      "error": "Stripe API key not configured"
+    },
+    {
+      "name": "Google APIs",
+      "status": "WARNING",
+      "critical": false,
+      "responseTime": 186,
+      "details": "Google APIs configuration checked"
+    },
+    {
+      "name": "Microsoft Graph",
+      "status": "WARNING",
+      "critical": false,
+      "responseTime": 172,
+      "details": "Microsoft Graph configuration checked"
+    },
+    {
+      "name": "ChromaDB",
+      "status": "PASSED",
+      "critical": true,
+      "responseTime": 208,
+      "details": "ChromaDB connection successful"
+    }
+  ],
+  "config": [
+    {
+      "name": "Required Environment Variables",
+      "status": "ERROR",
+      "critical": true,
+      "error": "Missing required environment variables: NEXTAUTH_SECRET, NEXTAUTH_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY"
+    },
+    {
+      "name": "Next.js Configuration",
+      "status": "FAILED",
+      "critical": true,
+      "details": false
+    },
+    {
+      "name": "TypeScript Configuration",
+      "status": "PASSED",
+      "critical": false,
+      "details": true
+    },
+    {
+      "name": "Package Dependencies",
+      "status": "PASSED",
+      "critical": true,
+      "details": true
+    }
+  ],
+  "overall": "PENDING"
+}
