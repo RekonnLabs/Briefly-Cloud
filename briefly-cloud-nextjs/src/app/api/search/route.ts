@@ -4,6 +4,8 @@ import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
+import { cacheManager, CACHE_KEYS, withCache } from '@/app/lib/cache'
+import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/performance'
 
 const searchSchema = z.object({
   query: z.string().min(1).max(500),
@@ -22,23 +24,46 @@ async function searchHandler(request: Request, context: ApiContext): Promise<Nex
 
   const { query, limit, threshold, fileIds } = parsed.data
 
-  const results = await searchDocumentContext(query, user.id, {
-    limit,
-    threshold,
-    fileIds,
-  })
+  // Create cache key for this search
+  const cacheKey = CACHE_KEYS.SEARCH_RESULTS(query, user.id)
+  
+  // Try to get cached results first
+  const cachedResults = cacheManager.get(cacheKey)
+  if (cachedResults) {
+    return ApiResponse.success({
+      query,
+      results: cachedResults,
+      count: cachedResults.length,
+      cached: true,
+    })
+  }
+
+  // Perform search with performance monitoring
+  const results = await withApiPerformanceMonitoring(() =>
+    searchDocumentContext(query, user.id, {
+      limit,
+      threshold,
+      fileIds,
+    })
+  )
+
+  // Cache results for 5 minutes
+  cacheManager.set(cacheKey, results, 1000 * 60 * 5)
 
   return ApiResponse.success({
     query,
     results,
     count: results.length,
+    cached: false,
   })
 }
 
-export const POST = createProtectedApiHandler(searchHandler, {
-  rateLimit: rateLimitConfigs.general,
-  logging: { enabled: true, includeBody: true },
-})
+export const POST = withPerformanceMonitoring(
+  createProtectedApiHandler(searchHandler, {
+    rateLimit: rateLimitConfigs.general,
+    logging: { enabled: true, includeBody: true },
+  })
+)
 
 
 

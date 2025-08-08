@@ -5,6 +5,8 @@ import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { createClient } from '@supabase/supabase-js'
 import { logApiUsage } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
+import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
+import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/performance'
 
 // Supported file types and their MIME types
 const SUPPORTED_FILE_TYPES = {
@@ -68,12 +70,28 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       return ApiResponse.badRequest('No file provided')
     }
     
-    // Get user's current tier and usage
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('subscription_tier, documents_uploaded, documents_limit, storage_used_bytes, storage_limit_bytes')
-      .eq('id', user.id)
-      .single()
+    // Get user's current tier and usage with caching
+    const userProfileKey = CACHE_KEYS.USER_PROFILE(user.id)
+    let userProfile = cacheManager.get(userProfileKey)
+    
+    if (!userProfile) {
+      const { data, error: profileError } = await withApiPerformanceMonitoring(() =>
+        supabase
+          .from('users')
+          .select('subscription_tier, documents_uploaded, documents_limit, storage_used_bytes, storage_limit_bytes')
+          .eq('id', user.id)
+          .single()
+      )
+      
+      if (profileError) {
+        console.error('Profile fetch error:', profileError)
+        return ApiResponse.internalError('Failed to fetch user profile')
+      }
+      
+      userProfile = data
+      // Cache user profile for 5 minutes
+      cacheManager.set(userProfileKey, userProfile, 1000 * 60 * 5)
+    }
     
     if (profileError) {
       console.error('Profile fetch error:', profileError)
@@ -193,19 +211,24 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     }
     
     // Update user usage statistics
-    const { error: usageError } = await supabase
-      .from('users')
-      .update({
-        documents_uploaded: currentFileCount + 1,
-        storage_used_bytes: currentStorage + file.size,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id)
+    const { error: usageError } = await withApiPerformanceMonitoring(() =>
+      supabase
+        .from('users')
+        .update({
+          documents_uploaded: currentFileCount + 1,
+          storage_used_bytes: currentStorage + file.size,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+    )
     
     if (usageError) {
       console.error('Usage update error:', usageError)
       // Don't fail the upload for this, just log it
     }
+    
+    // Invalidate user profile cache after update
+    cacheManager.delete(userProfileKey)
     
     // Log usage for analytics
     logApiUsage(user.id, '/api/upload', 'file_upload', {
@@ -306,19 +329,23 @@ async function getUploadInfoHandler(request: Request, context: ApiContext): Prom
   }
 }
 
-// Export handlers with middleware
-export const POST = createProtectedApiHandler(uploadHandler, {
-  rateLimit: rateLimitConfigs.upload,
-  logging: {
-    enabled: true,
-    includeBody: false, // Don't log file content
-  },
-})
+// Export handlers with middleware and performance monitoring
+export const POST = withPerformanceMonitoring(
+  createProtectedApiHandler(uploadHandler, {
+    rateLimit: rateLimitConfigs.upload,
+    logging: {
+      enabled: true,
+      includeBody: false, // Don't log file content
+    },
+  })
+)
 
-export const GET = createProtectedApiHandler(getUploadInfoHandler, {
-  rateLimit: rateLimitConfigs.general,
-  logging: {
-    enabled: true,
-    includeBody: false,
-  },
-})
+export const GET = withPerformanceMonitoring(
+  createProtectedApiHandler(getUploadInfoHandler, {
+    rateLimit: rateLimitConfigs.general,
+    logging: {
+      enabled: true,
+      includeBody: false,
+    },
+  })
+)

@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
 import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '@/app/lib/openai'
 import { createClient } from '@supabase/supabase-js'
+import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
+import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/performance'
 
 const chatSchema = z.object({
   message: z.string().min(1).max(2000),
@@ -43,11 +45,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       .insert({ conversation_id: convoId, role: 'user', content: message })
   }
 
-  // Retrieve context via vector search
-  const contextResults = await searchDocumentContext(message, user.id, {
-    limit: 5,
-    threshold: 0.7,
-  })
+  // Retrieve context via vector search with performance monitoring
+  const contextResults = await withApiPerformanceMonitoring(() =>
+    searchDocumentContext(message, user.id, {
+      limit: 5,
+      threshold: 0.7,
+    })
+  )
 
   const contextText = contextResults
     .map((r, i) => `Source ${i + 1} [${r.fileName} #${r.chunkIndex} | score=${r.relevanceScore.toFixed(2)}]\n${r.content}`)
@@ -63,7 +67,10 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   const tier = (user.subscription_tier || 'free') as SubscriptionTier
 
   if (stream) {
-    const streamResp = await streamChatCompletion(messages, tier)
+    const streamResp = await withApiPerformanceMonitoring(() =>
+      streamChatCompletion(messages, tier)
+    )
+    
     // Pipe through a basic text stream response
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
@@ -83,12 +90,24 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     })
   }
 
-  const completion = await generateChatCompletion(messages, tier)
+  const completion = await withApiPerformanceMonitoring(() =>
+    generateChatCompletion(messages, tier)
+  )
 
   if (convoId) {
     await supabase
       .from('chat_messages')
-      .insert({ conversation_id: convoId, role: 'assistant', content: completion, sources: contextResults.map(r => ({ file_id: r.fileId, file_name: r.fileName, chunk_index: r.chunkIndex, relevance_score: r.relevanceScore })) })
+      .insert({ 
+        conversation_id: convoId, 
+        role: 'assistant', 
+        content: completion, 
+        sources: contextResults.map(r => ({ 
+          file_id: r.fileId, 
+          file_name: r.fileName, 
+          chunk_index: r.chunkIndex, 
+          relevance_score: r.relevanceScore 
+        })) 
+      })
   }
 
   return ApiResponse.success({
@@ -98,10 +117,12 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   })
 }
 
-export const POST = createProtectedApiHandler(chatHandler, {
-  rateLimit: rateLimitConfigs.chat,
-  logging: { enabled: true, includeBody: true },
-})
+export const POST = withPerformanceMonitoring(
+  createProtectedApiHandler(chatHandler, {
+    rateLimit: rateLimitConfigs.chat,
+    logging: { enabled: true, includeBody: true },
+  })
+)
 
 
 
