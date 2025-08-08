@@ -1,38 +1,38 @@
 {
   "name": "briefly-cloud",
-  "version": "1.0.0",
-  "description": "Cloud-based AI productivity assistant powered by GPT-4 Turbo",
+  "version": "2.0.0",
+  "description": "AI-powered productivity assistant with unified Next.js architecture",
   "scripts": {
-    "dev": "concurrently \"cd client && npm run dev\" \"cd server && python main.py\"",
-    "build": "cd client && npm run build",
-    "preview": "cd client && npm run preview",
-    "install-all": "npm install && cd client && npm install && cd ../server && pip install -r requirements.txt",
-    "start": "npm run dev",
-    "test": "cd tests && python -m pytest",
-    "test-api": "python tests/test_api_keys.py",
-    "test-integration": "python tests/test_complete_integration.py"
+    "dev": "cd briefly-cloud-nextjs && npm run dev",
+    "build": "cd briefly-cloud-nextjs && npm run build",
+    "start": "cd briefly-cloud-nextjs && npm run start",
+    "install-all": "cd briefly-cloud-nextjs && npm install",
+    "test": "cd briefly-cloud-nextjs && npm run test",
+    "test:e2e": "cd briefly-cloud-nextjs && npm run test:e2e",
+    "lint": "cd briefly-cloud-nextjs && npm run lint",
+    "type-check": "cd briefly-cloud-nextjs && npm run type-check"
   },
   "keywords": [
     "productivity",
     "assistant",
     "ai",
-    "cloud",
+    "nextjs",
+    "typescript",
+    "openai",
     "gpt-4-turbo",
     "document-processing",
     "vector-search",
-    "chat"
+    "chat",
+    "supabase",
+    "vercel"
   ],
-  "author": "Briefly Cloud Team",
+  "author": "RekonnLabs",
   "license": "MIT",
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  },
-  "dependencies": {
-    "axios": "^1.6.5"
-  },
   "engines": {
-    "node": ">=18.0.0",
-    "python": ">=3.11.0"
-  }
+    "node": ">=18.0.0"
+  },
+  "workspaces": [
+    "briefly-cloud-nextjs"
+  ]
 }
 

@@ -1,48 +1,54 @@
-# Node.js
+# Dependencies
 node_modules/
-dist/
-.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Python
-__pycache__/
-*.pyc
-env/
-venv/
-
-# Models (local/desktop)
-resources/models/
-*.gguf
-*.bin
-
-# Supabase local dev
-.supabase/
-
-# Chat memory / runtime
-conversations.json
-settings.json
-*.sqlite
-
-# Electron / Tauri packaging
+# Next.js
+.next/
 out/
-*.asar
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output
+.jest/
+
+# Build artifacts
+dist/
+build/
 
 # IDE / OS
 .DS_Store
 *.log
 *.bak
-
-# VS Code
 .vscode/
 
-# dotenv
-.env
+# Supabase
+.supabase/
+
+# Legacy Python backup
+legacy-python-backup/
 
 # Temporary/Debug files
 *_FIX*.md
 *_EMERGENCY*.md
 TESTING_*.md
 TROUBLESHOOTING*.md
-debug_*.py
 test_*.html
 fix-*.bat
 fix_*.sql
@@ -53,32 +59,10 @@ data/
 uploads/
 logs/
 test_files/
-indexed_files.json
 
-# Build artifacts
-dist/
-build/
-
-# Large directories and files
-LLM Models/
-backups/
+# Large files
 *.zip
 *.tar
 *.tar.gz
 *.rar
 *.7z
-
-# Jupyter notebooks
-*.ipynb
-.ipynb_checkpoints/
-
-# Additional Python cache
-*.pyo
-*.pyd
-.Python
-*.so
-.pytest_cache/
-.coverage
-htmlcov/
-
-.env.railway
