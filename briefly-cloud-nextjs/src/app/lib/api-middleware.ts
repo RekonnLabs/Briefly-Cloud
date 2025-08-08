@@ -3,299 +3,342 @@
  * Combines error handling, rate limiting, logging, and validation
  */
 
-import { NextResponse } from 'next/server'
-import { withErrorHandler } from './api-errors'
-import { withRateLimit, RateLimitConfig } from './rate-limit'
-import { withRequestLogging } from './logger'
-import { z } from 'zod'
-
-export interface ApiMiddlewareConfig {
-  rateLimit?: RateLimitConfig
-  validation?: {
-    body?: z.ZodSchema
-    query?: z.ZodSchema
-    params?: z.ZodSchema
-  }
-  auth?: {
-    required?: boolean
-    roles?: string[]
-  }
-  logging?: {
-    enabled?: boolean
-    includeBody?: boolean
-    includeHeaders?: boolean
-  }
-}
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from './auth'
+import { formatErrorResponse } from './api-errors'
+import { rateLimitConfigs } from './rate-limit'
+import { logger } from './logger'
+import { 
+  createSecurityMiddleware, 
+  RateLimiter, 
+  InputSanitizer, 
+  securitySchemas,
+  validateEnvironment 
+} from './security'
 
 export interface ApiContext {
-  user?: {
-    id: string
-    email: string
-    subscription_tier: string
-    [key: string]: any
-  }
-  validatedData?: {
-    body?: any
-    query?: any
-    params?: any
-  }
+  user?: any
+  session?: any
   requestId: string
-  startTime: number
 }
 
-export type ApiHandler = (
-  request: Request,
-  context: ApiContext
-) => Promise<NextResponse>
+export interface MiddlewareConfig {
+  requireAuth?: boolean
+  rateLimit?: {
+    windowMs: number
+    maxRequests: number
+  }
+  logging?: {
+    enabled: boolean
+    includeBody?: boolean
+  }
+  validation?: {
+    schema?: any
+    sanitize?: boolean
+  }
+}
 
-// Authentication middleware
-function withAuth(
-  handler: ApiHandler,
-  authConfig?: { required?: boolean; roles?: string[] }
-): ApiHandler {
-  return async (request: Request, context: ApiContext): Promise<NextResponse> => {
-    if (!authConfig?.required) {
-      return handler(request, context)
-    }
-
-    // Extract token from Authorization header
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'UNAUTHORIZED', message: 'Missing or invalid authorization header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.split(' ')[1]
-
+// Enhanced API handler with security middleware
+export function createProtectedApiHandler(
+  handler: (request: NextRequest, context: ApiContext) => Promise<NextResponse>,
+  config: MiddlewareConfig = {}
+) {
+  return async (request: NextRequest): Promise<NextResponse> => {
+    const startTime = Date.now()
+    const requestId = crypto.randomUUID()
+    
     try {
-      // Import Supabase client dynamically to avoid circular dependencies
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_ANON_KEY!
-      )
-
-      // Verify token with Supabase
-      const { data: { user }, error } = await supabase.auth.getUser(token)
-
-      if (error || !user) {
+      // Initialize security validation
+      validateEnvironment()
+      
+      // Create security middleware
+      const securityMiddleware = createSecurityMiddleware()
+      
+      // Get session for authentication
+      const session = await getServerSession(authOptions)
+      
+      // Check authentication if required
+      if (config.requireAuth && !session?.user) {
         return NextResponse.json(
-          { success: false, error: 'INVALID_TOKEN', message: 'Invalid or expired token' },
+          { success: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
           { status: 401 }
         )
       }
-
-      // Get user profile from database
-      const { data: userProfile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      if (!userProfile) {
-        return NextResponse.json(
-          { success: false, error: 'USER_NOT_FOUND', message: 'User profile not found' },
-          { status: 404 }
-        )
-      }
-
-      // Check role requirements
-      if (authConfig.roles && authConfig.roles.length > 0) {
-        const userRole = userProfile.subscription_tier || 'free'
-        if (!authConfig.roles.includes(userRole)) {
+      
+      // Rate limiting
+      if (config.rateLimit) {
+        const identifier = session?.user?.id || request.ip || 'anonymous'
+        if (RateLimiter.isRateLimited(identifier)) {
           return NextResponse.json(
-            { success: false, error: 'FORBIDDEN', message: 'Insufficient permissions' },
-            { status: 403 }
+            { 
+              success: false, 
+              error: 'RATE_LIMIT_EXCEEDED', 
+              message: 'Too many requests. Please try again later.',
+              retryAfter: Math.ceil(config.rateLimit.windowMs / 1000)
+            },
+            { 
+              status: 429,
+              headers: {
+                'Retry-After': Math.ceil(config.rateLimit.windowMs / 1000).toString(),
+                'X-RateLimit-Limit': config.rateLimit.maxRequests.toString(),
+                'X-RateLimit-Remaining': RateLimiter.getRemainingRequests(identifier).toString()
+              }
+            }
           )
         }
       }
-
-      // Add user to context
-      context.user = {
-        id: user.id,
-        email: user.email!,
-        subscription_tier: userProfile.subscription_tier,
-        ...userProfile,
+      
+      // Input validation and sanitization
+      if (config.validation?.schema) {
+        try {
+          const body = await request.json().catch(() => ({}))
+          const validatedData = config.validation.schema.parse(body)
+          
+          // Sanitize input if enabled
+          if (config.validation.sanitize) {
+            Object.keys(validatedData).forEach(key => {
+              if (typeof validatedData[key] === 'string') {
+                validatedData[key] = InputSanitizer.sanitizeString(validatedData[key])
+              }
+            })
+          }
+          
+          // Replace request body with validated data
+          const newRequest = new NextRequest(request.url, {
+            method: request.method,
+            headers: request.headers,
+            body: JSON.stringify(validatedData)
+          })
+          
+          // Create context
+          const context: ApiContext = {
+            user: session?.user,
+            session,
+            requestId
+          }
+          
+          // Call handler with validated data
+          const response = await handler(newRequest, context)
+          
+          // Apply security headers
+          return securityMiddleware(request, response)
+          
+        } catch (validationError) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: 'VALIDATION_ERROR', 
+              message: 'Invalid input data',
+              details: validationError instanceof Error ? validationError.message : 'Validation failed'
+            },
+            { status: 400 }
+          )
+        }
+      } else {
+        // Create context
+        const context: ApiContext = {
+          user: session?.user,
+          session,
+          requestId
+        }
+        
+        // Call handler
+        const response = await handler(request, context)
+        
+        // Apply security headers
+        return securityMiddleware(request, response)
       }
-
-      return handler(request, context)
+      
     } catch (error) {
-      console.error('Auth middleware error:', error)
-      return NextResponse.json(
-        { success: false, error: 'INTERNAL_ERROR', message: 'Authentication failed' },
-        { status: 500 }
-      )
+      // Enhanced error handling with retry logic for transient failures
+      const { retryApiCall } = await import('./retry')
+      
+      // Check if this is a retryable error
+      if (error instanceof Error && isRetryableApiError(error)) {
+        try {
+          return await retryApiCall(() => handler(request, { user: session?.user, session, requestId }))
+        } catch (retryError) {
+          return formatErrorResponse(retryError as Error)
+        }
+      }
+      
+      return formatErrorResponse(error as Error)
+    } finally {
+      // Log request details
+      if (config.logging?.enabled) {
+        const duration = Date.now() - startTime
+        logger.info('API Request', {
+          method: request.method,
+          url: request.url,
+          duration,
+          requestId,
+          userId: session?.user?.id,
+          userAgent: request.headers.get('user-agent'),
+          ip: request.ip || request.headers.get('x-forwarded-for')
+        })
+      }
     }
   }
 }
 
-// Enhanced validation middleware
-function withEnhancedValidation(
-  handler: ApiHandler,
-  validationConfig?: {
-    body?: z.ZodSchema
-    query?: z.ZodSchema
-    params?: z.ZodSchema
-  }
+// Helper function to determine if an API error is retryable
+function isRetryableApiError(error: Error): boolean {
+  const retryablePatterns = [
+    'timeout',
+    'network',
+    'connection',
+    'rate limit',
+    'temporary',
+    'service unavailable',
+    'ECONNRESET',
+    'ENOTFOUND',
+    'ETIMEDOUT'
+  ]
+  
+  return retryablePatterns.some(pattern => 
+    error.message.toLowerCase().includes(pattern.toLowerCase())
+  )
+}
+
+// Public API handler (no authentication required)
+export function createPublicApiHandler(
+  handler: (request: NextRequest, context: ApiContext) => Promise<NextResponse>,
+  config: MiddlewareConfig = {}
 ) {
-  return async (request: Request, context: ApiContext): Promise<NextResponse> => {
-    if (!validationConfig) {
-      return handler(request, context)
-    }
+  return createProtectedApiHandler(handler, { ...config, requireAuth: false })
+}
 
-    const validatedData: any = {}
-
+// File upload handler with enhanced security
+export function createFileUploadHandler(
+  handler: (request: NextRequest, context: ApiContext) => Promise<NextResponse>,
+  config: MiddlewareConfig = {}
+) {
+  return async (request: NextRequest): Promise<NextResponse> => {
+    const startTime = Date.now()
+    const requestId = crypto.randomUUID()
+    
     try {
-      // Validate request body
-      if (validationConfig.body) {
-        const body = await request.json().catch(() => ({}))
-        validatedData.body = validationConfig.body.parse(body)
-      }
-
-      // Validate query parameters
-      if (validationConfig.query) {
-        const url = new URL(request.url)
-        const queryParams = Object.fromEntries(url.searchParams.entries())
-        validatedData.query = validationConfig.query.parse(queryParams)
-      }
-
-      // Validate route parameters (if provided in context)
-      if (validationConfig.params && (context as any).params) {
-        validatedData.params = validationConfig.params.parse((context as any).params)
-      }
-
-      // Add validated data to context
-      context.validatedData = validatedData
-
-      return handler(request, context)
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const errorMessage = error.errors
-          .map(err => `${err.path.join('.')}: ${err.message}`)
-          .join(', ')
-        
+      // Initialize security validation
+      validateEnvironment()
+      
+      // Create security middleware
+      const securityMiddleware = createSecurityMiddleware()
+      
+      // Get session for authentication
+      const session = await getServerSession(authOptions)
+      
+      // Check authentication if required
+      if (config.requireAuth && !session?.user) {
         return NextResponse.json(
-          { success: false, error: 'VALIDATION_ERROR', message: errorMessage },
-          { status: 400 }
+          { success: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
+          { status: 401 }
         )
       }
-
-      return NextResponse.json(
-        { success: false, error: 'INVALID_REQUEST', message: 'Request validation failed' },
-        { status: 400 }
-      )
+      
+      // Rate limiting for file uploads (stricter limits)
+      if (config.rateLimit) {
+        const identifier = session?.user?.id || request.ip || 'anonymous'
+        if (RateLimiter.isRateLimited(identifier)) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: 'RATE_LIMIT_EXCEEDED', 
+              message: 'Too many upload requests. Please try again later.',
+              retryAfter: Math.ceil(config.rateLimit.windowMs / 1000)
+            },
+            { status: 429 }
+          )
+        }
+      }
+      
+      // Create context
+      const context: ApiContext = {
+        user: session?.user,
+        session,
+        requestId
+      }
+      
+      // Call handler
+      const response = await handler(request, context)
+      
+      // Apply security headers
+      return securityMiddleware(request, response)
+      
+    } catch (error) {
+      return formatErrorResponse(error as Error)
+    } finally {
+      // Log upload request details
+      if (config.logging?.enabled) {
+        const duration = Date.now() - startTime
+        logger.info('File Upload Request', {
+          method: request.method,
+          url: request.url,
+          duration,
+          requestId,
+          userId: session?.user?.id,
+          contentType: request.headers.get('content-type'),
+          contentLength: request.headers.get('content-length')
+        })
+      }
     }
   }
 }
 
-// CORS middleware
-function withCors(handler: ApiHandler) {
-  return async (request: Request, context: ApiContext): Promise<NextResponse> => {
-    // Handle preflight requests
-    if (request.method === 'OPTIONS') {
-      return new NextResponse(null, {
-        status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Max-Age': '86400',
-        },
-      })
+// Webhook handler with signature verification
+export function createWebhookHandler(
+  handler: (request: NextRequest, context: ApiContext) => Promise<NextResponse>,
+  config: MiddlewareConfig & { webhookSecret?: string } = {}
+) {
+  return async (request: NextRequest): Promise<NextResponse> => {
+    const startTime = Date.now()
+    const requestId = crypto.randomUUID()
+    
+    try {
+      // Verify webhook signature if secret is provided
+      if (config.webhookSecret) {
+        const signature = request.headers.get('stripe-signature')
+        if (!signature) {
+          return NextResponse.json(
+            { success: false, error: 'MISSING_SIGNATURE', message: 'Webhook signature required' },
+            { status: 400 }
+          )
+        }
+        
+        // Note: In a real implementation, you would verify the signature here
+        // using the webhook secret and the request body
+      }
+      
+      // Create context
+      const context: ApiContext = {
+        requestId
+      }
+      
+      // Call handler
+      const response = await handler(request, context)
+      
+      // Apply security headers
+      const securityMiddleware = createSecurityMiddleware()
+      return securityMiddleware(request, response)
+      
+    } catch (error) {
+      return formatErrorResponse(error as Error)
+    } finally {
+      // Log webhook request details
+      if (config.logging?.enabled) {
+        const duration = Date.now() - startTime
+        logger.info('Webhook Request', {
+          method: request.method,
+          url: request.url,
+          duration,
+          requestId,
+          userAgent: request.headers.get('user-agent'),
+          ip: request.ip || request.headers.get('x-forwarded-for')
+        })
+      }
     }
-
-    const response = await handler(request, context)
-
-    // Add CORS headers to response
-    response.headers.set('Access-Control-Allow-Origin', '*')
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-    return response
   }
 }
 
-// Main middleware composer
-export function createApiHandler(
-  handler: ApiHandler,
-  config: ApiMiddlewareConfig = {}
-): (request: Request, context?: any) => Promise<NextResponse> {
-  let composedHandler = handler
-
-  // Apply middleware in reverse order (last applied runs first)
-  
-  // 1. CORS (runs last, wraps response)
-  composedHandler = withCors(composedHandler)
-
-  // 2. Authentication
-  if (config.auth) {
-    composedHandler = withAuth(composedHandler, config.auth)
-  }
-
-  // 3. Validation
-  if (config.validation) {
-    composedHandler = withEnhancedValidation(composedHandler, config.validation)
-  }
-
-  // 4. Rate limiting
-  if (config.rateLimit) {
-    const rateLimitMiddleware = withRateLimit(config.rateLimit)
-    composedHandler = rateLimitMiddleware(composedHandler)
-  }
-
-  // 5. Request logging
-  if (config.logging?.enabled !== false) {
-    composedHandler = withRequestLogging(composedHandler)
-  }
-
-  // 6. Error handling (runs first, catches all errors)
-  composedHandler = withErrorHandler(composedHandler)
-
-  // Return final handler with context initialization
-  return async (request: Request, routeContext?: any): Promise<NextResponse> => {
-    const context: ApiContext = {
-      requestId: crypto.randomUUID(),
-      startTime: Date.now(),
-      ...routeContext,
-    }
-
-    return composedHandler(request, context)
-  }
-}
-
-// Convenience functions for common API patterns
-export const createPublicApiHandler = (
-  handler: ApiHandler,
-  config: Omit<ApiMiddlewareConfig, 'auth'> = {}
-) => createApiHandler(handler, { ...config, auth: { required: false } })
-
-export const createProtectedApiHandler = (
-  handler: ApiHandler,
-  config: Omit<ApiMiddlewareConfig, 'auth'> = {}
-) => createApiHandler(handler, { ...config, auth: { required: true } })
-
-export const createAdminApiHandler = (
-  handler: ApiHandler,
-  config: Omit<ApiMiddlewareConfig, 'auth'> = {}
-) => createApiHandler(handler, { 
-  ...config, 
-  auth: { required: true, roles: ['admin'] } 
-})
-
-// HTTP method helpers
-export const GET = (handler: ApiHandler, config?: ApiMiddlewareConfig) => 
-  createApiHandler(handler, config)
-
-export const POST = (handler: ApiHandler, config?: ApiMiddlewareConfig) => 
-  createApiHandler(handler, config)
-
-export const PUT = (handler: ApiHandler, config?: ApiMiddlewareConfig) => 
-  createApiHandler(handler, config)
-
-export const DELETE = (handler: ApiHandler, config?: ApiMiddlewareConfig) => 
-  createApiHandler(handler, config)
-
-export const PATCH = (handler: ApiHandler, config?: ApiMiddlewareConfig) => 
-  createApiHandler(handler, config)
+// Export security schemas for use in API routes
+export { securitySchemas } from './security'

@@ -111,19 +111,16 @@ export function formatErrorResponse(error: AppError | Error): NextResponse {
       ...(error.details && { details: error.details })
     }
     
-    // Log error for monitoring
-    console.error(`API Error [${error.code}]:`, {
-      message: error.message,
-      statusCode: error.statusCode,
-      details: error.details,
-      stack: error.stack
-    })
+    // Enhanced error logging with monitoring
+    const { captureApiError } = await import('./error-monitoring')
+    captureApiError(error, 'api-error', undefined, crypto.randomUUID())
     
     return NextResponse.json(response, { status: error.statusCode })
   }
   
   // Handle unexpected errors
-  console.error('Unexpected API Error:', error)
+  const { captureApiError } = await import('./error-monitoring')
+  captureApiError(error, 'api-error', undefined, crypto.randomUUID())
   
   return NextResponse.json(
     {
@@ -154,9 +151,40 @@ export function withErrorHandler(
     try {
       return await handler(request, context)
     } catch (error) {
+      // Enhanced error handling with retry logic for transient failures
+      const { retryApiCall } = await import('./retry')
+      
+      // Check if this is a retryable error
+      if (error instanceof Error && isRetryableApiError(error)) {
+        try {
+          return await retryApiCall(() => handler(request, context))
+        } catch (retryError) {
+          return formatErrorResponse(retryError as Error)
+        }
+      }
+      
       return formatErrorResponse(error as Error)
     }
   }
+}
+
+// Helper function to determine if an API error is retryable
+function isRetryableApiError(error: Error): boolean {
+  const retryablePatterns = [
+    'timeout',
+    'network',
+    'connection',
+    'rate limit',
+    'temporary',
+    'service unavailable',
+    'ECONNRESET',
+    'ENOTFOUND',
+    'ETIMEDOUT'
+  ]
+  
+  return retryablePatterns.some(pattern => 
+    error.message.toLowerCase().includes(pattern.toLowerCase())
+  )
 }
 
 // Async error handler for promises
