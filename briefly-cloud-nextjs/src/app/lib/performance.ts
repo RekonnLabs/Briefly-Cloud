@@ -280,23 +280,21 @@ export async function withQueryOptimization<T>(
 }
 
 // External API call performance wrapper
-export function withApiPerformanceMonitoring<T>(
+export async function withApiPerformanceMonitoring<T>(
   apiCall: () => Promise<T>
 ): Promise<T> {
-  return async () => {
-    const startTime = Date.now()
+  const startTime = Date.now()
+  
+  try {
+    const result = await apiCall()
     
-    try {
-      const result = await apiCall()
-      
-      PerformanceMonitor.recordExternalApiCall(Date.now() - startTime)
-      
-      return result
-    } catch (error) {
-      PerformanceMonitor.recordError()
-      throw error
-    }
-  }()
+    PerformanceMonitor.recordExternalApiCall(Date.now() - startTime)
+    
+    return result
+  } catch (error) {
+    PerformanceMonitor.recordError()
+    throw error
+  }
 }
 
 // Performance monitoring API endpoint
