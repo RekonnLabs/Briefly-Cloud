@@ -104,6 +104,7 @@ export function HealthCheck() {
 - **Invocations**: 100,000 per month
 - **Duration**: 10 seconds max
 - **Memory**: 1024 MB max
+- **Regions**: 1 region only (multi-region requires Pro/Enterprise)
 
 ### Bandwidth
 - **Bandwidth**: 100 GB per month

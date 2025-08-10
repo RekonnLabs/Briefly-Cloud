@@ -69,7 +69,7 @@ if [ ! -f "briefly-cloud-nextjs/vercel.json" ]; then
   "env": {
     "NODE_ENV": "production"
   },
-  "regions": ["iad1", "sfo1", "lhr1"],
+  "regions": ["iad1"],
   "headers": [
     {
       "source": "/(.*)",
