@@ -255,30 +255,28 @@ export function withPerformanceMonitoring(
 }
 
 // Database query performance wrapper
-export function withQueryOptimization<T>(
+export async function withQueryOptimization<T>(
   queryFn: () => Promise<T>,
   sql?: string,
   params?: any[]
 ): Promise<T> {
-  return async () => {
-    const startTime = Date.now()
-    
-    try {
-      let optimizedSql = sql
-      if (sql) {
-        optimizedSql = QueryOptimizer.optimizeQuery(sql)
-      }
-      
-      const result = await queryFn()
-      
-      PerformanceMonitor.recordDatabaseQuery(Date.now() - startTime)
-      
-      return result
-    } catch (error) {
-      PerformanceMonitor.recordError()
-      throw error
+  const startTime = Date.now()
+  
+  try {
+    let optimizedSql = sql
+    if (sql) {
+      optimizedSql = QueryOptimizer.optimizeQuery(sql)
     }
-  }()
+    
+    const result = await queryFn()
+    
+    PerformanceMonitor.recordDatabaseQuery(Date.now() - startTime)
+    
+    return result
+  } catch (error) {
+    PerformanceMonitor.recordError()
+    throw error
+  }
 }
 
 // External API call performance wrapper

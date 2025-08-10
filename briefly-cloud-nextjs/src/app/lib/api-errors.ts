@@ -102,7 +102,7 @@ export const createError = {
 }
 
 // Error response formatter
-export function formatErrorResponse(error: AppError | Error): NextResponse {
+export async function formatErrorResponse(error: AppError | Error): Promise<NextResponse> {
   if (error instanceof AppError) {
     const response = {
       success: false,
