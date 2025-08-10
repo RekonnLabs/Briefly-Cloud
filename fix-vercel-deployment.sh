@@ -95,10 +95,6 @@ if [ ! -f "briefly-cloud-nextjs/vercel.json" ]; then
   ],
   "crons": [
     {
-      "path": "/api/cron/health-check",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/cron/gdpr-cleanup", 
       "schedule": "0 2 * * *"
     }
