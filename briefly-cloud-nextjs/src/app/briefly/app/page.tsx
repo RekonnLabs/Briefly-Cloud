@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FileUpload } from '@/app/components/FileUpload';
@@ -10,7 +10,7 @@ import { SubscriptionStatus } from '@/app/components/SubscriptionStatus';
 import { Sidebar } from '@/app/components/Sidebar';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
-export default function AppPage() {
+function AppContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -140,5 +140,20 @@ export default function AppPage() {
         </div>
       </div>
     </ErrorBoundary>
+  );
+}
+
+export default function AppPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading app...</p>
+        </div>
+      </div>
+    }>
+      <AppContent />
+    </Suspense>
   );
 }
