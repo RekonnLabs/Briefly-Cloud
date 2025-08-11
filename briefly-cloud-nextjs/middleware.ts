@@ -77,7 +77,9 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/briefly/app')) {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
     if (!token) {
-      return NextResponse.redirect(new URL('/auth/signin', request.url))
+      // Preserve the original URL as callback
+      const callbackUrl = encodeURIComponent(request.url)
+      return NextResponse.redirect(new URL(`/api/auth/signin?callbackUrl=${callbackUrl}`, request.url))
     }
   }
 

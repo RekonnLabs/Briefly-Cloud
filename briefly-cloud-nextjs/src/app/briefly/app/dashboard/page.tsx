@@ -10,7 +10,7 @@ import { SubscriptionStatus } from '@/app/components/SubscriptionStatus';
 import { Sidebar } from '@/app/components/Sidebar';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
-export default function AppPage() {
+export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -22,9 +22,9 @@ export default function AppPage() {
     setupBrowserErrorHandlers();
   }, []);
 
-  // Handle authentication-based routing
+  // Handle authentication check
   useEffect(() => {
-    if (status === 'loading') return; // Wait for session to load
+    if (status === 'loading') return;
 
     if (!session) {
       // Preserve current URL as return destination
@@ -34,23 +34,29 @@ export default function AppPage() {
       return;
     }
 
-    // If user is authenticated and on the root app page, redirect to dashboard
-    if (session && window.location.pathname === '/briefly/app') {
-      // Check for any saved preference for default view
-      const savedTab = localStorage.getItem('briefly-default-tab');
-      if (savedTab && ['chat', 'files', 'storage'].includes(savedTab)) {
-        setActiveTab(savedTab as 'chat' | 'files' | 'storage');
-      }
-      
-      // If there are query parameters, preserve them
-      const queryString = window.location.search;
-      if (queryString) {
-        router.replace(`/briefly/app/dashboard${queryString}`);
-      } else {
-        router.replace('/briefly/app/dashboard');
-      }
+    // Load user's preferred default tab
+    const savedTab = localStorage.getItem('briefly-default-tab');
+    if (savedTab && ['chat', 'files', 'storage'].includes(savedTab)) {
+      setActiveTab(savedTab as 'chat' | 'files' | 'storage');
     }
-  }, [session, status, router]);
+
+    // Check for tab parameter in URL
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['chat', 'files', 'storage'].includes(tabParam)) {
+      setActiveTab(tabParam as 'chat' | 'files' | 'storage');
+    }
+  }, [session, status, router, searchParams]);
+
+  // Save tab preference when changed
+  const handleTabChange = (tab: 'chat' | 'files' | 'storage') => {
+    setActiveTab(tab);
+    localStorage.setItem('briefly-default-tab', tab);
+    
+    // Update URL without causing navigation
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    window.history.replaceState({}, '', url.toString());
+  };
 
   if (status === 'loading') {
     return (
@@ -78,7 +84,7 @@ export default function AppPage() {
     <ErrorBoundary>
       <div className="min-h-screen bg-gray-50 flex">
         {/* Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={session.user} />
+        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} user={session.user} />
         
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
