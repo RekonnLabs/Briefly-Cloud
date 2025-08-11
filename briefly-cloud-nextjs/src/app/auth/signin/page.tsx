@@ -21,7 +21,17 @@ export default function SignInPage() {
         if (data.success && data.data.token) {
           // Store token for legacy compatibility
           localStorage.setItem('supabase_token', data.data.token)
-          router.push('/')
+          
+          // Check if there's a callback URL to redirect to
+          const urlParams = new URLSearchParams(window.location.search)
+          const callbackUrl = urlParams.get('callbackUrl')
+          
+          if (callbackUrl) {
+            window.location.href = callbackUrl
+          } else {
+            // Default redirect to the main app
+            window.location.href = 'https://rekonnlabs.com/briefly/app'
+          }
         } else {
           throw new Error(data.error || 'Login failed')
         }
