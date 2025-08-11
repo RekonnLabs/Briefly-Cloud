@@ -6,7 +6,13 @@
 import { NextResponse } from 'next/server'
 import { formatSuccessResponse, formatErrorResponse, createError } from './api-errors'
 
-// Response helpers
+// Response helpers (legacy exports for compatibility)
+export const createApiResponse = (data?: any, message?: string, status = 200) => 
+  formatSuccessResponse(data, message, status)
+
+export const createErrorResponse = (error: any) => 
+  formatErrorResponse(error)
+
 export const ApiResponse = {
   success: (data?: any, message?: string, status = 200) => 
     formatSuccessResponse(data, message, status),

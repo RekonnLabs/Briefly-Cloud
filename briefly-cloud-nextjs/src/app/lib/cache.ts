@@ -235,3 +235,6 @@ export class MonitoredCacheManager extends CacheManager {
 
 // Export singleton instance
 export const cacheManager = MonitoredCacheManager.getInstance()
+
+// Legacy export for compatibility
+export const cache = cacheManager

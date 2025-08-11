@@ -1,0 +1,880 @@
+[09:11:32.091] Running build in Washington, D.C., USA (East) – iad1
+[09:11:32.091] Build machine configuration: 2 cores, 8 GB
+[09:11:32.110] Cloning github.com/RekonnLabs/Briefly-Cloud (Branch: main, Commit: 23f2d1f)
+[09:11:32.259] Previous build caches not available
+[09:11:32.656] Cloning completed: 546.000ms
+[09:11:35.119] Running "vercel build"
+[09:11:35.567] Vercel CLI 44.7.3
+[09:11:35.948] Running "install" command: `npm install --prefix=`...
+[09:11:41.078] npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+[09:11:41.521] npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+[09:11:44.908] npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+[09:12:06.103] 
+[09:12:06.103] added 995 packages, and audited 996 packages in 30s
+[09:12:06.104] 
+[09:12:06.104] 203 packages are looking for funding
+[09:12:06.104]   run `npm fund` for details
+[09:12:06.107] 
+[09:12:06.107] 1 high severity vulnerability
+[09:12:06.107] 
+[09:12:06.107] Some issues need review, and may require choosing
+[09:12:06.108] a different dependency.
+[09:12:06.108] 
+[09:12:06.108] Run `npm audit` for details.
+[09:12:06.427] Detected Next.js version: 15.4.6
+[09:12:06.439] Running "npm run build"
+[09:12:06.684] 
+[09:12:06.685] > briefly-cloud@1.0.0 build
+[09:12:06.686] > next build
+[09:12:06.686] 
+[09:12:08.114] Attention: Next.js now collects completely anonymous telemetry regarding usage.
+[09:12:08.115] This information is used to shape Next.js' roadmap and prioritize features.
+[09:12:08.115] You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+[09:12:08.115] https://nextjs.org/telemetry
+[09:12:08.116] 
+[09:12:08.387]    ▲ Next.js 15.4.6
+[09:12:08.388] 
+[09:12:08.513]    Creating an optimized production build ...
+[09:12:41.624]  ⚠ Compiled with warnings in 32.0s
+[09:12:41.625] 
+[09:12:41.626] ./src/app/api/client-ip/route.ts
+[09:12:41.626] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.626] 
+[09:12:41.627] Import trace for requested module:
+[09:12:41.627] ./src/app/api/client-ip/route.ts
+[09:12:41.627] 
+[09:12:41.627] ./src/app/api/client-ip/route.ts
+[09:12:41.628] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.628] 
+[09:12:41.628] Import trace for requested module:
+[09:12:41.629] ./src/app/api/client-ip/route.ts
+[09:12:41.629] 
+[09:12:41.629] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.629] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.630] 
+[09:12:41.630] Import trace for requested module:
+[09:12:41.630] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.631] 
+[09:12:41.631] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.631] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.631] 
+[09:12:41.632] Import trace for requested module:
+[09:12:41.632] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.632] 
+[09:12:41.632] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.633] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.633] 
+[09:12:41.633] Import trace for requested module:
+[09:12:41.633] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.634] 
+[09:12:41.634] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.634] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.635] 
+[09:12:41.635] Import trace for requested module:
+[09:12:41.635] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.635] 
+[09:12:41.636] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.636] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.638] 
+[09:12:41.638] Import trace for requested module:
+[09:12:41.638] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:41.638] 
+[09:12:41.638] ./src/app/api/cron/health-check/route.ts
+[09:12:41.638] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.638] 
+[09:12:41.644] Import trace for requested module:
+[09:12:41.644] ./src/app/api/cron/health-check/route.ts
+[09:12:41.644] 
+[09:12:41.644] ./src/app/api/cron/health-check/route.ts
+[09:12:41.644] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.644] 
+[09:12:41.644] Import trace for requested module:
+[09:12:41.644] ./src/app/api/cron/health-check/route.ts
+[09:12:41.644] 
+[09:12:41.644] ./src/app/api/cron/health-check/route.ts
+[09:12:41.644] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.644] 
+[09:12:41.644] Import trace for requested module:
+[09:12:41.644] ./src/app/api/cron/health-check/route.ts
+[09:12:41.644] 
+[09:12:41.644] ./src/app/api/cron/health-check/route.ts
+[09:12:41.644] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.644] 
+[09:12:41.644] Import trace for requested module:
+[09:12:41.645] ./src/app/api/cron/health-check/route.ts
+[09:12:41.645] 
+[09:12:41.645] ./src/app/api/cron/health-check/route.ts
+[09:12:41.645] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.645] 
+[09:12:41.645] Import trace for requested module:
+[09:12:41.645] ./src/app/api/cron/health-check/route.ts
+[09:12:41.645] 
+[09:12:41.645] ./src/app/api/cron/health-check/route.ts
+[09:12:41.645] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.645] 
+[09:12:41.645] Import trace for requested module:
+[09:12:41.645] ./src/app/api/cron/health-check/route.ts
+[09:12:41.645] 
+[09:12:41.645] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.645] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.645] 
+[09:12:41.645] Import trace for requested module:
+[09:12:41.645] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.645] 
+[09:12:41.645] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.645] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.646] 
+[09:12:41.646] Import trace for requested module:
+[09:12:41.648] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.648] 
+[09:12:41.648] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.649] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.649] 
+[09:12:41.649] Import trace for requested module:
+[09:12:41.649] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.649] 
+[09:12:41.649] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.649] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.649] 
+[09:12:41.649] Import trace for requested module:
+[09:12:41.649] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.649] 
+[09:12:41.649] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.649] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.649] 
+[09:12:41.649] Import trace for requested module:
+[09:12:41.649] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.649] 
+[09:12:41.649] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.649] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.649] 
+[09:12:41.649] Import trace for requested module:
+[09:12:41.649] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.649] 
+[09:12:41.649] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.650] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.650] 
+[09:12:41.650] Import trace for requested module:
+[09:12:41.650] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.650] 
+[09:12:41.650] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.650] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.650] 
+[09:12:41.650] Import trace for requested module:
+[09:12:41.650] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.650] 
+[09:12:41.650] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.650] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.650] 
+[09:12:41.650] Import trace for requested module:
+[09:12:41.650] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:41.650] 
+[09:12:41.650] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.650] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.650] 
+[09:12:41.651] Import trace for requested module:
+[09:12:41.651] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.651] 
+[09:12:41.651] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.651] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.651] 
+[09:12:41.651] Import trace for requested module:
+[09:12:41.651] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.651] 
+[09:12:41.651] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.651] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.651] 
+[09:12:41.652] Import trace for requested module:
+[09:12:41.652] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.652] 
+[09:12:41.652] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.652] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.652] 
+[09:12:41.653] Import trace for requested module:
+[09:12:41.653] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.653] 
+[09:12:41.653] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.653] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.653] 
+[09:12:41.653] Import trace for requested module:
+[09:12:41.653] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.653] 
+[09:12:41.653] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.653] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.653] 
+[09:12:41.653] Import trace for requested module:
+[09:12:41.653] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.653] 
+[09:12:41.653] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.653] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.653] 
+[09:12:41.653] Import trace for requested module:
+[09:12:41.653] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.653] 
+[09:12:41.653] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.653] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.654] 
+[09:12:41.654] Import trace for requested module:
+[09:12:41.654] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.654] 
+[09:12:41.654] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.655] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.655] 
+[09:12:41.655] Import trace for requested module:
+[09:12:41.655] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.656] 
+[09:12:41.656] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.656] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.656] 
+[09:12:41.656] Import trace for requested module:
+[09:12:41.656] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:41.656] 
+[09:12:41.657] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.657] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.657] 
+[09:12:41.657] Import trace for requested module:
+[09:12:41.657] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.657] 
+[09:12:41.657] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.658] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.658] 
+[09:12:41.658] Import trace for requested module:
+[09:12:41.658] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.658] 
+[09:12:41.658] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.658] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.659] 
+[09:12:41.659] Import trace for requested module:
+[09:12:41.659] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.659] 
+[09:12:41.659] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.659] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.660] 
+[09:12:41.660] Import trace for requested module:
+[09:12:41.660] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.660] 
+[09:12:41.660] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.660] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.660] 
+[09:12:41.660] Import trace for requested module:
+[09:12:41.660] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.660] 
+[09:12:41.660] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.660] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.660] 
+[09:12:41.661] Import trace for requested module:
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] 
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.661] 
+[09:12:41.661] Import trace for requested module:
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] 
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.661] 
+[09:12:41.661] Import trace for requested module:
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] 
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.661] 
+[09:12:41.661] Import trace for requested module:
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] 
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.661] 
+[09:12:41.661] Import trace for requested module:
+[09:12:41.661] ./src/app/api/feature-flags/check/route.ts
+[09:12:41.661] 
+[09:12:41.661] ./src/app/api/feature-flags/route.ts
+[09:12:41.661] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.661] 
+[09:12:41.661] Import trace for requested module:
+[09:12:41.661] ./src/app/api/feature-flags/route.ts
+[09:12:41.662] 
+[09:12:41.662] ./src/app/api/feature-flags/route.ts
+[09:12:41.662] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.662] 
+[09:12:41.662] Import trace for requested module:
+[09:12:41.662] ./src/app/api/feature-flags/route.ts
+[09:12:41.662] 
+[09:12:41.662] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.663] 
+[09:12:41.663] Import trace for requested module:
+[09:12:41.663] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] 
+[09:12:41.663] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.663] 
+[09:12:41.663] Import trace for requested module:
+[09:12:41.663] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] 
+[09:12:41.663] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.663] 
+[09:12:41.663] Import trace for requested module:
+[09:12:41.663] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] 
+[09:12:41.663] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.663] 
+[09:12:41.663] Import trace for requested module:
+[09:12:41.663] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] 
+[09:12:41.663] ./src/app/api/feature-flags/route.ts
+[09:12:41.663] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.663] 
+[09:12:41.663] Import trace for requested module:
+[09:12:41.665] ./src/app/api/feature-flags/route.ts
+[09:12:41.665] 
+[09:12:41.665] ./src/app/api/feature-flags/route.ts
+[09:12:41.665] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.665] 
+[09:12:41.665] Import trace for requested module:
+[09:12:41.666] ./src/app/api/feature-flags/route.ts
+[09:12:41.666] 
+[09:12:41.666] ./src/app/api/feature-flags/route.ts
+[09:12:41.666] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.666] 
+[09:12:41.666] Import trace for requested module:
+[09:12:41.667] ./src/app/api/feature-flags/route.ts
+[09:12:41.667] 
+[09:12:41.667] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.667] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.667] 
+[09:12:41.667] Import trace for requested module:
+[09:12:41.668] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.668] 
+[09:12:41.668] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.668] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.669] 
+[09:12:41.669] Import trace for requested module:
+[09:12:41.669] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.669] 
+[09:12:41.669] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.670] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.670] 
+[09:12:41.670] Import trace for requested module:
+[09:12:41.670] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.670] 
+[09:12:41.670] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.670] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.670] 
+[09:12:41.671] Import trace for requested module:
+[09:12:41.671] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.672] 
+[09:12:41.672] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.672] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.672] 
+[09:12:41.672] Import trace for requested module:
+[09:12:41.673] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.673] 
+[09:12:41.673] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.673] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.673] 
+[09:12:41.674] Import trace for requested module:
+[09:12:41.674] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.674] 
+[09:12:41.674] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.674] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.675] 
+[09:12:41.675] Import trace for requested module:
+[09:12:41.675] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.675] 
+[09:12:41.675] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.676] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.676] 
+[09:12:41.676] Import trace for requested module:
+[09:12:41.676] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.676] 
+[09:12:41.677] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.677] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.677] 
+[09:12:41.677] Import trace for requested module:
+[09:12:41.677] ./src/app/api/gdpr/consent/route.ts
+[09:12:41.677] 
+[09:12:41.677] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.677] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.677] 
+[09:12:41.678] Import trace for requested module:
+[09:12:41.678] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.678] 
+[09:12:41.678] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.679] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.679] 
+[09:12:41.679] Import trace for requested module:
+[09:12:41.679] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.679] 
+[09:12:41.680] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.680] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.680] 
+[09:12:41.680] Import trace for requested module:
+[09:12:41.681] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.681] 
+[09:12:41.681] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.681] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.682] 
+[09:12:41.682] Import trace for requested module:
+[09:12:41.682] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.682] 
+[09:12:41.682] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.683] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.683] 
+[09:12:41.683] Import trace for requested module:
+[09:12:41.683] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.684] 
+[09:12:41.684] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.684] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.684] 
+[09:12:41.684] Import trace for requested module:
+[09:12:41.685] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.685] 
+[09:12:41.685] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.685] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.686] 
+[09:12:41.686] Import trace for requested module:
+[09:12:41.686] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.686] 
+[09:12:41.686] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.687] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.687] 
+[09:12:41.687] Import trace for requested module:
+[09:12:41.687] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.688] 
+[09:12:41.688] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.688] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.688] 
+[09:12:41.688] Import trace for requested module:
+[09:12:41.689] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.689] 
+[09:12:41.689] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.689] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.690] 
+[09:12:41.690] Import trace for requested module:
+[09:12:41.690] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:41.690] 
+[09:12:41.691] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.691] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.691] 
+[09:12:41.691] Import trace for requested module:
+[09:12:41.691] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.692] 
+[09:12:41.692] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.692] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.692] 
+[09:12:41.693] Import trace for requested module:
+[09:12:41.693] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.693] 
+[09:12:41.693] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.693] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.694] 
+[09:12:41.694] Import trace for requested module:
+[09:12:41.694] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.694] 
+[09:12:41.694] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.695] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.695] 
+[09:12:41.695] Import trace for requested module:
+[09:12:41.695] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.696] 
+[09:12:41.696] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.696] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.696] 
+[09:12:41.696] Import trace for requested module:
+[09:12:41.697] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.697] 
+[09:12:41.697] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.697] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.698] 
+[09:12:41.698] Import trace for requested module:
+[09:12:41.698] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.698] 
+[09:12:41.699] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.699] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.699] 
+[09:12:41.699] Import trace for requested module:
+[09:12:41.699] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.700] 
+[09:12:41.700] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.700] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.701] 
+[09:12:41.701] Import trace for requested module:
+[09:12:41.701] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.702] 
+[09:12:41.702] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.702] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.703] 
+[09:12:41.703] Import trace for requested module:
+[09:12:41.703] ./src/app/api/gdpr/data-export/route.ts
+[09:12:41.703] 
+[09:12:41.704] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.704] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.704] 
+[09:12:41.704] Import trace for requested module:
+[09:12:41.704] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.705] 
+[09:12:41.705] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.705] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.705] 
+[09:12:41.705] Import trace for requested module:
+[09:12:41.706] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.706] 
+[09:12:41.706] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.706] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.706] 
+[09:12:41.707] Import trace for requested module:
+[09:12:41.707] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.707] 
+[09:12:41.707] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.707] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.708] 
+[09:12:41.708] Import trace for requested module:
+[09:12:41.708] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.708] 
+[09:12:41.708] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.709] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.709] 
+[09:12:41.709] Import trace for requested module:
+[09:12:41.709] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.709] 
+[09:12:41.710] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.710] Attempted import error: 'createApiResponse' is not exported from '@/app/lib/api-utils' (imported as 'createApiResponse').
+[09:12:41.710] 
+[09:12:41.710] Import trace for requested module:
+[09:12:41.711] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.711] 
+[09:12:41.711] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.711] Attempted import error: 'createErrorResponse' is not exported from '@/app/lib/api-utils' (imported as 'createErrorResponse').
+[09:12:41.711] 
+[09:12:41.712] Import trace for requested module:
+[09:12:41.712] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:41.712] 
+[09:12:41.712] ./src/app/lib/feature-flags.ts
+[09:12:41.712] Attempted import error: 'cache' is not exported from './cache' (imported as 'cache').
+[09:12:41.713] 
+[09:12:41.713] Import trace for requested module:
+[09:12:41.713] ./src/app/lib/feature-flags.ts
+[09:12:41.713] ./src/app/api/feature-flags/route.ts
+[09:12:41.713] 
+[09:12:41.714] ./src/app/lib/feature-flags.ts
+[09:12:41.714] Attempted import error: 'cache' is not exported from './cache' (imported as 'cache').
+[09:12:41.714] 
+[09:12:41.714] Import trace for requested module:
+[09:12:41.714] ./src/app/lib/feature-flags.ts
+[09:12:41.715] ./src/app/api/feature-flags/route.ts
+[09:12:41.715] 
+[09:12:41.715] ./src/app/lib/feature-flags.ts
+[09:12:41.715] Attempted import error: 'cache' is not exported from './cache' (imported as 'cache').
+[09:12:41.715] 
+[09:12:41.716] Import trace for requested module:
+[09:12:41.716] ./src/app/lib/feature-flags.ts
+[09:12:41.716] ./src/app/api/feature-flags/route.ts
+[09:12:41.716] 
+[09:12:41.716] ./src/app/lib/feature-flags.ts
+[09:12:41.717] Attempted import error: 'cache' is not exported from './cache' (imported as 'cache').
+[09:12:41.717] 
+[09:12:41.717] Import trace for requested module:
+[09:12:41.717] ./src/app/lib/feature-flags.ts
+[09:12:41.717] ./src/app/api/feature-flags/route.ts
+[09:12:41.718] 
+[09:12:41.718] ./node_modules/chromadb/dist/chromadb.mjs
+[09:12:41.718] Module not found: Can't resolve '@chroma-core/default-embed' in '/vercel/path0/briefly-cloud-nextjs/node_modules/chromadb/dist'
+[09:12:41.718] 
+[09:12:41.718] Import trace for requested module:
+[09:12:41.719] ./node_modules/chromadb/dist/chromadb.mjs
+[09:12:41.719] ./src/app/lib/vector-storage.ts
+[09:12:41.719] ./src/app/api/chat/route.ts
+[09:12:41.719] 
+[09:12:41.737]    Linting and checking validity of types ...
+[09:12:52.661] 
+[09:12:52.661] Failed to compile.
+[09:12:52.661] 
+[09:12:52.661] ./src/app/api/billing/webhook/route.ts
+[09:12:52.661] 17:12  Error: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.661] 47:12  Error: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.661] 
+[09:12:52.661] ./src/app/api/chat/route.ts
+[09:12:52.661] 9:10  Error: 'cacheManager' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.661] 9:24  Error: 'CACHE_KEYS' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/client-ip/route.ts
+[09:12:52.662] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/cron/gdpr-cleanup/route.ts
+[09:12:52.662] 8:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 65:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 75:12  Error: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/cron/health-check/route.ts
+[09:12:52.662] 8:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 192:13  Error: 'data' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 464:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 492:12  Error: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/embeddings/chunks/[fileId]/route.ts
+[09:12:52.662] 12:3  Error: 'EmbeddingModel' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 53:7  Error: 'save_to_database' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/embeddings/route.ts
+[09:12:52.662] 12:3  Error: 'EmbeddingModel' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 123:16  Error: 'generateBatchEmbeddingsHandler' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/feature-flags/[id]/route.ts
+[09:12:52.662] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/feature-flags/beta-users/route.ts
+[09:12:52.662] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 29:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/feature-flags/check/route.ts
+[09:12:52.662] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.662] 
+[09:12:52.662] ./src/app/api/feature-flags/route.ts
+[09:12:52.662] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.663] 10:30  Error: 'isFeatureEnabled' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.663] 10:48  Error: 'UserContext' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.663] 36:7  Error: 'CheckFeatureSchema' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.663] 44:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.663] 
+[09:12:52.664] ./src/app/api/feedback/route.ts
+[09:12:52.664] 128:28  Error: 'userId' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 128:44  Error: 'query' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 128:56  Error: 'isAdmin' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 
+[09:12:52.664] ./src/app/api/gdpr/consent/route.ts
+[09:12:52.664] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 33:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 
+[09:12:52.664] ./src/app/api/gdpr/data-deletion/route.ts
+[09:12:52.664] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 92:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 
+[09:12:52.664] ./src/app/api/gdpr/data-export/route.ts
+[09:12:52.664] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 18:28  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 74:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 
+[09:12:52.664] ./src/app/api/health/route.ts
+[09:12:52.664] 50:13  Error: 'data' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.664] 138:13  Error: 'data' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 240:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 339:28  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 363:12  Error: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 
+[09:12:52.665] ./src/app/api/monitoring/dashboard/route.ts
+[09:12:52.665] 7:23  Error: 'NextResponse' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 54:27  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 186:28  Error: 'request' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 
+[09:12:52.665] ./src/app/api/performance/route.ts
+[09:12:52.665] 8:53  Error: 'req' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 
+[09:12:52.665] ./src/app/api/search/route.ts
+[09:12:52.665] 7:36  Error: 'withCache' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.665] 
+[09:12:52.665] ./src/app/api/storage/google/import/route.ts
+[09:12:52.665] 13:7  Error: 'schema' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 
+[09:12:52.666] ./src/app/api/support/ticket/route.ts
+[09:12:52.666] 141:31  Error: 'userId' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 141:47  Error: 'limit' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 141:62  Error: 'offset' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 147:29  Error: 'ticketId' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 147:47  Error: 'userId' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 147:63  Error: 'updates' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 
+[09:12:52.666] ./src/app/briefly/app/page.tsx
+[09:12:52.666] 18:43  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.666] 68:19  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+[09:12:52.666] 
+[09:12:52.666] ./src/app/components/AccessibilityAudit.tsx
+[09:12:52.666] 35:6  Warning: React Hook useEffect has a missing dependency: 'runAudit'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+[09:12:52.666] 200:28  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.666] 200:38  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.666] 
+[09:12:52.666] ./src/app/components/ChatInterface.tsx
+[09:12:52.666] 4:26  Error: 'ExternalLink' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 52:15  Error: 'captureApiError' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.666] 
+[09:12:52.666] ./src/app/components/CloudStorage.tsx
+[09:12:52.667] 4:52  Error: 'AlertCircle' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.667] 142:15  Error: 'result' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.667] 283:48  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.667] 283:56  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.667] 
+[09:12:52.667] ./src/app/components/ConsentManager.tsx
+[09:12:52.667] 43:6  Warning: React Hook useEffect has a missing dependency: 'loadUserConsent'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+[09:12:52.667] 230:31  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.667] 230:42  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.667] 
+[09:12:52.667] ./src/app/components/ErrorBoundary.tsx
+[09:12:52.667] 76:19  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.668] 
+[09:12:52.668] ./src/app/components/FeedbackWidget.tsx
+[09:12:52.668] 9:10  Error: 'Badge' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.668] 19:3  Error: 'Lightbulb' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.668] 190:48  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.668] 256:51  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.668] 335:23  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.668] 
+[09:12:52.668] ./src/app/components/FileUpload.tsx
+[09:12:52.668] 62:15  Error: 'captureFileProcessingError' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.668] 80:13  Error: 'result' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.668] 147:6  Warning: React Hook useCallback has a missing dependency: 'validateFile'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+[09:12:52.668] 
+[09:12:52.668] ./src/app/components/GDPRDashboard.tsx
+[09:12:52.668] 350:68  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.668] 
+[09:12:52.668] ./src/app/components/NotificationBell.tsx
+[09:12:52.668] 13:3  Error: 'Clock' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.668] 41:6  Warning: React Hook useEffect has a missing dependency: 'fetchNotifications'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+[09:12:52.668] 187:59  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.668] 
+[09:12:52.668] ./src/app/components/PerformanceMonitor.tsx
+[09:12:52.668] 76:14  Error: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.668] 92:14  Error: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.668] 
+[09:12:52.668] ./src/app/components/SubscriptionStatus.tsx
+[09:12:52.668] 15:9  Error: 'status' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.669] 
+[09:12:52.669] ./src/app/components/admin/FeatureFlagManager.tsx
+[09:12:52.670] 54:10  Error: 'showCreateForm' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.670] 162:44  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.670] 
+[09:12:52.670] ./src/app/components/admin/MigrationManager.tsx
+[09:12:52.670] 12:10  Error: 'Textarea' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.671] 454:53  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.671] 454:62  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.671] 
+[09:12:52.671] ./src/app/components/admin/MonitoringDashboard.tsx
+[09:12:52.671] 13:3  Error: 'Clock' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.671] 15:3  Error: 'Globe' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.671] 20:3  Error: 'TrendingUp' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.671] 
+[09:12:52.671] ./src/app/components/ui/input.tsx
+[09:12:52.671] 4:18  Error: An interface declaring no members is equivalent to its supertype.  @typescript-eslint/no-empty-object-type
+[09:12:52.671] 
+[09:12:52.671] ./src/app/components/ui/textarea.tsx
+[09:12:52.671] 4:18  Error: An interface declaring no members is equivalent to its supertype.  @typescript-eslint/no-empty-object-type
+[09:12:52.671] 
+[09:12:52.671] ./src/app/legal/privacy/page.tsx
+[09:12:52.671] 35:29  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.671] 35:32  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.671] 35:35  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.671] 35:39  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.671] 35:45  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.671] 35:48  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.672] 198:107  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.672] 261:85  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.673] 
+[09:12:52.673] ./src/app/legal/terms/page.tsx
+[09:12:52.673] 35:55  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 35:63  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 39:41  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 39:47  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 40:41  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 40:44  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 40:47  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 40:50  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 40:56  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 40:60  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+[09:12:52.673] 184:78  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.673] 
+[09:12:52.673] ./src/app/lib/__tests__/auth.test.ts
+[09:12:52.673] 2:10  Error: 'getServerSession' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.673] 131:13  Error: 'user' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.673] 135:13  Error: 'account' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.673] 143:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.673] 
+[09:12:52.673] ./src/app/lib/__tests__/document-extractor.test.ts
+[09:12:52.673] 24:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 49:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 58:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 75:27  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 89:27  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 100:24  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 130:24  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 196:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 215:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 236:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 253:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.674] 282:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.676] 
+[09:12:52.676] ./src/app/lib/__tests__/openai.test.ts
+[09:12:52.676] 38:46  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.676] 69:49  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.676] 85:26  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.676] 108:26  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.676] 119:26  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.676] 158:26  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 202:26  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 215:26  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 
+[09:12:52.677] ./src/app/lib/__tests__/vector-storage.test.ts
+[09:12:52.677] 54:56  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 70:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 95:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 119:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 133:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 163:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 187:28  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.677] 217:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.678] 226:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.678] 236:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.678] 256:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.678] 275:32  Error: A `require()` style import is forbidden.  @typescript-eslint/no-require-imports
+[09:12:52.678] 
+[09:12:52.678] ./src/app/lib/api-middleware.ts
+[09:12:52.678] 10:10  Error: 'rateLimitConfigs' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.678] 16:3  Error: 'securitySchemas' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.678] 
+[09:12:52.678] ./src/app/lib/error-monitoring.ts
+[09:12:52.692] 101:14  Error: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.699] 331:45  Error: 'promise' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.699] 
+[09:12:52.700] ./src/app/lib/gdpr-compliance.ts
+[09:12:52.700] 303:21  Error: 'uploadData' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.700] 
+[09:12:52.700] ./src/app/lib/global-error-handlers.ts
+[09:12:52.700] 56:36  Error: 'res' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.701] 
+[09:12:52.701] ./src/app/lib/notifications.ts
+[09:12:52.701] 414:5  Error: 'htmlContent' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.701] 415:5  Error: 'textContent' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.701] 444:14  Error: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.701] 
+[09:12:52.701] ./src/app/lib/performance.ts
+[09:12:52.701] 115:21  Error: 'sql' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.701] 115:34  Error: 'params' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.702] 131:17  Error: 'key' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.703] 175:19  Error: 'element' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.703] 261:3  Error: 'params' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.704] 268:7  Error: 'optimizedSql' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.704] 
+[09:12:52.704] ./src/app/lib/vector-storage.ts
+[09:12:52.708] 166:14  Error: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+[09:12:52.708] 
+[09:12:52.708] ./src/app/migration-status/page.tsx
+[09:12:52.708] 49:10  Error: 'error' is assigned a value but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.708] 301:48  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.708] 349:30  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.708] 
+[09:12:52.708] ./src/app/support/page.tsx
+[09:12:52.709] 15:3  Error: 'Clock' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.709] 24:11  Error: 'SupportTicket' is defined but never used. Allowed unused vars must match /^_/u.  @typescript-eslint/no-unused-vars
+[09:12:52.709] 237:51  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.709] 245:80  Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.  react/no-unescaped-entities
+[09:12:52.709] 
+[09:12:52.709] info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+[09:12:52.784] npm error Lifecycle script `build` failed with error:
+[09:12:52.787] npm error code 1
+[09:12:52.788] npm error path /vercel/path0/briefly-cloud-nextjs
+[09:12:52.788] npm error workspace briefly-cloud@1.0.0
+[09:12:52.788] npm error location /vercel/path0/briefly-cloud-nextjs
+[09:12:52.788] npm error command failed
+[09:12:52.788] npm error command sh -c next build
+[09:12:52.814] Error: Command "npm run build" exited with 1
