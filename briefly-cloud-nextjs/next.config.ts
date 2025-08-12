@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Path-based deployment support for rekonnlabs.com/briefly/app
-  basePath: '/briefly/app',
+  // Removed basePath to work with proxy setup
   
   serverExternalPackages: ['pdf-parse', 'mammoth', 'xlsx'],
   webpack: (config, { isServer }) => {

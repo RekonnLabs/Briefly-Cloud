@@ -73,10 +73,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Skip authentication check for /briefly/app routes when accessed via proxy
+  // Skip authentication check for app routes when accessed via proxy
   // The Website project handles authentication for proxied requests
-  // Only apply NextAuth authentication for direct access to briefly-cloud.vercel.app
-  if (pathname.startsWith('/briefly/app')) {
+  if (pathname.startsWith('/dashboard') || 
+      pathname.startsWith('/chat') || 
+      pathname.startsWith('/documents') || 
+      pathname.startsWith('/storage') ||
+      pathname === '/') {
     // For now, skip authentication check to allow proxy access
     // TODO: Implement proper proxy authentication validation
     return NextResponse.next()

@@ -18,8 +18,8 @@ export default function Home() {
     const hashFragment = currentUrl.hash;
     const urlSuffix = queryString + hashFragment;
 
-    // Redirect to the app interface with preserved URL parts
-    router.replace(`/briefly/app${urlSuffix}`);
+    // Redirect to the dashboard
+    router.replace(`/dashboard${urlSuffix}`);
   }, [router, status]);
 
   return (
