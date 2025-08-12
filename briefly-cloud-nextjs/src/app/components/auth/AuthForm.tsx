@@ -68,22 +68,30 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Briefly</h1>
-        <p className="text-sm text-gray-600 mt-1">AI Document Assistant</p>
-        <p className="text-gray-600 mt-4">
-          {isLogin ? 'Sign in to your account' : 'Create your account'}
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-2xl mb-4">
+          <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Briefly</h1>
+        <p className="text-sm text-gray-500 mb-6">AI Document Assistant</p>
+        <p className="text-lg text-gray-700">
+          {isLogin ? 'Welcome back' : 'Create your account'}
+        </p>
+        <p className="text-sm text-gray-500 mt-1">
+          {isLogin ? 'Sign in to continue to your documents' : 'Get started with your AI assistant'}
         </p>
       </div>
 
       {/* OAuth Providers */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isLoading}
-          className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-200 rounded-2xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
         >
           <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -99,20 +107,20 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t border-gray-200" />
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-3 text-gray-500 font-medium">Or continue with email</span>
+        <div className="relative flex justify-center text-sm">
+          <span className="bg-white px-4 text-gray-500 font-medium">Or continue with email</span>
         </div>
       </div>
 
       {/* Mode indicator tabs */}
-      <div className="flex bg-gray-50 rounded-lg p-1 border border-gray-200">
+      <div className="flex bg-gray-50 rounded-2xl p-1.5 border border-gray-200">
         <button
           type="button"
           onClick={() => !isLogin && handleModeSwitch()}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 ${
             isLogin
               ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-              : 'text-gray-600 hover:text-gray-900'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
           }`}
         >
           Sign In
@@ -120,71 +128,83 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
         <button
           type="button"
           onClick={() => isLogin && handleModeSwitch()}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+          className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 ${
             !isLogin
               ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-              : 'text-gray-600 hover:text-gray-900'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
           }`}
         >
           Sign Up
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm text-red-700 font-medium">{error}</p>
+            </div>
           </div>
         )}
 
         {success && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-sm text-green-600">{success}</p>
+          <div className="p-4 bg-green-50 border border-green-200 rounded-2xl">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-green-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm text-green-700 font-medium">{success}</p>
+            </div>
           </div>
         )}
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            placeholder="Enter your email"
-            required
-          />
-        </div>
+        <div className="space-y-5">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              Email address
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+              placeholder="Enter your email address"
+              required
+            />
+          </div>
 
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            placeholder="Enter your password"
-            required
-          />
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full bg-indigo-600 text-white py-3.5 px-6 rounded-2xl font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
         >
           {isLoading ? (
             <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Please wait...
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+              {isLogin ? 'Signing in...' : 'Creating account...'}
             </div>
           ) : (
-            isLogin ? 'Sign In' : 'Sign Up'
+            isLogin ? 'Sign In' : 'Create Account'
           )}
         </button>
       </form>
