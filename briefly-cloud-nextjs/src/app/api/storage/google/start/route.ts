@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin
   const redirectUri = `${origin}/api/storage/google/callback`
+  
+  // Generate CSRF state token
+  const state = crypto.randomUUID()
+  cookies().set('oauth_state_google', state, { 
+    httpOnly: true, 
+    sameSite: 'lax', 
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 600 // 10 minutes
+  })
   
   // Storage-specific scopes for Google Drive access
   const scope = [
@@ -20,7 +31,7 @@ export async function GET(req: NextRequest) {
   url.searchParams.set('access_type', 'offline')
   url.searchParams.set('prompt', 'consent')
   url.searchParams.set('scope', scope)
-  url.searchParams.set('state', 'briefly_connect_google_drive')
+  url.searchParams.set('state', state)
   
   return NextResponse.redirect(url.toString())
 }

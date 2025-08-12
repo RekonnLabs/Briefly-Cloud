@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { extractTextFromBuffer, createTextChunks } from '@/app/lib/document-extractor'
 import { storeDocumentChunks } from '@/app/lib/document-chunker'
 import { createEmbeddingsService } from '@/app/lib/embeddings'
@@ -14,12 +14,11 @@ async function importOneDriveFileHandler(request: Request, context: ApiContext):
   const body = await request.json().catch(() => ({})) as { fileId?: string }
   if (!body.fileId) return ApiResponse.badRequest('fileId is required')
 
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
-  const { data: token } = await supabase
+  const { data: token } = await supabaseAdmin
     .from('oauth_tokens')
     .select('*')
     .eq('user_id', user.id)
-    .eq('provider', 'azure-ad')
+    .eq('provider', 'microsoft')
     .single()
 
   if (!token?.access_token) return ApiResponse.badRequest('Microsoft account not connected')
@@ -39,7 +38,7 @@ async function importOneDriveFileHandler(request: Request, context: ApiContext):
   const arrayBuf = await dl.arrayBuffer()
   const buffer = Buffer.from(arrayBuf)
 
-  const { data: created } = await supabase
+  const { data: created } = await supabaseAdmin
     .from('file_metadata')
     .insert({
       user_id: user.id,
@@ -65,7 +64,7 @@ async function importOneDriveFileHandler(request: Request, context: ApiContext):
   const embeddings = await createEmbeddingsService().generateBatchEmbeddings(chunks.map(c => c.content))
   await storeDocumentVectors(chunks as any, embeddings.embeddings.map(e => e.embedding), user.id, created.name)
 
-  await supabase
+  await supabaseAdmin
     .from('file_metadata')
     .update({ processed: true, processing_status: 'completed' })
     .eq('id', fileId)

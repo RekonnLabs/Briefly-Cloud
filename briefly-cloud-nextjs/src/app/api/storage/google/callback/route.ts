@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/lib/auth'
 import { supabaseAdmin } from '@/app/lib/supabase'
+import { cookies } from 'next/headers'
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,6 +11,16 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.id) {
       return NextResponse.redirect(new URL('/briefly/app/auth/signin', req.url))
     }
+
+    // Validate CSRF state
+    const stateParam = req.nextUrl.searchParams.get('state')
+    const stateCookie = cookies().get('oauth_state_google')?.value
+    if (!stateParam || stateParam !== stateCookie) {
+      return NextResponse.redirect(new URL('/briefly/app/dashboard?tab=storage&error=state_mismatch', req.url))
+    }
+    
+    // Clear the state cookie
+    cookies().delete('oauth_state_google')
 
     const code = req.nextUrl.searchParams.get('code')
     if (!code) {

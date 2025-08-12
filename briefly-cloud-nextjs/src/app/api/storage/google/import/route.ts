@@ -3,7 +3,7 @@ import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { google } from 'googleapis'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { extractTextFromBuffer } from '@/app/lib/document-extractor'
 import { createTextChunks } from '@/app/lib/document-extractor'
 import { storeDocumentChunks } from '@/app/lib/document-chunker'
@@ -20,8 +20,7 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
   const body = await request.json().catch(() => ({})) as { fileId?: string }
   if (!body.fileId) return ApiResponse.badRequest('fileId is required')
 
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
-  const { data: token } = await supabase
+  const { data: token } = await supabaseAdmin
     .from('oauth_tokens')
     .select('*')
     .eq('user_id', user.id)
@@ -41,7 +40,7 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
   const buffer = Buffer.from(res.data as ArrayBuffer)
 
   // Create file metadata row
-  const { data: created } = await supabase
+  const { data: created } = await supabaseAdmin
     .from('file_metadata')
     .insert({
       user_id: user.id,
@@ -68,7 +67,7 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
   const embeddings = await createEmbeddingsService().generateBatchEmbeddings(chunks.map(c => c.content))
   await storeDocumentVectors(chunks as any, embeddings.embeddings.map(e => e.embedding), user.id, meta.data.name!)
 
-  await supabase
+  await supabaseAdmin
     .from('file_metadata')
     .update({ processed: true, processing_status: 'completed' })
     .eq('id', fileId)
