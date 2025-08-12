@@ -72,8 +72,12 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-      <AuthForm onLogin={handleLogin} onSignup={handleSignup} />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-8">
+          <AuthForm onLogin={handleLogin} onSignup={handleSignup} />
+        </div>
+      </div>
     </div>
   )
 }
