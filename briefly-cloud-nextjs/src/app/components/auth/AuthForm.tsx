@@ -70,17 +70,17 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-2xl mb-4">
-          <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
+        <div className="mb-6">
+          <img 
+            src="/Briefly_Logo_120px.png" 
+            alt="Briefly Logo" 
+            className="w-20 h-20 mx-auto mb-4"
+          />
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Briefly</h1>
-        <p className="text-sm text-gray-500 mb-6">AI Document Assistant</p>
-        <p className="text-lg text-gray-700">
+        <h1 className="text-2xl font-bold text-white mb-2">
           {isLogin ? 'Welcome back' : 'Create your account'}
-        </p>
-        <p className="text-sm text-gray-500 mt-1">
+        </h1>
+        <p className="text-gray-300 text-sm">
           {isLogin ? 'Sign in to continue to your documents' : 'Get started with your AI assistant'}
         </p>
       </div>
@@ -91,7 +91,7 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isLoading}
-          className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-200 rounded-2xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+          className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
         >
           <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -105,22 +105,22 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-gray-200" />
+          <span className="w-full border-t border-gray-600" />
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="bg-white px-4 text-gray-500 font-medium">Or continue with email</span>
+          <span className="bg-gray-900 px-4 text-gray-400 font-medium">Or continue with email</span>
         </div>
       </div>
 
       {/* Mode indicator tabs */}
-      <div className="flex bg-gray-50 rounded-2xl p-1.5 border border-gray-200">
+      <div className="flex bg-gray-800 rounded-xl p-1.5 border border-gray-700">
         <button
           type="button"
           onClick={() => !isLogin && handleModeSwitch()}
-          className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 ${
+          className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
             isLogin
-              ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-gray-300 hover:text-white hover:bg-gray-700'
           }`}
         >
           Sign In
@@ -128,10 +128,10 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
         <button
           type="button"
           onClick={() => isLogin && handleModeSwitch()}
-          className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 ${
+          className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
             !isLogin
-              ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-gray-300 hover:text-white hover:bg-gray-700'
           }`}
         >
           Sign Up
@@ -140,30 +140,30 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+          <div className="p-4 bg-red-900/20 border border-red-800 rounded-xl">
             <div className="flex items-start">
               <svg className="w-5 h-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
               </svg>
-              <p className="text-sm text-red-700 font-medium">{error}</p>
+              <p className="text-sm text-red-300 font-medium">{error}</p>
             </div>
           </div>
         )}
 
         {success && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-2xl">
+          <div className="p-4 bg-green-900/20 border border-green-800 rounded-xl">
             <div className="flex items-start">
               <svg className="w-5 h-5 text-green-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <p className="text-sm text-green-700 font-medium">{success}</p>
+              <p className="text-sm text-green-300 font-medium">{success}</p>
             </div>
           </div>
         )}
 
         <div className="space-y-5">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
               Email address
             </label>
             <input
@@ -171,14 +171,14 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+              className="w-full px-4 py-3.5 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-800 text-white placeholder-gray-400"
               placeholder="Enter your email address"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
               Password
             </label>
             <input
@@ -186,7 +186,7 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+              className="w-full px-4 py-3.5 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-800 text-white placeholder-gray-400"
               placeholder="Enter your password"
               required
             />
@@ -196,7 +196,7 @@ export default function AuthForm({ onLogin, onSignup }: AuthFormProps) {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-indigo-600 text-white py-3.5 px-6 rounded-2xl font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+          className="w-full bg-blue-600 text-white py-3.5 px-6 rounded-xl font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
         >
           {isLoading ? (
             <div className="flex items-center justify-center">
