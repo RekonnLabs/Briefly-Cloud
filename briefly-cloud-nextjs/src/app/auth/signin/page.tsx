@@ -27,10 +27,17 @@ export default function SignInPage() {
           const callbackUrl = urlParams.get('callbackUrl')
           
           if (callbackUrl) {
-            window.location.href = callbackUrl
+            // Decode the callback URL and use router for internal navigation
+            const decodedUrl = decodeURIComponent(callbackUrl)
+            if (decodedUrl.includes('rekonnlabs.com/briefly/app')) {
+              // Extract the path and redirect internally
+              router.push('/briefly/app/dashboard')
+            } else {
+              window.location.href = decodedUrl
+            }
           } else {
-            // Default redirect to the main app
-            window.location.href = 'https://rekonnlabs.com/briefly/app'
+            // Default redirect to the main app dashboard
+            router.push('/briefly/app/dashboard')
           }
         } else {
           throw new Error(data.error || 'Login failed')
