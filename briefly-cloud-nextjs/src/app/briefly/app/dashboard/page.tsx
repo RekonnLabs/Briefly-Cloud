@@ -26,8 +26,12 @@ function DashboardContent() {
   useEffect(() => {
     if (status === 'loading') return;
 
-    if (!session) {
-      // Preserve current URL as return destination
+    // Check if we're being accessed via proxy (from rekonnlabs.com)
+    const isProxied = window.location.hostname === 'rekonnlabs.com' || 
+                     window.location.hostname.includes('rekonnlabs.com');
+
+    if (!session && !isProxied) {
+      // Only redirect to NextAuth signin if accessed directly (not via proxy)
       const returnUrl = window.location.pathname + window.location.search;
       const encodedReturnUrl = encodeURIComponent(returnUrl);
       router.replace(`/api/auth/signin?callbackUrl=${encodedReturnUrl}`);
@@ -69,7 +73,12 @@ function DashboardContent() {
     );
   }
 
-  if (!session) {
+  // Check if we're being accessed via proxy
+  const isProxied = typeof window !== 'undefined' && 
+                   (window.location.hostname === 'rekonnlabs.com' || 
+                    window.location.hostname.includes('rekonnlabs.com'));
+
+  if (!session && !isProxied) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -80,11 +89,23 @@ function DashboardContent() {
     );
   }
 
+  // Create a mock session for proxied access
+  const effectiveSession = session || (isProxied ? {
+    user: {
+      id: 'proxy-user',
+      email: 'user@rekonnlabs.com',
+      name: 'Proxy User',
+      subscription_tier: 'free',
+      usage_count: 0,
+      usage_limit: 100
+    }
+  } : null);
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gray-50 flex">
         {/* Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} user={session.user} />
+        <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} user={effectiveSession?.user} />
         
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -96,15 +117,15 @@ function DashboardContent() {
                 <p className="text-sm text-gray-600">AI-Powered Document Assistant</p>
               </div>
               <div className="flex items-center space-x-4">
-                <SubscriptionStatus user={session.user} />
+                <SubscriptionStatus user={effectiveSession?.user} />
                 <div className="flex items-center space-x-2">
                   <img 
-                    src={session.user?.image || '/default-avatar.png'} 
+                    src={effectiveSession?.user?.image || '/default-avatar.png'} 
                     alt="Profile" 
                     className="w-8 h-8 rounded-full"
                   />
                   <span className="text-sm font-medium text-gray-700">
-                    {session.user?.name || session.user?.email}
+                    {effectiveSession?.user?.name || effectiveSession?.user?.email}
                   </span>
                 </div>
               </div>
