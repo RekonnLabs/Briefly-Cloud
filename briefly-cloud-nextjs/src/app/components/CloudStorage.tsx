@@ -55,11 +55,11 @@ export function CloudStorage() {
   };
 
   const connectProvider = async (providerId: 'google' | 'microsoft') => {
-    const authUrl = providerId === 'google' 
-      ? '/api/auth/signin?provider=google'
-      : '/api/auth/signin?provider=azure-ad';
+    const startUrl = providerId === 'google' 
+      ? '/api/storage/google/start'
+      : '/api/storage/microsoft/start';
     
-    window.location.href = authUrl;
+    window.location.href = startUrl;
   };
 
   const disconnectProvider = async (providerId: 'google' | 'microsoft') => {

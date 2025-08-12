@@ -25,6 +25,13 @@ const adminRoutes = [
   '/api/feature-flags'
 ]
 
+// Define paid-only route prefixes (require active subscription, not free tier)
+const PAID_ROUTE_PREFIXES = [
+  '/briefly/app/pro',
+  '/api/chat/enhanced',
+  '/api/embeddings/batch'
+]
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const startTime = Date.now()
@@ -73,7 +80,31 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Skip authentication check for app routes when accessed via proxy
+  // Handle authentication for /briefly/app/** routes
+  if (pathname.startsWith('/briefly/app')) {
+    // Exclude auth and billing pages from auth check to avoid loops
+    if (pathname.startsWith('/briefly/app/auth') || pathname.startsWith('/briefly/app/billing')) {
+      return NextResponse.next()
+    }
+
+    // Check if user is authenticated
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    if (!token) {
+      const callbackUrl = encodeURIComponent(pathname + request.nextUrl.search)
+      return NextResponse.redirect(new URL(`/briefly/app/auth/signin?callbackUrl=${callbackUrl}`, request.url))
+    }
+
+    // Check for paid-only routes
+    if (PAID_ROUTE_PREFIXES.some(prefix => pathname.startsWith(prefix))) {
+      const isActive = (token as any).subscription_status === 'active'
+      const tier = (token as any).subscription_tier
+      if (!isActive || tier === 'free') {
+        return NextResponse.redirect(new URL('/briefly/app/billing', request.url))
+      }
+    }
+  }
+
+  // Skip authentication check for legacy app routes when accessed via proxy
   // The Website project handles authentication for proxied requests
   if (pathname.startsWith('/dashboard') || 
       pathname.startsWith('/chat') || 

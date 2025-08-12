@@ -35,7 +35,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/drive.readonly'
+          scope: 'openid email profile'
         }
       }
     }),
@@ -45,33 +45,30 @@ export const authOptions: NextAuthOptions = {
       tenantId: process.env.AZURE_AD_TENANT_ID || 'common',
       authorization: {
         params: {
-          // Files.Read.All for OneDrive listing/downloads
-          scope: 'openid email profile offline_access Files.Read.All'
+          scope: 'openid email profile offline_access'
         }
       }
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      if (!user.email) return false
+    async signIn({ user }) {
+      if (!user?.email) return false
       
       try {
         // Check if user exists in Supabase
         const { data: existingUser } = await supabaseAdmin
           .from('users')
-          .select('*')
+          .select('id')
           .eq('email', user.email)
           .single()
         
         if (!existingUser) {
-          // Create new user
+          // Create new user with free tier active by default
           const newUser = {
-            id: user.id,
             email: user.email,
             full_name: user.name || user.email.split('@')[0],
-            plan: 'free', // Legacy column
             subscription_tier: 'free',
-            subscription_status: 'active',
+            subscription_status: 'active', // Free users are active by default
             chat_messages_count: 0,
             chat_messages_limit: TIER_LIMITS.free.max_llm_calls,
             documents_uploaded: 0,
@@ -96,24 +93,7 @@ export const authOptions: NextAuthOptions = {
             trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
           }
           
-          await supabaseAdmin.from('users').upsert(newUser)
-        }
-        
-        // Store OAuth tokens if available
-        if (account && account.access_token) {
-          const tokenData = {
-            user_id: user.id,
-            provider: account.provider,
-            access_token: account.access_token,
-            refresh_token: account.refresh_token,
-            expires_at: account.expires_at ? new Date(account.expires_at * 1000).toISOString() : null,
-            scope: account.scope,
-            token_type: account.token_type
-          }
-          
-          await supabaseAdmin
-            .from('oauth_tokens')
-            .upsert(tokenData, { onConflict: 'user_id,provider' })
+          await supabaseAdmin.from('users').insert(newUser)
         }
         
         return true
@@ -123,43 +103,40 @@ export const authOptions: NextAuthOptions = {
       }
     },
     
-    async session({ session }) {
-      if (session.user?.email) {
+    async jwt({ token }) {
+      if (token?.email) {
         try {
-          // Get user data from Supabase
-          const { data: userData } = await supabaseAdmin
+          // Get user data from Supabase and attach to token
+          const { data } = await supabaseAdmin
             .from('users')
-            .select('*')
-            .eq('email', session.user.email)
+            .select('id, subscription_tier, subscription_status, chat_messages_count, chat_messages_limit')
+            .eq('email', token.email)
             .single()
           
-          if (userData) {
-            session.user.id = userData.id
-            session.user.subscription_tier = userData.subscription_tier
-            session.user.usage_count = userData.chat_messages_count || 0
-            session.user.usage_limit = userData.chat_messages_limit || TIER_LIMITS[userData.subscription_tier as keyof typeof TIER_LIMITS]?.max_llm_calls || 100
+          if (data) {
+            token.uid = data.id
+            token.subscription_tier = data.subscription_tier
+            token.subscription_status = data.subscription_status
+            token.usage_count = data.chat_messages_count || 0
+            token.usage_limit = data.chat_messages_limit || TIER_LIMITS[data.subscription_tier as keyof typeof TIER_LIMITS]?.max_llm_calls || 100
           }
         } catch (error) {
-          console.error('Error in session callback:', error)
+          console.error('Error in jwt callback:', error)
         }
       }
-      
-      return session
+      return token
     },
     
-    async jwt({ token, account, user }) {
-      // Store account info in token on first sign in
-      if (account) {
-        token.accessToken = account.access_token
-        token.refreshToken = account.refresh_token
-        token.provider = account.provider
+    async session({ session, token }) {
+      if (session.user) {
+        // Attach user data from token to session
+        session.user.id = token.uid as string
+        session.user.subscription_tier = token.subscription_tier as string
+        session.user.subscription_status = token.subscription_status as string
+        session.user.usage_count = token.usage_count as number
+        session.user.usage_limit = token.usage_limit as number
       }
-      
-      if (user) {
-        token.id = user.id
-      }
-      
-      return token
+      return session
     }
   },
   pages: {
@@ -180,7 +157,8 @@ declare module 'next-auth' {
       email: string
       name?: string
       image?: string
-      subscription_tier: 'free' | 'pro' | 'pro_byok'
+      subscription_tier: string
+      subscription_status: string
       usage_count: number
       usage_limit: number
     }
@@ -196,9 +174,13 @@ declare module 'next-auth' {
 
 declare module 'next-auth/jwt' {
   interface JWT {
-    id: string
+    uid?: string
     accessToken?: string
     refreshToken?: string
     provider?: string
+    subscription_tier?: string
+    subscription_status?: string
+    usage_count?: number
+    usage_limit?: number
   }
 }

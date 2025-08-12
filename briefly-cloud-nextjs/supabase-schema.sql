@@ -14,17 +14,18 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- OAuth tokens for Google Drive and OneDrive
+-- OAuth tokens for Google Drive and OneDrive (separate from NextAuth login)
 CREATE TABLE IF NOT EXISTS oauth_tokens (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider TEXT NOT NULL CHECK (provider IN ('google', 'azure-ad')),
-  access_token TEXT NOT NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
+  access_token TEXT,
   refresh_token TEXT,
+  scope TEXT,
+  token_type TEXT,
   expires_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, provider)
+  PRIMARY KEY (user_id, provider)
 );
 
 -- File metadata

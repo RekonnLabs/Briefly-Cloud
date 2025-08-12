@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Briefly Cloud
 
-## Getting Started
+AI-powered document assistant that transforms your documents into intelligent conversations.
 
-First, run the development server:
+## Features
+
+- **NextAuth Authentication** - Google and Microsoft OAuth login
+- **Document Upload** - Support for PDF, DOCX, TXT, MD, CSV, XLSX, PPTX
+- **Cloud Storage Integration** - Connect Google Drive and OneDrive
+- **AI Chat** - Chat with your documents using GPT-4 Turbo
+- **Vector Search** - Semantic document search with ChromaDB
+- **Subscription Management** - Free, Pro, and Pro BYOK tiers
+
+## Quick Start
+
+### 1. Environment Setup
+
+Copy the environment template:
+```bash
+cp .env.example .env.local
+```
+
+Fill in your OAuth credentials and API keys. See [OAuth Setup Guide](./docs/OAUTH_SETUP.md) for detailed instructions.
+
+### 2. Database Setup
+
+Run the Supabase schema:
+```sql
+-- Run the contents of supabase-schema.sql in your Supabase SQL editor
+```
+
+### 3. Install Dependencies
+
+```bash
+npm install
+```
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Authentication Flow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Login**: Users sign in via Google/Microsoft OAuth (NextAuth)
+2. **Storage**: Separate OAuth flows for Google Drive/OneDrive access
+3. **Protection**: Middleware protects `/briefly/app/**` routes
+4. **Paywall**: Premium features gated for paid subscribers
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/
+│   ├── api/                 # API routes
+│   │   ├── auth/           # NextAuth configuration
+│   │   ├── storage/        # Storage OAuth endpoints
+│   │   ├── chat/           # AI chat endpoints
+│   │   └── upload/         # File upload endpoints
+│   ├── briefly/app/        # Main application
+│   │   ├── auth/           # Authentication pages
+│   │   └── dashboard/      # Main dashboard
+│   ├── components/         # React components
+│   └── lib/                # Utilities and configurations
+├── docs/                   # Documentation
+└── database/               # Database schemas
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Key Technologies
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Framework**: Next.js 14 with App Router
+- **Authentication**: NextAuth.js
+- **Database**: Supabase (PostgreSQL)
+- **Vector Storage**: ChromaDB
+- **AI**: OpenAI GPT-4 Turbo
+- **Payments**: Stripe
+- **Deployment**: Vercel
 
-## Deploy on Vercel
+## Documentation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [OAuth Setup Guide](./docs/OAUTH_SETUP.md) - Configure Google and Microsoft OAuth
+- [Deployment Guide](./docs/VERCEL_DEPLOYMENT_GUIDE.md) - Deploy to Vercel
+- [API Documentation](./docs/) - API endpoints and usage
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Development
+
+### Available Scripts
+
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npm run test         # Run tests
+npm run type-check   # TypeScript type checking
+```
+
+### Environment Variables
+
+Key environment variables (see `.env.example` for complete list):
+
+- `NEXTAUTH_URL` - Your application URL
+- `NEXTAUTH_SECRET` - NextAuth secret key
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - Google OAuth
+- `AZURE_AD_CLIENT_ID` / `AZURE_AD_CLIENT_SECRET` - Microsoft OAuth
+- `OPENAI_API_KEY` - OpenAI API key
+- `SUPABASE_*` - Supabase configuration
+
+## Deployment
+
+Deploy to Vercel with one click:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-repo/briefly-cloud)
+
+Or follow the [Deployment Guide](./docs/VERCEL_DEPLOYMENT_GUIDE.md) for detailed instructions.
+
+## License
+
+MIT License - see [LICENSE](./LICENSE) for details.

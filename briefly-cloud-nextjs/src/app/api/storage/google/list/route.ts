@@ -3,14 +3,13 @@ import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { google } from 'googleapis'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 async function listGoogleFilesHandler(_request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
 
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
-  const { data: token } = await supabase
+  const { data: token } = await supabaseAdmin
     .from('oauth_tokens')
     .select('*')
     .eq('user_id', user.id)
