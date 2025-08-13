@@ -168,18 +168,18 @@ export function CloudStorage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Cloud Storage</h2>
-        <p className="text-gray-600">Connect your cloud storage accounts to import documents</p>
+        <h2 className="text-xl font-semibold text-white mb-4">Cloud Storage</h2>
+        <p className="text-gray-300">Connect your cloud storage accounts to import documents</p>
       </div>
 
       {providers.map((provider) => (
-        <div key={provider.id} className="bg-white border border-gray-200 rounded-lg p-6">
+        <div key={provider.id} className="bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-2xl shadow-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <span className="text-2xl">{provider.icon}</span>
               <div>
-                <h3 className="text-lg font-medium text-gray-900">{provider.name}</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="text-lg font-medium text-white">{provider.name}</h3>
+                <p className="text-sm text-gray-300">
                   {provider.connected ? 'Connected' : 'Not connected'}
                 </p>
               </div>
@@ -191,14 +191,14 @@ export function CloudStorage() {
                   <button
                     onClick={() => loadFiles(provider.id)}
                     disabled={provider.loading}
-                    className="flex items-center space-x-2 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    className="flex items-center space-x-2 px-3 py-2 text-sm bg-gray-800/50 hover:bg-gray-700/50 text-gray-300 hover:text-white rounded-lg transition-colors"
                   >
                     <RefreshCw className={`w-4 h-4 ${provider.loading ? 'animate-spin' : ''}`} />
                     <span>Refresh</span>
                   </button>
                   <button
                     onClick={() => disconnectProvider(provider.id)}
-                    className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 rounded-lg transition-colors"
                   >
                     Disconnect
                   </button>
@@ -206,7 +206,7 @@ export function CloudStorage() {
               ) : (
                 <button
                   onClick={() => connectProvider(provider.id)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg"
                 >
                   <Cloud className="w-4 h-4" />
                   <span>Connect</span>
@@ -219,26 +219,26 @@ export function CloudStorage() {
             <div className="space-y-4">
               {provider.loading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-gray-600">Loading files...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                  <p className="text-gray-300">Loading files...</p>
                 </div>
               ) : provider.files.length > 0 ? (
                 <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900">Available Files</h4>
+                  <h4 className="font-medium text-white">Available Files</h4>
                   {provider.files.map((file) => (
                     <div
                       key={file.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-gray-800/50 rounded-xl border border-gray-700/30"
                     >
                       <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
-                          <Cloud className="w-4 h-4 text-gray-600" />
+                        <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center">
+                          <Cloud className="w-4 h-4 text-gray-300" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-white truncate">
                             {file.name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-400">
                             {formatFileSize(file.size)}
                           </p>
                         </div>
@@ -250,7 +250,7 @@ export function CloudStorage() {
                             href={file.webViewLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                            className="text-gray-400 hover:text-gray-200 transition-colors"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </a>
@@ -258,7 +258,7 @@ export function CloudStorage() {
                         <button
                           onClick={() => importFile(provider.id, file.id, file.name)}
                           disabled={importingFiles.has(file.id)}
-                          className="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {importingFiles.has(file.id) ? (
                             <>
@@ -277,8 +277,8 @@ export function CloudStorage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Cloud className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className="text-center py-8 text-gray-400">
+                  <Cloud className="w-12 h-12 mx-auto mb-4 text-gray-600" />
                   <p>No files found</p>
                   <p className="text-sm">Click "Refresh" to load your files</p>
                 </div>
@@ -287,8 +287,8 @@ export function CloudStorage() {
           )}
 
           {!provider.connected && (
-            <div className="text-center py-8 text-gray-500">
-              <Cloud className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+            <div className="text-center py-8 text-gray-400">
+              <Cloud className="w-12 h-12 mx-auto mb-4 text-gray-600" />
               <p>Connect your {provider.name} account to import files</p>
             </div>
           )}
