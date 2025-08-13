@@ -142,28 +142,28 @@ export function ChatInterface() {
   };
 
   const formatMessage = (content: string) => {
-    // Simple markdown-like formatting
+    // Simple markdown-like formatting with dark theme support
     return content
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>')
+      .replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-gray-200 px-1 rounded">$1</code>')
       .replace(/\n/g, '<br>');
   };
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200">
+    <div className="h-full flex flex-col bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-xl">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">AI Chat</h2>
-        <p className="text-sm text-gray-600">Ask questions about your documents</p>
+      <div className="p-4 border-b border-gray-700/50">
+        <h2 className="text-lg font-semibold text-white">AI Chat</h2>
+        <p className="text-sm text-gray-300">Ask questions about your documents</p>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center text-gray-500 py-8">
-            <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-medium mb-2">No conversation yet</p>
+          <div className="text-center text-gray-400 py-8">
+            <FileText className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+            <p className="text-lg font-medium mb-2 text-white">No conversation yet</p>
             <p className="text-sm">Upload some documents and start chatting!</p>
           </div>
         )}
@@ -174,10 +174,10 @@ export function ChatInterface() {
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-3xl rounded-lg px-4 py-3 ${
+              className={`max-w-3xl rounded-2xl px-4 py-3 ${
                 message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-900'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-800/50 text-gray-100 border border-gray-700/30'
               }`}
             >
               <div
@@ -188,19 +188,19 @@ export function ChatInterface() {
               />
               
               {message.sources && message.sources.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-xs font-medium mb-2">Sources:</p>
+                <div className={`mt-3 pt-3 ${message.role === 'user' ? 'border-t border-blue-400/30' : 'border-t border-gray-600/50'}`}>
+                  <p className="text-xs font-medium mb-2 opacity-80">Sources:</p>
                   <div className="space-y-1">
                     {message.sources.map((source, index) => (
-                      <div key={index} className="flex items-center space-x-2 text-xs">
+                      <div key={index} className="flex items-center space-x-2 text-xs opacity-70">
                         <FileText className="w-3 h-3" />
                         <span>{source.file_name}</span>
-                        <span className="text-gray-500">•</span>
-                        <span className="text-gray-500">
+                        <span>•</span>
+                        <span>
                           Chunk {source.chunk_index}
                         </span>
-                        <span className="text-gray-500">•</span>
-                        <span className="text-gray-500">
+                        <span>•</span>
+                        <span>
                           {Math.round(source.relevance_score * 100)}% relevant
                         </span>
                       </div>
@@ -218,14 +218,14 @@ export function ChatInterface() {
 
         {streamingMessage && (
           <div className="flex justify-start">
-            <div className="max-w-3xl rounded-lg px-4 py-3 bg-gray-100 text-gray-900">
+            <div className="max-w-3xl rounded-2xl px-4 py-3 bg-gray-800/50 text-gray-100 border border-gray-700/30">
               <div
-                className="prose prose-sm max-w-none"
+                className="prose prose-sm max-w-none prose-invert"
                 dangerouslySetInnerHTML={{
                   __html: formatMessage(streamingMessage)
                 }}
               />
-              <div className="inline-block w-2 h-4 bg-gray-400 ml-1 animate-pulse" />
+              <div className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse" />
             </div>
           </div>
         )}
@@ -234,7 +234,7 @@ export function ChatInterface() {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-700/50">
         <div className="flex space-x-4">
           <div className="flex-1">
             <textarea
@@ -242,7 +242,7 @@ export function ChatInterface() {
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Ask a question about your documents..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-600 bg-gray-800/50 text-white placeholder-gray-400 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               rows={3}
               disabled={isLoading}
             />
@@ -250,12 +250,12 @@ export function ChatInterface() {
           <button
             onClick={sendMessage}
             disabled={!input.trim() || isLoading}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg"
           >
             <Send className="w-5 h-5" />
           </button>
         </div>
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-gray-400">
           Press Enter to send, Shift+Enter for new line
         </div>
       </div>
