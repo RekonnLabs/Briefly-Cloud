@@ -4,6 +4,7 @@ import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
 import { withRateLimit } from '@/app/lib/rate-limit'
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 // Error tracking schema
 const ErrorTrackingSchema = z.object({
@@ -27,10 +28,7 @@ export async function POST(request: NextRequest) {
       const errorData = ErrorTrackingSchema.parse(body)
 
       // Store error in database
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
+      const supabase = supabaseAdmin
 
       const { error } = await supabase
         .from('error_logs')
@@ -82,10 +80,7 @@ export async function GET(request: NextRequest) {
       const errorType = searchParams.get('errorType')
 
       // Get error logs
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
+      const supabase = supabaseAdmin
 
       const cutoffDate = new Date()
       cutoffDate.setHours(cutoffDate.getHours() - hours)

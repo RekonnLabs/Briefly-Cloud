@@ -11,6 +11,7 @@ import { gdprService } from '@/app/lib/gdpr-compliance';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 const DeletionRequestSchema = z.object({
   deletion_type: z.enum(['account', 'data_only']).default('account'),
@@ -33,10 +34,7 @@ export async function POST(request: NextRequest) {
     const { deletion_type, reason } = DeletionRequestSchema.parse(body);
 
     // Get user ID from database
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data: userData, error } = await supabase
       .from('users')
@@ -98,10 +96,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user ID from database
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data: userData, error } = await supabase
       .from('users')

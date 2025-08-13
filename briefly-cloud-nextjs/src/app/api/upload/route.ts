@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse, validateFileUpload, formatFileSize } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
@@ -56,10 +56,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
   }
   
   try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Parse multipart form data
     const formData = await request.formData()
@@ -209,6 +206,49 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       
       return ApiResponse.internalError('Failed to save file metadata')
     }
+
+    // Automatic indexing - same pipeline as cloud imports
+    const fileId = metadataResult.id
+    
+    try {
+      // 1) Extract text from the uploaded buffer we already have
+      const { extractTextFromBuffer } = await import('@/app/lib/document-extractor')
+      const extraction = await extractTextFromBuffer(Buffer.from(fileBuffer), file.type, file.name)
+      
+      // 2) Create chunks
+      const { createTextChunks } = await import('@/app/lib/document-extractor')
+      const { storeDocumentChunks } = await import('@/app/lib/document-chunker')
+      const chunks = createTextChunks(extraction.text, fileId, file.name, file.type, 1000)
+      await storeDocumentChunks(chunks as any, user.id, fileId)
+      
+      // 3) Generate embeddings and store vectors
+      const { createEmbeddingsService } = await import('@/app/lib/embeddings')
+      const { storeDocumentVectors } = await import('@/app/lib/vector-storage')
+      const embeddingsService = createEmbeddingsService()
+      const embeddings = await embeddingsService.generateBatchEmbeddings(chunks.map(c => c.content))
+      await storeDocumentVectors(chunks as any, embeddings.embeddings.map(e => e.embedding), user.id, file.name)
+      
+      // 4) Mark as processed
+      await supabase
+        .from('file_metadata')
+        .update({ processed: true, processing_status: 'completed' })
+        .eq('id', fileId)
+        
+    } catch (processingError) {
+      console.error('File processing error:', processingError)
+      
+      // Mark as failed but don't fail the upload
+      await supabase
+        .from('file_metadata')
+        .update({ processed: false, processing_status: 'failed' })
+        .eq('id', fileId)
+        
+      // Log the processing error but continue with upload success
+      logApiUsage(user.id, '/api/upload', 'processing_failed', {
+        file_name: file.name,
+        error: processingError instanceof Error ? processingError.message : 'Unknown error'
+      })
+    }
     
     // Update user usage statistics
     const { error: usageError } = await withApiPerformanceMonitoring(() =>
@@ -280,10 +320,7 @@ async function getUploadInfoHandler(request: Request, context: ApiContext): Prom
   }
   
   try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get user's current usage
     const { data: userProfile, error: profileError } = await supabase

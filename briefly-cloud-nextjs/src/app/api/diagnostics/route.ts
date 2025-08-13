@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createPublicApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 // Diagnostics handler
 async function diagnosticsHandler(_request: Request, _context: ApiContext): Promise<NextResponse> {
@@ -100,10 +101,7 @@ async function getRouteStatus() {
 async function checkDatabaseConnectivity() {
   try {
     const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     const startTime = Date.now()
     const { error } = await supabase

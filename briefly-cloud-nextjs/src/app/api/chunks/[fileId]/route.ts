@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 import { 
   DocumentChunker, 
@@ -60,10 +60,7 @@ async function createFileChunksHandler(request: Request, context: ApiContext): P
       forceReprocess,
     } = validation.data
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get file metadata
     const { data: file, error: fileError } = await supabase
@@ -226,10 +223,7 @@ async function getFileChunksHandler(request: Request, context: ApiContext): Prom
       return ApiResponse.badRequest('File ID is required')
     }
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get file metadata
     const { data: file, error: fileError } = await supabase
@@ -295,10 +289,7 @@ async function deleteFileChunksHandler(request: Request, context: ApiContext): P
       return ApiResponse.badRequest('File ID is required')
     }
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Verify file ownership
     const { data: file, error: fileError } = await supabase

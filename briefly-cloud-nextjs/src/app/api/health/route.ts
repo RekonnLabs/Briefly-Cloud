@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -41,10 +42,7 @@ async function checkDatabase(): Promise<ServiceStatus> {
   const startTime = Date.now();
   
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     // Simple query to test connectivity
     const { data, error } = await supabase
@@ -129,10 +127,7 @@ async function checkSupabase(): Promise<ServiceStatus> {
   const startTime = Date.now();
   
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     // Test auth service
     const { data, error } = await supabase.auth.getSession();
@@ -339,10 +334,7 @@ export async function GET(request: NextRequest) {
 export async function HEAD(request: NextRequest) {
   try {
     // Quick database connectivity check
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { error } = await supabase
       .from('users')

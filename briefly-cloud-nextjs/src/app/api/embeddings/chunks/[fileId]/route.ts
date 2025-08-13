@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 import { 
   EmbeddingsService,
@@ -53,10 +53,7 @@ async function generateChunkEmbeddingsHandler(request: Request, context: ApiCont
       save_to_database
     } = validation.data
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get file metadata
     const { data: file, error: fileError } = await supabase
@@ -217,10 +214,7 @@ async function getChunkEmbeddingsHandler(request: Request, context: ApiContext):
       return ApiResponse.badRequest('File ID is required')
     }
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get file metadata
     const { data: file, error: fileError } = await supabase

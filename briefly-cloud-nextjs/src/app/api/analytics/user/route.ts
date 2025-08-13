@@ -6,6 +6,7 @@ import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
 import { withRateLimit } from '@/app/lib/rate-limit'
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 // User analytics schema
 const UserAnalyticsSchema = z.object({
@@ -36,10 +37,7 @@ export async function POST(request: NextRequest) {
       const analytics = UserAnalyticsSchema.parse(body)
 
       // Store user analytics in database
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
+      const supabase = supabaseAdmin
 
       const { error } = await supabase
         .from('user_analytics')
@@ -89,10 +87,7 @@ export async function GET(request: NextRequest) {
       const days = parseInt(searchParams.get('days') || '30')
 
       // Get user analytics
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
+      const supabase = supabaseAdmin
 
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - days)

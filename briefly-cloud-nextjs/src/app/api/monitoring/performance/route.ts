@@ -4,6 +4,7 @@ import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
 import { withRateLimit } from '@/app/lib/rate-limit'
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 // Performance metrics schema
 const PerformanceMetricsSchema = z.object({
@@ -33,10 +34,7 @@ export async function POST(request: NextRequest) {
       const metrics = PerformanceMetricsSchema.parse(body)
 
       // Store performance metrics in database
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
+      const supabase = supabaseAdmin
 
       const { error } = await supabase
         .from('performance_metrics')
@@ -86,10 +84,7 @@ export async function GET(request: NextRequest) {
       const hours = parseInt(searchParams.get('hours') || '24')
 
       // Get performance metrics
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
+      const supabase = supabaseAdmin
 
       const cutoffDate = new Date()
       cutoffDate.setHours(cutoffDate.getHours() - hours)

@@ -5,7 +5,7 @@ import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
 import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '@/app/lib/openai'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/performance'
 
@@ -25,7 +25,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
 
   const { message, conversationId, stream } = parsed.data
 
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+  const supabase = supabaseAdmin
 
   // Prepare conversation
   let convoId = conversationId

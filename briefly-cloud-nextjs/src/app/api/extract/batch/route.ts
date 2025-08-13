@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 import { 
   extractTextFromBuffer, 
@@ -41,10 +41,7 @@ async function batchExtractionHandler(request: Request, context: ApiContext): Pr
     
     const { file_ids, options } = validation.data
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get files metadata
     const { data: files, error: filesError } = await supabase

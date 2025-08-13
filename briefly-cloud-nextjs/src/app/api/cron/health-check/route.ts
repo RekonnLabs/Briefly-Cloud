@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { logger } from '@/app/lib/logger';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 interface HealthStatus {
   timestamp: string;
@@ -184,10 +185,7 @@ async function checkDatabaseHealth(): Promise<ServiceHealth> {
   const startTime = Date.now();
   
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data, error } = await supabase
       .from('users')
@@ -265,10 +263,7 @@ async function checkSupabaseHealth(): Promise<ServiceHealth> {
   const startTime = Date.now();
   
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     // Test auth service
     const { error } = await supabase.auth.getSession();
@@ -347,10 +342,7 @@ async function checkChromaDBHealth(): Promise<ServiceHealth | null> {
  */
 async function storeHealthCheckResults(healthStatus: HealthStatus): Promise<void> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     await supabase
       .from('health_checks')
@@ -463,10 +455,7 @@ async function sendCriticalAlert(message: string, error: any): Promise<void> {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data: latestCheck } = await supabase
       .from('health_checks')

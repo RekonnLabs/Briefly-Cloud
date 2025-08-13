@@ -3,7 +3,7 @@ import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
 
@@ -15,7 +15,7 @@ async function createCheckoutHandler(request: Request, context: ApiContext): Pro
   const tier = body.tier || 'pro'
   if (!['pro', 'pro_byok'].includes(tier)) return ApiResponse.badRequest('Invalid tier')
 
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+  const supabase = supabaseAdmin
 
   // Ensure customer id
   const { data: profile } = await supabase

@@ -11,6 +11,7 @@ import { featureFlagService } from '@/app/lib/feature-flags';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 const BetaUserSchema = z.object({
   user_id: z.string().uuid(),
@@ -41,10 +42,7 @@ export async function GET(request: NextRequest) {
       return createErrorResponse('Admin access required', 403);
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data: betaUsers, error } = await supabase
       .from('users')

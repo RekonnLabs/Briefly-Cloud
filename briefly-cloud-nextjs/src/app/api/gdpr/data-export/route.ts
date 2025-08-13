@@ -10,6 +10,7 @@ import { authOptions } from '@/app/lib/auth';
 import { gdprService } from '@/app/lib/gdpr-compliance';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 /**
  * POST /api/gdpr/data-export
@@ -24,10 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user ID from database
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data: userData, error } = await supabase
       .from('users')
@@ -80,10 +78,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user ID from database
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data: userData, error } = await supabase
       .from('users')

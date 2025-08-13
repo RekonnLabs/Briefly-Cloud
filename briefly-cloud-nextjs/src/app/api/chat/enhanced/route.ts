@@ -13,7 +13,7 @@ import { FEATURE_FLAGS } from '@/app/lib/feature-flags'
 import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
 import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '@/app/lib/openai'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { withApiPerformanceMonitoring } from '@/app/lib/performance'
 
 const chatSchema = z.object({
@@ -38,7 +38,7 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
   const isStreamingEnabled = featureFlagResult?.enabled || false
   const streamingConfig = featureFlagResult?.config || {}
 
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!)
+  const supabase = supabaseAdmin
 
   // Prepare conversation
   let convoId = conversationId

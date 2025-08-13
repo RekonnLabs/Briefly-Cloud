@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 import { z } from 'zod'
 
@@ -37,10 +37,7 @@ async function bulkDeleteHandler(request: Request, context: ApiContext): Promise
     
     const { file_ids } = validation.data
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get files to delete (ensure user owns them)
     const { data: files, error: fetchError } = await supabase
@@ -171,10 +168,7 @@ async function bulkUpdateHandler(request: Request, context: ApiContext): Promise
       return ApiResponse.badRequest('At least one update field is required')
     }
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get files to update (ensure user owns them)
     const { data: files, error: fetchError } = await supabase
@@ -275,10 +269,7 @@ async function bulkInfoHandler(request: Request, context: ApiContext): Promise<N
       return ApiResponse.badRequest('file_ids must be an array with 1-100 items')
     }
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get files info
     const { data: files, error } = await supabase

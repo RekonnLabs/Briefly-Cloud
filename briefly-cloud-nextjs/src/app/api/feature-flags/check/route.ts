@@ -11,6 +11,7 @@ import { isFeatureEnabled, UserContext } from '@/app/lib/feature-flags';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 const CheckFeatureSchema = z.object({
   feature_name: z.string().min(1)
@@ -32,10 +33,7 @@ export async function POST(request: NextRequest) {
     const { feature_name } = CheckFeatureSchema.parse(body);
 
     // Get user context from database
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data: userData, error } = await supabase
       .from('users')
@@ -94,10 +92,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user context from database
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     const { data: userData, error } = await supabase
       .from('users')

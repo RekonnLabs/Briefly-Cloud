@@ -9,6 +9,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 interface SystemMetrics {
   overview: {
@@ -66,10 +67,7 @@ export async function GET(request: NextRequest) {
       return createErrorResponse('Admin access required', 403);
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     // Get overview metrics
     const [
@@ -191,10 +189,7 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('Admin access required', 403);
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = supabaseAdmin;
 
     // Check for various alert conditions
     const alerts = [];

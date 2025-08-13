@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 import { 
   DocumentChunker, 
@@ -89,10 +89,7 @@ async function createChunksHandler(request: Request, context: ApiContext): Promi
       storedChunks = await storeDocumentChunks(chunks, user.id, fileId)
       
       // Update file metadata to mark as processed
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_ANON_KEY!
-      )
+      const supabase = supabaseAdmin
       
       await supabase
         .from('file_metadata')

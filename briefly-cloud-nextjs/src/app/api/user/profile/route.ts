@@ -3,7 +3,7 @@ import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { userProfileSchema } from '@/app/lib/validations'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 
 // GET /api/user/profile - Get user profile
@@ -15,10 +15,7 @@ async function getProfileHandler(request: Request, context: ApiContext): Promise
   }
   
   try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get full user profile with usage statistics
     const { data: userProfile, error } = await supabase
@@ -104,10 +101,7 @@ async function updateProfileHandler(request: Request, context: ApiContext): Prom
   }
   
   try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     const updateData = validatedData.body
     
@@ -153,10 +147,7 @@ async function deleteProfileHandler(request: Request, context: ApiContext): Prom
   }
   
   try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Start transaction-like operations
     // 1. Delete user data from related tables

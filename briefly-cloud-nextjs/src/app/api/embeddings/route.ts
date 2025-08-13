@@ -14,6 +14,7 @@ import {
   getEmbeddingModelInfo
 } from '@/app/lib/embeddings'
 import { z } from 'zod'
+import { supabaseAdmin } from '@/app/lib/supabase'
 
 // Validation schemas
 const embeddingRequestSchema = z.object({
@@ -53,10 +54,7 @@ async function generateEmbeddingHandler(request: Request, context: ApiContext): 
     if (user.subscription_tier === 'pro_byok') {
       // Try to get user's API key from settings
       const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_ANON_KEY!
-      )
+      const supabase = supabaseAdmin
       
       const { data: apiKeyData } = await supabase
         .from('user_settings')
@@ -143,10 +141,7 @@ async function generateBatchEmbeddingsHandler(request: Request, context: ApiCont
     
     if (user.subscription_tier === 'pro_byok') {
       const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_ANON_KEY!
-      )
+      const supabase = supabaseAdmin
       
       const { data: apiKeyData } = await supabase
         .from('user_settings')

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse, parsePaginationParams, createPaginatedResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 
 // GET /api/upload/files - List user's uploaded files
@@ -14,10 +14,7 @@ async function listFilesHandler(request: Request, context: ApiContext): Promise<
   }
   
   try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     const url = new URL(request.url)
     const pagination = parsePaginationParams(url.searchParams)

@@ -51,7 +51,7 @@ function DashboardContent({ user }: DashboardClientProps) {
   const handleTabChange = (tab: 'chat' | 'files' | 'storage') => {
     setActiveTab(tab);
     localStorage.setItem('briefly-default-tab', tab);
-    
+
     // Update URL without causing navigation
     const url = new URL(window.location.href);
     url.searchParams.set('tab', tab);
@@ -63,16 +63,16 @@ function DashboardContent({ user }: DashboardClientProps) {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex">
         {/* Sidebar */}
         <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} user={user} />
-        
+
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* Header */}
           <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <img 
-                  src="/Briefly_Logo_120px.png" 
-                  alt="Briefly Logo" 
+                <img
+                  src="/Briefly_Logo_120px.png"
+                  alt="Briefly Logo"
                   className="w-10 h-10"
                 />
                 <div>
@@ -83,9 +83,9 @@ function DashboardContent({ user }: DashboardClientProps) {
               <div className="flex items-center space-x-4">
                 <SubscriptionStatus user={user} />
                 <div className="flex items-center space-x-2">
-                  <img 
-                    src={user?.image || '/default-avatar.png'} 
-                    alt="Profile" 
+                  <img
+                    src={user?.image || '/default-avatar.png'}
+                    alt="Profile"
                     className="w-8 h-8 rounded-full border-2 border-gray-600"
                   />
                   <span className="text-sm font-medium text-gray-200">
@@ -103,7 +103,7 @@ function DashboardContent({ user }: DashboardClientProps) {
                 <ChatInterface />
               </ErrorBoundary>
             )}
-            
+
             {activeTab === 'files' && (
               <div className="space-y-6">
                 <div>
@@ -121,7 +121,7 @@ function DashboardContent({ user }: DashboardClientProps) {
                 </div>
               </div>
             )}
-            
+
             {activeTab === 'storage' && (
               <ErrorBoundary>
                 <CloudStorage />

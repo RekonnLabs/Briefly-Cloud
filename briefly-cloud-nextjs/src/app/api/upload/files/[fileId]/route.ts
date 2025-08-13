@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/app/lib/supabase'
 import { logApiUsage } from '@/app/lib/logger'
 
 // GET /api/upload/files/[fileId] - Get specific file details
@@ -21,10 +21,7 @@ async function getFileHandler(request: Request, context: ApiContext): Promise<Ne
       return ApiResponse.badRequest('File ID is required')
     }
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get file metadata
     const { data: file, error } = await supabase
@@ -105,10 +102,7 @@ async function deleteFileHandler(request: Request, context: ApiContext): Promise
       return ApiResponse.badRequest('File ID is required')
     }
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Get file metadata first
     const { data: file, error: fetchError } = await supabase
@@ -216,10 +210,7 @@ async function updateFileHandler(request: Request, context: ApiContext): Promise
       return ApiResponse.badRequest('Name or metadata is required for update')
     }
     
-    const supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!
-    )
+    const supabase = supabaseAdmin
     
     // Check if file exists and user owns it
     const { data: existingFile, error: fetchError } = await supabase
