@@ -22,6 +22,7 @@ export enum ErrorCode {
   // Usage limit errors
   USAGE_LIMIT_EXCEEDED = 'USAGE_LIMIT_EXCEEDED',
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
+  TIER_UPGRADE_REQUIRED = 'TIER_UPGRADE_REQUIRED',
   
   // External service errors
   EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
@@ -74,16 +75,26 @@ export const createError = {
   conflict: (message: string) => 
     new AppError(ErrorCode.CONFLICT, message, 409),
     
-  usageLimitExceeded: (limitType: string, tier: string, current: number, limit: number) => 
-    new AppError(
-      ErrorCode.USAGE_LIMIT_EXCEEDED, 
-      `You have exceeded your ${limitType} limit for the ${tier} tier`,
-      429,
-      { limitType, tier, current, limit, upgradeRequired: tier === 'free' }
-    ),
+  usageLimitExceeded: (message: string, details?: any) => 
+    new AppError(ErrorCode.USAGE_LIMIT_EXCEEDED, message, 429, details),
     
-  rateLimitExceeded: (message = 'Rate limit exceeded') => 
-    new AppError(ErrorCode.RATE_LIMIT_EXCEEDED, message, 429),
+  rateLimitExceeded: (message: string, details?: any) => 
+    new AppError(ErrorCode.RATE_LIMIT_EXCEEDED, message, 429, details),
+    
+  tierUpgradeRequired: (message: string, details?: any) =>
+    new AppError(ErrorCode.TIER_UPGRADE_REQUIRED, message, 402, details),
+    
+  processingError: (message: string, originalError?: Error) =>
+    new AppError(ErrorCode.INTERNAL_ERROR, message, 500, { originalError: originalError?.message }),
+    
+  searchError: (message: string, originalError?: Error) =>
+    new AppError(ErrorCode.INTERNAL_ERROR, message, 500, { originalError: originalError?.message }),
+    
+  deletionError: (message: string, originalError?: Error) =>
+    new AppError(ErrorCode.INTERNAL_ERROR, message, 500, { originalError: originalError?.message }),
+    
+  databaseError: (message: string, originalError?: Error) =>
+    new AppError(ErrorCode.SUPABASE_ERROR, message, 500, { originalError: originalError?.message }),
     
   externalService: (service: string, message: string) => 
     new AppError(ErrorCode.EXTERNAL_SERVICE_ERROR, `${service} error: ${message}`, 502),
