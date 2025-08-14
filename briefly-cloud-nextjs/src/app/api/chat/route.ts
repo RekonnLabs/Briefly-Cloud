@@ -45,16 +45,17 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       .insert({ conversation_id: convoId, role: 'user', content: message })
   }
 
-  // Retrieve context via vector search with performance monitoring
+  // Retrieve context via new vector search with performance monitoring
+  const { searchDocuments } = await import('@/app/lib/vector/document-processor')
   const contextResults = await withApiPerformanceMonitoring(() =>
-    searchDocumentContext(message, user.id, {
+    searchDocuments(user.id, message, {
       limit: 5,
       threshold: 0.7,
     })
   )
 
   const contextText = contextResults
-    .map((r, i) => `Source ${i + 1} [${r.fileName} #${r.chunkIndex} | score=${r.relevanceScore.toFixed(2)}]\n${r.content}`)
+    .map((r, i) => `Source ${i + 1} [${r.fileName} #${r.chunkIndex} | score=${r.similarity.toFixed(2)}]\n${r.content}`)
     .join('\n\n')
 
   const systemPrompt = `You are Briefly, an AI assistant. Use the provided document context when relevant.\n\nContext:\n${contextText || 'No relevant context found.'}\n\nIf the context is insufficient, say so explicitly. Cite filenames when referencing sources.`

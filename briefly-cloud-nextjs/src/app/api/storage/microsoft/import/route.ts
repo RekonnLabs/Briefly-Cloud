@@ -58,16 +58,14 @@ async function importOneDriveFileHandler(request: Request, context: ApiContext):
 
   const fileId = created.id
   const extraction = await extractTextFromBuffer(buffer, created.mime_type, created.name)
-  const chunks = createTextChunks(extraction.text, fileId, created.name, created.mime_type, 1000)
-  await storeDocumentChunks(chunks as any, user.id, fileId)
-
-  const embeddings = await createEmbeddingsService().generateBatchEmbeddings(chunks.map(c => c.content))
-  await storeDocumentVectors(chunks as any, embeddings.embeddings.map(e => e.embedding), user.id, created.name)
-
-  await supabaseAdmin
-    .from('file_metadata')
-    .update({ processed: true, processing_status: 'completed' })
-    .eq('id', fileId)
+  
+  const { processDocument } = await import('@/app/lib/vector/document-processor')
+  await processDocument(user.id, fileId, created.name, extraction.text, {
+    source: 'microsoft_onedrive',
+    mimeType: created.mime_type,
+    externalId: body.fileId,
+    importedAt: new Date().toISOString()
+  })
 
   return ApiResponse.success({ file_id: fileId, name: created.name })
 }

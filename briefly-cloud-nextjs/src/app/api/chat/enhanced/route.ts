@@ -76,18 +76,19 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
     const advancedChunkingResult = await advancedChunkingResponse.json()
     
     if (advancedChunkingResult.enabled) {
-      // Use enhanced search parameters
+      // Use enhanced search parameters with new vector search
+      const { searchDocuments } = await import('@/app/lib/vector/document-processor')
       contextResults = await withApiPerformanceMonitoring(() =>
-        searchDocumentContext(message, user.id, {
+        searchDocuments(user.id, message, {
           limit: 8, // More results with advanced chunking
           threshold: 0.6, // Lower threshold for better recall
-          useSemanticReranking: true, // Advanced feature
         })
       )
     } else {
-      // Standard search
+      // Standard search with new vector search
+      const { searchDocuments } = await import('@/app/lib/vector/document-processor')
       contextResults = await withApiPerformanceMonitoring(() =>
-        searchDocumentContext(message, user.id, {
+        searchDocuments(user.id, message, {
           limit: 5,
           threshold: 0.7,
         })

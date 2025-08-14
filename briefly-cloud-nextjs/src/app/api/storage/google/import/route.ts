@@ -59,18 +59,16 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
     .single()
 
   const fileId = created.id
-  // Extract text → chunks → embeddings → store
+  // Extract text and process with new vector pipeline
   const extraction = await extractTextFromBuffer(buffer, meta.data.mimeType!, meta.data.name!)
-  const chunks = createTextChunks(extraction.text, fileId, meta.data.name!, meta.data.mimeType!, 1000)
-  await storeDocumentChunks(chunks as any, user.id, fileId)
-
-  const embeddings = await createEmbeddingsService().generateBatchEmbeddings(chunks.map(c => c.content))
-  await storeDocumentVectors(chunks as any, embeddings.embeddings.map(e => e.embedding), user.id, meta.data.name!)
-
-  await supabaseAdmin
-    .from('file_metadata')
-    .update({ processed: true, processing_status: 'completed' })
-    .eq('id', fileId)
+  
+  const { processDocument } = await import('@/app/lib/vector/document-processor')
+  await processDocument(user.id, fileId, meta.data.name!, extraction.text, {
+    source: 'google_drive',
+    mimeType: meta.data.mimeType,
+    externalId: body.fileId,
+    importedAt: new Date().toISOString()
+  })
 
   return ApiResponse.success({ file_id: fileId, name: meta.data.name })
 }

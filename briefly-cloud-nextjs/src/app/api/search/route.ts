@@ -3,7 +3,7 @@ import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { z } from 'zod'
-import { searchDocumentContext } from '@/app/lib/vector-storage'
+import { searchDocuments } from '@/app/lib/vector/document-processor'
 import { cacheManager, CACHE_KEYS, withCache } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/performance'
 
@@ -40,7 +40,7 @@ async function searchHandler(request: Request, context: ApiContext): Promise<Nex
 
   // Perform search with performance monitoring
   const results = await withApiPerformanceMonitoring(() =>
-    searchDocumentContext(query, user.id, {
+    searchDocuments(user.id, query, {
       limit,
       threshold,
       fileIds,

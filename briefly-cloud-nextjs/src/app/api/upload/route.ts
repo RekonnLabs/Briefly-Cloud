@@ -207,41 +207,32 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       return ApiResponse.internalError('Failed to save file metadata')
     }
 
-    // Automatic indexing - same pipeline as cloud imports
+    // Automatic indexing with new pgvector pipeline
     const fileId = metadataResult.id
     
     try {
-      // 1) Extract text from the uploaded buffer we already have
+      // 1) Extract text from the uploaded buffer
       const { extractTextFromBuffer } = await import('@/app/lib/document-extractor')
       const extraction = await extractTextFromBuffer(Buffer.from(fileBuffer), file.type, file.name)
       
-      // 2) Create chunks
-      const { createTextChunks } = await import('@/app/lib/document-extractor')
-      const { storeDocumentChunks } = await import('@/app/lib/document-chunker')
-      const chunks = createTextChunks(extraction.text, fileId, file.name, file.type, 1000)
-      await storeDocumentChunks(chunks as any, user.id, fileId)
-      
-      // 3) Generate embeddings and store vectors
-      const { createEmbeddingsService } = await import('@/app/lib/embeddings')
-      const { storeDocumentVectors } = await import('@/app/lib/vector-storage')
-      const embeddingsService = createEmbeddingsService()
-      const embeddings = await embeddingsService.generateBatchEmbeddings(chunks.map(c => c.content))
-      await storeDocumentVectors(chunks as any, embeddings.embeddings.map(e => e.embedding), user.id, file.name)
-      
-      // 4) Mark as processed
-      await supabase
-        .from('file_metadata')
-        .update({ processed: true, processing_status: 'completed' })
-        .eq('id', fileId)
+      // 2) Process document with new vector pipeline
+      const { processDocument } = await import('@/app/lib/vector/document-processor')
+      await processDocument(user.id, fileId, file.name, extraction.text, {
+        fileType: file.type,
+        fileSize: file.size,
+        uploadedAt: new Date().toISOString(),
+        source: 'upload'
+      })
         
     } catch (processingError) {
       console.error('File processing error:', processingError)
       
       // Mark as failed but don't fail the upload
-      await supabase
-        .from('file_metadata')
+      await supabaseAdmin
+        .from('app.files')
         .update({ processed: false, processing_status: 'failed' })
         .eq('id', fileId)
+        .eq('user_id', user.id)
         
       // Log the processing error but continue with upload success
       logApiUsage(user.id, '/api/upload', 'processing_failed', {
