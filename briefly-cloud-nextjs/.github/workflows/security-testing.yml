@@ -1,0 +1,402 @@
+name: Security Testing Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  NODE_VERSION: '18'
+  SECURITY_SCAN_ENABLED: true
+
+jobs:
+  security-tests:
+    name: Security Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        test-suite: [auth, rls, rate-limiting, audit, monitoring, integration]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for security analysis
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm ci --audit-level=moderate
+          npm audit --audit-level=moderate
+      
+      - name: Run security test suite
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run test:security:${{ matrix.test-suite }} -- --coverage --coverageDirectory=coverage/security/${{ matrix.test-suite }} --testResultsProcessor=jest-junit --outputFile=reports/security/jest-results-${{ matrix.test-suite }}.xml
+        env:
+          NODE_ENV: test
+          SECURITY_TEST_MODE: true
+          CI: true
+      
+      - name: Upload security test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-test-results-${{ matrix.test-suite }}
+          path: |
+            Briefly_Cloud/briefly-cloud-nextjs/coverage/security/
+            Briefly_Cloud/briefly-cloud-nextjs/reports/security/
+          retention-days: 30
+
+  static-analysis:
+    name: Static Security Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+      
+      - name: ESLint Security Analysis
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run lint:security
+          npm run lint:security -- --format json --output-file eslint-security-report.json
+        continue-on-error: true
+      
+      - name: Setup Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            .semgrep.yml
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+            p/javascript
+            p/typescript
+            p/react
+            p/nextjs
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+      
+      - name: Run custom Semgrep scan
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run security:scan:ci
+        continue-on-error: true
+      
+      - name: TypeScript Security Check
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npx tsc --noEmit --strict
+      
+      - name: Upload static analysis results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: static-analysis-results
+          path: |
+            Briefly_Cloud/briefly-cloud-nextjs/eslint-security-report.json
+            Briefly_Cloud/briefly-cloud-nextjs/semgrep-results.json
+          retention-days: 30
+
+  dependency-security:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+      
+      - name: NPM Audit
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm audit --audit-level=moderate --json > npm-audit-report.json
+          npm audit --audit-level=moderate
+        continue-on-error: true
+      
+      - name: Snyk Security Scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --json-file-output=snyk-report.json --sarif-file-output=snyk-results.sarif
+          command: test
+        continue-on-error: true
+      
+      - name: Upload Snyk results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: Briefly_Cloud/briefly-cloud-nextjs/snyk-results.sarif
+        continue-on-error: true
+      
+      - name: OSSAR Scan
+        uses: github/ossar-action@v1
+        id: ossar
+      
+      - name: Upload OSSAR results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.ossar.outputs.sarifFile }}
+      
+      - name: Upload dependency scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-scan-results
+          path: |
+            Briefly_Cloud/briefly-cloud-nextjs/npm-audit-report.json
+            Briefly_Cloud/briefly-cloud-nextjs/snyk-report.json
+          retention-days: 30
+
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+      
+      - name: GitLeaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  security-build:
+    name: Security-Hardened Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [security-tests, static-analysis, dependency-security, secrets-scan]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci --production=false
+      
+      - name: Security validation
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run validate:security
+          npm run validate:environment
+      
+      - name: Build with security optimizations
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run build
+        env:
+          NODE_ENV: production
+          SECURITY_HARDENED_BUILD: true
+      
+      - name: Security build validation
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run validate:build-security
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-hardened-build
+          path: |
+            Briefly_Cloud/briefly-cloud-nextjs/.next/
+            Briefly_Cloud/briefly-cloud-nextjs/out/
+          retention-days: 7
+
+  security-report:
+    name: Security Report Generation
+    runs-on: ubuntu-latest
+    needs: [security-tests, static-analysis, dependency-security, secrets-scan, security-build]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: security-artifacts
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+      
+      - name: Generate security report
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run security:report -- --artifacts-path ../security-artifacts
+          
+      - name: Run comprehensive security pipeline
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run security:pipeline:ci
+        continue-on-error: true
+      
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-security-report
+          path: |
+            Briefly_Cloud/briefly-cloud-nextjs/reports/security/
+          retention-days: 90
+      
+      - name: Comment PR with security summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = './Briefly_Cloud/briefly-cloud-nextjs/reports/security/latest-security-report.json';
+            
+            if (fs.existsSync(path)) {
+              const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+              
+              const comment = `## 🔒 Security Test Results
+              
+              **Overall Status**: ${report.overallStatus === 'passed' ? '✅ PASSED' : '❌ FAILED'}
+              
+              ### Test Summary
+              - **Total Tests**: ${report.totalTests}
+              - **Passed**: ${report.passedTests}
+              - **Failed**: ${report.failedTests}
+              - **Coverage**: ${report.coveragePercentage}%
+              
+              ### Compliance Status
+              - **SOC 2**: ${report.complianceStatus.soc2 ? '✅' : '❌'}
+              - **GDPR**: ${report.complianceStatus.gdpr ? '✅' : '❌'}
+              - **CCPA**: ${report.complianceStatus.ccpa ? '✅' : '❌'}
+              
+              ${report.recommendations.length > 0 ? `### Recommendations\n${report.recommendations.map(r => `- ${r}`).join('\n')}` : ''}
+              
+              <details>
+              <summary>View detailed results</summary>
+              
+              Full security report available in the artifacts.
+              </details>`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+  notify-security-team:
+    name: Security Team Notification
+    runs-on: ubuntu-latest
+    needs: [security-report]
+    if: failure() || (github.event_name == 'schedule')
+    
+    steps:
+      - name: Notify security team on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#security-alerts'
+          text: |
+            🚨 Security pipeline failed for ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Workflow: ${{ github.workflow }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK }}
+      
+      - name: Daily security report
+        if: github.event_name == 'schedule'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          channel: '#security-reports'
+          custom_payload: |
+            {
+              "text": "📊 Daily Security Report",
+              "attachments": [
+                {
+                  "color": "good",
+                  "fields": [
+                    {
+                      "title": "Repository",
+                      "value": "${{ github.repository }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Date",
+                      "value": "${{ github.run_id }}",
+                      "short": true
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK }}

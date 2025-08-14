@@ -1,0 +1,21 @@
+# Security-sensitive files require security team review
+/database/ @security-team
+/src/app/lib/auth/ @security-team
+/src/app/lib/security/ @security-team
+/middleware.ts @security-team
+/next.config.js @security-team
+/.github/workflows/ @security-team
+/src/app/api/admin/ @security-team
+/scripts/ @security-team
+
+# Configuration files
+/.env* @security-team @core-developers
+/package.json @core-developers
+/package-lock.json @core-developers
+
+# Documentation
+/docs/ @core-developers
+/README.md @core-developers
+
+# Default reviewers for all other files
+* @core-developers

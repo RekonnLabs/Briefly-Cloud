@@ -1,0 +1,320 @@
+name: Security Monitoring
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'middleware.ts'
+      - 'next.config.js'
+      - '.github/workflows/**'
+      - 'src/app/lib/auth/**'
+      - 'src/app/lib/security/**'
+      - 'database/**'
+  workflow_dispatch:
+    inputs:
+      monitoring_type:
+        description: 'Type of monitoring to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - config-drift
+          - validation-only
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+
+jobs:
+  security-config-monitoring:
+    name: Security Configuration Monitoring
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Need previous commit for drift detection
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+
+      - name: Run security configuration validation
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm run security:config:validate
+
+      - name: Detect configuration drift
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm run security:config:monitor
+        continue-on-error: true
+
+      - name: Generate security configuration report
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm run security:config:report
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-monitoring-reports
+          path: |
+            Briefly_Cloud/briefly-cloud-nextjs/security-config-report-*.json
+            Briefly_Cloud/briefly-cloud-nextjs/security-drift-report-*.json
+            Briefly_Cloud/briefly-cloud-nextjs/security-config-snapshots.json
+
+      - name: Check for critical drift
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          # Check if any critical drift reports were generated
+          if ls security-drift-report-*.json 1> /dev/null 2>&1; then
+            echo "Security drift detected - checking severity"
+            
+            # Parse the latest drift report
+            LATEST_REPORT=$(ls -t security-drift-report-*.json | head -n1)
+            SEVERITY=$(node -e "
+              const report = require('./$LATEST_REPORT');
+              console.log(report.severity);
+            ")
+            
+            echo "Drift severity: $SEVERITY"
+            
+            if [ "$SEVERITY" = "critical" ]; then
+              echo "::error::Critical security configuration drift detected"
+              exit 1
+            elif [ "$SEVERITY" = "high" ]; then
+              echo "::warning::High priority security configuration drift detected"
+            fi
+          fi
+
+  security-dependency-monitoring:
+    name: Security Dependency Monitoring
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+
+      - name: Run npm audit
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm audit --audit-level=moderate --json > npm-audit-report.json || true
+          
+          # Check for high/critical vulnerabilities
+          HIGH_VULNS=$(node -e "
+            try {
+              const audit = require('./npm-audit-report.json');
+              const metadata = audit.metadata || {};
+              const vulnerabilities = metadata.vulnerabilities || {};
+              console.log((vulnerabilities.high || 0) + (vulnerabilities.critical || 0));
+            } catch(e) {
+              console.log('0');
+            }
+          ")
+          
+          echo "High/Critical vulnerabilities: $HIGH_VULNS"
+          
+          if [ "$HIGH_VULNS" -gt "0" ]; then
+            echo "::warning::$HIGH_VULNS high/critical vulnerabilities found"
+          fi
+
+      - name: Run Snyk security scan
+        if: env.SNYK_TOKEN
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npx snyk test --json > snyk-report.json || true
+          npx snyk monitor || true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Upload dependency reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-security-reports
+          path: |
+            Briefly_Cloud/briefly-cloud-nextjs/npm-audit-report.json
+            Briefly_Cloud/briefly-cloud-nextjs/snyk-report.json
+
+  security-test-monitoring:
+    name: Security Test Monitoring
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+
+      - name: Run security test suite
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run test:security -- --json --outputFile=security-test-results.json || true
+
+      - name: Run security regression tests
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run test:security:regression || true
+
+      - name: Analyze test results
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          if [ -f security-test-results.json ]; then
+            FAILED_TESTS=$(node -e "
+              try {
+                const results = require('./security-test-results.json');
+                console.log(results.numFailedTests || 0);
+              } catch(e) {
+                console.log('0');
+              }
+            ")
+            
+            echo "Failed security tests: $FAILED_TESTS"
+            
+            if [ "$FAILED_TESTS" -gt "0" ]; then
+              echo "::error::$FAILED_TESTS security tests failed"
+              exit 1
+            fi
+          fi
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-test-reports
+          path: |
+            Briefly_Cloud/briefly-cloud-nextjs/security-test-results.json
+            Briefly_Cloud/briefly-cloud-nextjs/security-regression-report.json
+            Briefly_Cloud/briefly-cloud-nextjs/security-performance-report.json
+
+  create-security-issue:
+    name: Create Security Issue
+    runs-on: ubuntu-latest
+    needs: [security-config-monitoring, security-dependency-monitoring, security-test-monitoring]
+    if: failure()
+    
+    steps:
+      - name: Create security monitoring issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            
+            const title = `🚨 Security Monitoring Alert - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            ## Security Monitoring Alert
+            
+            **Workflow Run:** ${runUrl}
+            **Triggered by:** ${context.eventName}
+            **Branch:** ${context.ref}
+            **Commit:** ${context.sha}
+            
+            ### Issues Detected
+            
+            One or more security monitoring jobs have failed. Please review the workflow logs for details:
+            
+            - Configuration drift detection
+            - Dependency vulnerability scanning  
+            - Security test execution
+            
+            ### Action Required
+            
+            1. Review the workflow logs
+            2. Address any security issues found
+            3. Update security configurations if needed
+            4. Re-run security tests to verify fixes
+            
+            ### Labels
+            - security-review-required
+            - security-monitoring
+            - automated-alert
+            `;
+            
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title,
+              body,
+              labels: ['security-review-required', 'security-monitoring', 'automated-alert']
+            });
+
+  notify-security-team:
+    name: Notify Security Team
+    runs-on: ubuntu-latest
+    needs: [security-config-monitoring, security-dependency-monitoring, security-test-monitoring]
+    if: failure()
+    
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{
+              "text": "🚨 Security Monitoring Alert",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Security monitoring has detected issues*\n\nWorkflow: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>\nBranch: `${{ github.ref_name }}`\nCommit: `${{ github.sha }}`"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }' \
+            ${{ env.SLACK_WEBHOOK_URL }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Send email notification
+        if: env.SENDGRID_API_KEY
+        run: |
+          # This would integrate with SendGrid or similar email service
+          echo "Email notification would be sent to security team"
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}

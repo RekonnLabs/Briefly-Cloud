@@ -125,16 +125,15 @@ const customJestConfig = {
   // Reporter configuration
   reporters: [
     'default',
-    ['jest-html-reporters', {
-      publicPath: './coverage/security/html-report',
-      filename: 'security-test-report.html',
-      expand: true,
-      hideIcon: false,
-      pageTitle: 'Security Test Report'
-    }],
     ['jest-junit', {
-      outputDirectory: './coverage/security',
-      outputName: 'security-test-results.xml',
+      outputDirectory: './reports/security',
+      outputName: 'jest-results.xml',
+      classNameTemplate: '{classname}',
+      titleTemplate: '{title}',
+      ancestorSeparator: ' › ',
+      usePathForSuiteName: true,
+      addFileAttribute: true,
+      includeConsoleOutput: true,
       suiteName: 'Security Tests'
     }]
   ],
@@ -181,7 +180,10 @@ const customJestConfig = {
     // Node.js environment options for security tests
     NODE_ENV: 'test',
     SECURITY_TEST_ISOLATION: 'true'
-  }
+  },
+
+  // Security-specific test configuration
+  testSequencer: '<rootDir>/tests/security/security-test-sequencer.js'
 };
 
 // Create the Jest config with Next.js integration

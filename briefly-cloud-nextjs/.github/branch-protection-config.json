@@ -1,0 +1,124 @@
+{
+  "branch_protection_rules": {
+    "main": {
+      "required_status_checks": {
+        "strict": true,
+        "contexts": [
+          "Security Gates / Security Gate Validation",
+          "Security Gates / Security Regression Testing",
+          "Security Gates / Block Merge Gate",
+          "build",
+          "test",
+          "lint"
+        ]
+      },
+      "enforce_admins": true,
+      "required_pull_request_reviews": {
+        "required_approving_review_count": 2,
+        "dismiss_stale_reviews": true,
+        "require_code_owner_reviews": true,
+        "require_last_push_approval": true,
+        "bypass_pull_request_allowances": {
+          "users": [],
+          "teams": ["security-team"],
+          "apps": []
+        }
+      },
+      "restrictions": {
+        "users": [],
+        "teams": ["core-developers", "security-team"],
+        "apps": []
+      },
+      "required_linear_history": true,
+      "allow_force_pushes": false,
+      "allow_deletions": false,
+      "block_creations": false,
+      "required_conversation_resolution": true,
+      "lock_branch": false,
+      "allow_fork_syncing": true
+    },
+    "develop": {
+      "required_status_checks": {
+        "strict": true,
+        "contexts": [
+          "Security Gates / Security Gate Validation",
+          "Security Gates / Security Regression Testing",
+          "build",
+          "test"
+        ]
+      },
+      "enforce_admins": false,
+      "required_pull_request_reviews": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews": true,
+        "require_code_owner_reviews": false,
+        "require_last_push_approval": false
+      },
+      "restrictions": null,
+      "required_linear_history": false,
+      "allow_force_pushes": false,
+      "allow_deletions": false,
+      "block_creations": false,
+      "required_conversation_resolution": true,
+      "lock_branch": false,
+      "allow_fork_syncing": true
+    }
+  },
+  "security_review_requirements": {
+    "sensitive_file_patterns": [
+      "database/",
+      "src/app/lib/auth/",
+      "src/app/lib/security/",
+      "middleware.ts",
+      "next.config.js",
+      ".github/workflows/",
+      "src/app/api/admin/",
+      "scripts/",
+      ".env*",
+      "package.json",
+      "package-lock.json"
+    ],
+    "security_team_review_required_for": [
+      "authentication_changes",
+      "authorization_changes",
+      "database_schema_changes",
+      "security_configuration_changes",
+      "admin_endpoint_changes",
+      "middleware_changes"
+    ],
+    "auto_assign_security_reviewers": [
+      "security-team"
+    ],
+    "security_labels": [
+      "security-review-required",
+      "security-critical",
+      "security-enhancement",
+      "security-fix"
+    ]
+  },
+  "deployment_gates": {
+    "production": {
+      "required_checks": [
+        "security-tests-passed",
+        "static-analysis-passed",
+        "dependency-scan-passed",
+        "performance-benchmarks-passed"
+      ],
+      "manual_approval_required": true,
+      "security_team_approval_required": true,
+      "deployment_window": {
+        "allowed_days": ["monday", "tuesday", "wednesday", "thursday"],
+        "allowed_hours": "09:00-17:00",
+        "timezone": "UTC"
+      }
+    },
+    "staging": {
+      "required_checks": [
+        "security-tests-passed",
+        "static-analysis-passed"
+      ],
+      "manual_approval_required": false,
+      "security_team_approval_required": false
+    }
+  }
+}

@@ -1,0 +1,152 @@
+name: Deployment Security Gates
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+        description: 'Deployment environment (staging/production)'
+    secrets:
+      SUPABASE_URL:
+        required: true
+      SUPABASE_ANON_KEY:
+        required: true
+      SUPABASE_SERVICE_ROLE_KEY:
+        required: true
+      NEXTAUTH_SECRET:
+        required: true
+
+permissions:
+  contents: read
+  security-events: write
+  deployments: write
+
+jobs:
+  deployment-security-gate:
+    name: Deployment Security Validation
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+
+      - name: Set environment variables
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $GITHUB_ENV
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> $GITHUB_ENV
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> $GITHUB_ENV
+          echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> $GITHUB_ENV
+          echo "NEXTAUTH_URL=https://briefly-cloud.vercel.app" >> $GITHUB_ENV
+          echo "NODE_ENV=${{ inputs.environment == 'production' && 'production' || 'staging' }}" >> $GITHUB_ENV
+
+      - name: Run deployment security gate
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm run deployment:security:gate:${{ inputs.environment }}
+
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-security-report-${{ inputs.environment }}
+          path: Briefly_Cloud/briefly-cloud-nextjs/deployment-security-report-${{ inputs.environment }}.json
+
+      - name: Create deployment status
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner,
+              repo,
+              deployment_id: context.payload.deployment?.id || 0,
+              state: 'success',
+              description: 'Security gates passed - deployment approved',
+              environment: '${{ inputs.environment }}'
+            });
+
+      - name: Block deployment on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner,
+              repo,
+              deployment_id: context.payload.deployment?.id || 0,
+              state: 'failure',
+              description: 'Security gates failed - deployment blocked',
+              environment: '${{ inputs.environment }}'
+            });
+            
+            core.setFailed('Deployment blocked due to security gate failures');
+
+  security-performance-check:
+    name: Security Performance Validation
+    runs-on: ubuntu-latest
+    needs: deployment-security-gate
+    if: inputs.environment == 'production'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+
+      - name: Run security performance benchmarks
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm run test:security:performance
+
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-performance-report
+          path: Briefly_Cloud/briefly-cloud-nextjs/security-performance-report.json
+
+  manual-security-approval:
+    name: Manual Security Approval
+    runs-on: ubuntu-latest
+    needs: [deployment-security-gate, security-performance-check]
+    if: inputs.environment == 'production' && always()
+    environment: 
+      name: production-security-approval
+      url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    
+    steps:
+      - name: Wait for manual approval
+        run: |
+          echo "🔒 Production deployment requires manual security team approval"
+          echo "This step will wait for manual approval from the security team"
+          echo "Deployment will proceed only after approval is granted"
+
+      - name: Deployment approved
+        run: |
+          echo "✅ Security team has approved this deployment"
+          echo "Proceeding with production deployment..."

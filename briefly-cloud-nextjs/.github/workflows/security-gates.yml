@@ -1,0 +1,245 @@
+name: Security Gates
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+  checks: write
+
+jobs:
+  security-gate-check:
+    name: Security Gate Validation
+    runs-on: ubuntu-latest
+    outputs:
+      security-passed: ${{ steps.security-check.outputs.passed }}
+      requires-review: ${{ steps.review-check.outputs.requires-review }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+
+      - name: Run security tests
+        id: security-tests
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run test:security
+          echo "security-tests-passed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Run static analysis
+        id: static-analysis
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run lint:security
+          npm run semgrep
+          echo "static-analysis-passed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Run dependency scan
+        id: dependency-scan
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm audit --audit-level=moderate
+          echo "dependency-scan-passed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Check for sensitive file changes
+        id: sensitive-files
+        run: |
+          # Check if sensitive files were modified
+          SENSITIVE_PATTERNS=(
+            "database/"
+            "src/app/lib/auth/"
+            "src/app/lib/security/"
+            "middleware.ts"
+            "next.config.js"
+            ".github/workflows/"
+            "src/app/api/admin/"
+          )
+          
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          SENSITIVE_CHANGED=""
+          
+          for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+            if echo "$CHANGED_FILES" | grep -q "$pattern"; then
+              SENSITIVE_CHANGED="true"
+              echo "Sensitive files changed: $pattern"
+            fi
+          done
+          
+          echo "sensitive-changed=$SENSITIVE_CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Security gate validation
+        id: security-check
+        run: |
+          SECURITY_PASSED="true"
+          
+          if [[ "${{ steps.security-tests.outputs.security-tests-passed }}" != "true" ]]; then
+            echo "❌ Security tests failed"
+            SECURITY_PASSED="false"
+          fi
+          
+          if [[ "${{ steps.static-analysis.outputs.static-analysis-passed }}" != "true" ]]; then
+            echo "❌ Static analysis failed"
+            SECURITY_PASSED="false"
+          fi
+          
+          if [[ "${{ steps.dependency-scan.outputs.dependency-scan-passed }}" != "true" ]]; then
+            echo "❌ Dependency scan failed"
+            SECURITY_PASSED="false"
+          fi
+          
+          echo "passed=$SECURITY_PASSED" >> $GITHUB_OUTPUT
+
+      - name: Check if manual review required
+        id: review-check
+        run: |
+          REQUIRES_REVIEW="false"
+          
+          # Require review for sensitive file changes
+          if [[ "${{ steps.sensitive-files.outputs.sensitive-changed }}" == "true" ]]; then
+            REQUIRES_REVIEW="true"
+            echo "Manual security review required due to sensitive file changes"
+          fi
+          
+          # Require review for security test failures
+          if [[ "${{ steps.security-check.outputs.passed }}" != "true" ]]; then
+            REQUIRES_REVIEW="true"
+            echo "Manual security review required due to security test failures"
+          fi
+          
+          echo "requires-review=$REQUIRES_REVIEW" >> $GITHUB_OUTPUT
+
+      - name: Create security report
+        if: always()
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          node scripts/generate-security-report.js \
+            --security-tests="${{ steps.security-tests.outputs.security-tests-passed }}" \
+            --static-analysis="${{ steps.static-analysis.outputs.static-analysis-passed }}" \
+            --dependency-scan="${{ steps.dependency-scan.outputs.dependency-scan-passed }}" \
+            --sensitive-files="${{ steps.sensitive-files.outputs.sensitive-changed }}" \
+            --output="security-gate-report.json"
+
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-gate-report
+          path: Briefly_Cloud/briefly-cloud-nextjs/security-gate-report.json
+
+  security-regression-test:
+    name: Security Regression Testing
+    runs-on: ubuntu-latest
+    needs: security-gate-check
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'Briefly_Cloud/briefly-cloud-nextjs/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: npm ci
+
+      - name: Run regression tests
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run test:security:regression
+          
+      - name: Performance benchmark
+        working-directory: Briefly_Cloud/briefly-cloud-nextjs
+        run: |
+          npm run test:security:performance
+
+  block-merge-on-failure:
+    name: Block Merge Gate
+    runs-on: ubuntu-latest
+    needs: [security-gate-check, security-regression-test]
+    if: always()
+    
+    steps:
+      - name: Check security gate status
+        run: |
+          if [[ "${{ needs.security-gate-check.outputs.security-passed }}" != "true" ]]; then
+            echo "❌ Security gates failed - blocking merge"
+            exit 1
+          fi
+          
+          if [[ "${{ needs.security-regression-test.result }}" == "failure" ]]; then
+            echo "❌ Security regression tests failed - blocking merge"
+            exit 1
+          fi
+          
+          echo "✅ All security gates passed"
+
+  require-security-review:
+    name: Security Review Required
+    runs-on: ubuntu-latest
+    needs: security-gate-check
+    if: needs.security-gate-check.outputs.requires-review == 'true'
+    
+    steps:
+      - name: Request security review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo, number } = context.issue;
+            
+            // Add security review label
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: number,
+              labels: ['security-review-required']
+            });
+            
+            // Request review from security team
+            await github.rest.pulls.requestReviewers({
+              owner,
+              repo,
+              pull_number: number,
+              team_reviewers: ['security-team']
+            });
+            
+            // Add comment explaining review requirement
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: number,
+              body: `🔒 **Security Review Required**
+              
+              This PR requires manual security review due to:
+              - Changes to sensitive security files
+              - Security test failures
+              - Potential security impact
+              
+              A member of the security team must approve this PR before it can be merged.`
+            });
