@@ -15,7 +15,12 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "backup:init": "node scripts/initialize-backup-system.js",
+    "backup:cleanup": "node scripts/cleanup-old-backups.js",
+    "backup:cleanup:dry-run": "node scripts/cleanup-old-backups.js --dry-run",
+    "backup:validate": "node scripts/validate-backups.js",
+    "backup:validate:quick": "node scripts/validate-backups.js --quick"
   },
   "keywords": [
     "ai",
