@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSecurityConfig, isProduction } from '@/app/lib/config/environment'
 import { logger } from '@/app/lib/logger'
+import { createCSPWithNonce, generateNonce } from './csp-nonce'
 
 export interface SecurityHeadersConfig {
   enableHSTS?: boolean
@@ -53,14 +54,20 @@ export function applySecurityHeaders(
       response.headers.set('Strict-Transport-Security', hstsValue)
     }
 
-    // Content Security Policy
+    // Content Security Policy with nonce support
     if (enableCSP) {
-      const cspDirectives = Object.entries(securityConfig.headers.csp.directives)
-        .filter(([, values]) => values && values.length > 0)
-        .map(([directive, values]) => `${directive} ${values.join(' ')}`)
-        .join('; ')
+      const nonce = generateNonce()
+      const cspHeader = createCSPWithNonce(securityConfig.headers.csp.directives, nonce)
       
-      response.headers.set('Content-Security-Policy', cspDirectives)
+      response.headers.set('Content-Security-Policy', cspHeader)
+      response.headers.set('X-CSP-Nonce', nonce) // Make nonce available to components
+      
+      // Add CSP report endpoint in production
+      if (isProduction()) {
+        const reportUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/security/csp-report`
+        response.headers.set('Content-Security-Policy-Report-Only', 
+          `${cspHeader}; report-uri ${reportUri}`)
+      }
     }
 
     // Frame Protection

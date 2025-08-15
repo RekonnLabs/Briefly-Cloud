@@ -1,7 +1,7 @@
 -- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- Users table (extends NextAuth users)
+-- Users table (extends Supabase Auth users)
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- OAuth tokens for Google Drive and OneDrive (separate from NextAuth login)
+-- OAuth tokens for Google Drive and OneDrive (separate from Supabase Auth login)
 CREATE TABLE IF NOT EXISTS oauth_tokens (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),

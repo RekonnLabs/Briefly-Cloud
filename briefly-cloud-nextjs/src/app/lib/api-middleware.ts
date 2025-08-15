@@ -4,10 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from './auth'
+import { getAuthenticatedUser, type AuthUser } from './auth/supabase-auth'
 import { formatErrorResponse } from './api-errors'
-import { rateLimitConfigs } from './rate-limit'
 import { logger } from './logger'
 import { 
   createSecurityMiddleware, 
@@ -18,8 +16,7 @@ import {
 } from './security'
 
 export interface ApiContext {
-  user?: any
-  session?: any
+  user?: AuthUser
   requestId: string
 }
 
@@ -55,20 +52,22 @@ export function createProtectedApiHandler(
       // Create security middleware
       const securityMiddleware = createSecurityMiddleware()
       
-      // Get session for authentication
-      const session = await getServerSession(authOptions)
-      
-      // Check authentication if required
-      if (config.requireAuth && !session?.user) {
-        return NextResponse.json(
-          { success: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
-          { status: 401 }
-        )
+      // Get user for authentication
+      let user: AuthUser | null = null
+      if (config.requireAuth) {
+        try {
+          user = await getAuthenticatedUser()
+        } catch (error) {
+          return NextResponse.json(
+            { success: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
+            { status: 401 }
+          )
+        }
       }
       
       // Rate limiting
       if (config.rateLimit) {
-        const identifier = session?.user?.id || request.ip || 'anonymous'
+        const identifier = user?.id || request.ip || 'anonymous'
         if (RateLimiter.isRateLimited(identifier)) {
           return NextResponse.json(
             { 
@@ -113,8 +112,7 @@ export function createProtectedApiHandler(
           
           // Create context
           const context: ApiContext = {
-            user: session?.user,
-            session,
+            user,
             requestId
           }
           
@@ -138,8 +136,7 @@ export function createProtectedApiHandler(
       } else {
         // Create context
         const context: ApiContext = {
-          user: session?.user,
-          session,
+          user,
           requestId
         }
         
@@ -157,7 +154,7 @@ export function createProtectedApiHandler(
       // Check if this is a retryable error
       if (error instanceof Error && isRetryableApiError(error)) {
         try {
-          return await retryApiCall(() => handler(request, { user: session?.user, session, requestId }))
+          return await retryApiCall(() => handler(request, { user, requestId }))
         } catch (retryError) {
           return formatErrorResponse(retryError as Error)
         }
@@ -225,20 +222,22 @@ export function createFileUploadHandler(
       // Create security middleware
       const securityMiddleware = createSecurityMiddleware()
       
-      // Get session for authentication
-      const session = await getServerSession(authOptions)
-      
-      // Check authentication if required
-      if (config.requireAuth && !session?.user) {
-        return NextResponse.json(
-          { success: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
-          { status: 401 }
-        )
+      // Get user for authentication
+      let user: AuthUser | null = null
+      if (config.requireAuth) {
+        try {
+          user = await getAuthenticatedUser()
+        } catch (error) {
+          return NextResponse.json(
+            { success: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
+            { status: 401 }
+          )
+        }
       }
       
       // Rate limiting for file uploads (stricter limits)
       if (config.rateLimit) {
-        const identifier = session?.user?.id || request.ip || 'anonymous'
+        const identifier = user?.id || request.ip || 'anonymous'
         if (RateLimiter.isRateLimited(identifier)) {
           return NextResponse.json(
             { 
@@ -254,8 +253,7 @@ export function createFileUploadHandler(
       
       // Create context
       const context: ApiContext = {
-        user: session?.user,
-        session,
+        user,
         requestId
       }
       

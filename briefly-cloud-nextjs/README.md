@@ -4,7 +4,7 @@ AI-powered document assistant that transforms your documents into intelligent co
 
 ## Features
 
-- **NextAuth Authentication** - Google and Microsoft OAuth login
+- **Supabase Authentication** - Google and Microsoft OAuth login
 - **Document Upload** - Support for PDF, DOCX, TXT, MD, CSV, XLSX, PPTX
 - **Cloud Storage Integration** - Connect Google Drive and OneDrive
 - **AI Chat** - Chat with your documents using GPT-4 Turbo
@@ -45,7 +45,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the application.
 
 ## Authentication Flow
 
-1. **Login**: Users sign in via Google/Microsoft OAuth (NextAuth)
+1. **Login**: Users sign in via Google/Microsoft OAuth (Supabase Auth)
 2. **Storage**: Separate OAuth flows for Google Drive/OneDrive access
 3. **Protection**: Middleware protects `/briefly/app/**` routes
 4. **Paywall**: Premium features gated for paid subscribers
@@ -56,7 +56,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the application.
 src/
 ├── app/
 │   ├── api/                 # API routes
-│   │   ├── auth/           # NextAuth configuration
+│   │   ├── auth/           # Supabase Auth configuration
 │   │   ├── storage/        # Storage OAuth endpoints
 │   │   ├── chat/           # AI chat endpoints
 │   │   └── upload/         # File upload endpoints
@@ -72,7 +72,7 @@ src/
 ## Key Technologies
 
 - **Framework**: Next.js 14 with App Router
-- **Authentication**: NextAuth.js
+- **Authentication**: Supabase Auth
 - **Database**: Supabase (PostgreSQL)
 - **Vector Storage**: ChromaDB
 - **AI**: OpenAI GPT-4 Turbo

@@ -62,7 +62,7 @@ const ENV_SCHEMA = {
   SUPABASE_ANON_KEY: { required: true, type: 'string', minLength: 100 },
   SUPABASE_SERVICE_ROLE_KEY: { required: true, type: 'string', minLength: 100 },
   
-  // Authentication
+  // Authentication (legacy NextAuth variables kept for compatibility)
   NEXTAUTH_SECRET: { required: true, type: 'string', minLength: 32 },
   NEXTAUTH_URL: { required: true, type: 'url' },
   
@@ -149,7 +149,7 @@ export function validateEnvironment(): {
   if (environment === 'production') {
     // Production-specific validations
     if (!process.env.NEXTAUTH_SECRET || process.env.NEXTAUTH_SECRET.length < 32) {
-      errors.push('NEXTAUTH_SECRET must be at least 32 characters in production')
+      errors.push('NEXTAUTH_SECRET (auth secret) must be at least 32 characters in production')
     }
     
     if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 32) {
@@ -183,12 +183,20 @@ function generateSecurityConfig(environment: Environment): SecurityConfig {
   const isProduction = environment === 'production'
   const isStaging = environment === 'staging'
   
-  // Parse allowed origins
+  // Parse allowed origins with strict production defaults
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
     : isProduction
-      ? [process.env.NEXT_PUBLIC_APP_URL || '']
-      : ['http://localhost:3000', 'http://127.0.0.1:3000']
+      ? [
+          'https://briefly-cloud.vercel.app',
+          'https://rekonnlabs.com',
+          'https://www.rekonnlabs.com'
+        ]
+      : [
+          'http://localhost:3000',
+          'http://127.0.0.1:3000',
+          'http://localhost:3001' // Alternative dev port
+        ]
   
   return {
     environment,
@@ -197,19 +205,30 @@ function generateSecurityConfig(environment: Environment): SecurityConfig {
     cors: {
       origins: allowedOrigins.filter(Boolean),
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-        'X-CSRF-Token',
-        'Accept',
-        'Accept-Version',
-        'Content-Length',
-        'Content-MD5',
-        'Date',
-        'X-Api-Version'
-      ]
+      methods: isProduction 
+        ? ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] // Production: Only necessary methods
+        : ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'], // Development: Include PATCH
+      allowedHeaders: isProduction
+        ? [
+            // Production: Minimal required headers only
+            'Content-Type',
+            'Authorization',
+            'X-Requested-With',
+            'Accept'
+          ]
+        : [
+            // Development: More permissive for development tools
+            'Content-Type',
+            'Authorization',
+            'X-Requested-With',
+            'X-CSRF-Token',
+            'Accept',
+            'Accept-Version',
+            'Content-Length',
+            'Content-MD5',
+            'Date',
+            'X-Api-Version'
+          ]
     },
     
     session: {
@@ -228,18 +247,59 @@ function generateSecurityConfig(environment: Environment): SecurityConfig {
       },
       
       csp: {
-        directives: {
+        directives: isProduction ? {
+          // PRODUCTION: Deny-by-default CSP with explicit allow-lists
+          'default-src': ["'none'"], // Deny everything by default
+          'script-src': [
+            "'self'",
+            "'nonce-{NONCE}'", // Use nonces for inline scripts
+            'https://vercel.live', // Vercel analytics
+            'https://va.vercel-scripts.com' // Vercel analytics
+          ],
+          'style-src': [
+            "'self'",
+            "'nonce-{NONCE}'", // Use nonces for inline styles
+            'https://fonts.googleapis.com' // Google Fonts
+          ],
+          'font-src': [
+            "'self'",
+            'https://fonts.gstatic.com' // Google Fonts
+          ],
+          'img-src': [
+            "'self'",
+            'data:', // Base64 images
+            'https://briefly-cloud.vercel.app', // Production domain
+            'https://rekonnlabs.com' // Company domain
+          ],
+          'connect-src': [
+            "'self'",
+            process.env.SUPABASE_URL || '',
+            'https://api.openai.com',
+            'https://vercel.live' // Vercel analytics
+          ],
+          'media-src': ["'self'"],
+          'object-src': ["'none'"],
+          'child-src': ["'none'"],
+          'frame-src': ["'none'"],
+          'worker-src': ["'self'"],
+          'manifest-src': ["'self'"],
+          'frame-ancestors': ["'none'"],
+          'base-uri': ["'self'"],
+          'form-action': ["'self'"],
+          'upgrade-insecure-requests': []
+        } : {
+          // DEVELOPMENT: More permissive for development workflow
           'default-src': ["'self'"],
           'script-src': [
             "'self'",
-            "'unsafe-inline'", // Required for Next.js in development
-            ...(isProduction ? [] : ["'unsafe-eval'"]), // Only in development
+            "'unsafe-inline'", // Required for Next.js HMR
+            "'unsafe-eval'", // Required for Next.js development
             'https://vercel.live',
             'https://va.vercel-scripts.com'
           ],
           'style-src': [
             "'self'",
-            "'unsafe-inline'", // Required for styled-components
+            "'unsafe-inline'", // Required for styled-components and HMR
             'https://fonts.googleapis.com'
           ],
           'font-src': [
@@ -252,18 +312,18 @@ function generateSecurityConfig(environment: Environment): SecurityConfig {
             'data:',
             'blob:',
             'https:',
-            ...(isProduction ? [] : ['http:']) // Allow HTTP images in development
+            'http:' // Allow HTTP images in development
           ],
           'connect-src': [
             "'self'",
             process.env.SUPABASE_URL || '',
             'https://api.openai.com',
-            ...(isProduction ? [] : ['ws:', 'wss:']) // WebSocket for development
+            'ws:', // WebSocket for HMR
+            'wss:' // Secure WebSocket
           ],
           'frame-ancestors': ["'none'"],
           'base-uri': ["'self'"],
-          'form-action': ["'self'"],
-          'upgrade-insecure-requests': isProduction ? [] : undefined
+          'form-action': ["'self'"]
         }
       },
       

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/lib/auth'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { createSupabaseServerClient } from '@/app/lib/auth/supabase-auth'
+import { storeEncryptedToken } from '@/app/lib/oauth/token-store'
 import { cookies } from 'next/headers'
 
 export async function GET(req: NextRequest) {
   try {
-    // Check if user is authenticated via NextAuth
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    // Check if user is authenticated via Supabase Auth
+    const supabase = createSupabaseServerClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error || !user) {
       return NextResponse.redirect(new URL('/briefly/app/auth/signin', req.url))
     }
 
@@ -52,17 +53,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(new URL('/briefly/app/dashboard?tab=storage&error=token_failed', req.url))
     }
 
-    // Store tokens in oauth_tokens table using supabaseAdmin
-    await supabaseAdmin.from('oauth_tokens').upsert({
-      user_id: session.user.id,
+    // Store encrypted tokens using secure token store
+    await storeEncryptedToken({
+      userId: user.id,
       provider: 'microsoft',
-      access_token,
-      refresh_token,
+      accessToken: access_token,
+      refreshToken: refresh_token,
       scope,
-      token_type,
-      expires_at: new Date(Date.now() + (expires_in || 3600) * 1000).toISOString(),
-    }, { 
-      onConflict: 'user_id,provider' 
+      tokenType: token_type,
+      expiresAt: new Date(Date.now() + (expires_in || 3600) * 1000),
     })
 
     // Redirect back to dashboard storage tab with success

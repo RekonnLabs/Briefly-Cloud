@@ -45,17 +45,55 @@ export function middleware(request: NextRequest) {
       }
     }
     
-    // Block requests from unauthorized origins in production
+    // Enhanced security checks for production
     if (isProduction() && pathname.startsWith('/api/')) {
       const referer = request.headers.get('referer')
       const userAgent = request.headers.get('user-agent')
+      const host = request.headers.get('host')
       
-      // Block requests without proper referer in production (except for specific endpoints)
-      const publicEndpoints = ['/api/share/', '/api/health', '/api/status']
+      // Define public endpoints that don't require strict origin validation
+      const publicEndpoints = ['/api/share/', '/api/health', '/api/status', '/api/webhooks/']
       const isPublicEndpoint = publicEndpoints.some(endpoint => pathname.startsWith(endpoint))
       
-      if (!isPublicEndpoint && !referer && !userAgent?.includes('curl')) {
-        return new NextResponse('Forbidden', { status: 403 })
+      // Block requests from unauthorized hosts
+      const allowedHosts = ['briefly-cloud.vercel.app', 'rekonnlabs.com', 'www.rekonnlabs.com']
+      if (host && !allowedHosts.includes(host)) {
+        return new NextResponse('Forbidden - Invalid Host', { status: 403 })
+      }
+      
+      // Block requests without proper origin/referer (except for public endpoints and legitimate tools)
+      if (!isPublicEndpoint) {
+        const hasValidOrigin = origin && validateCORSOrigin(origin, securityConfig.cors.origins)
+        const hasValidReferer = referer && securityConfig.cors.origins.some(allowed => referer.startsWith(allowed))
+        const isLegitimateBot = userAgent && (
+          userAgent.includes('curl') ||
+          userAgent.includes('Postman') ||
+          userAgent.includes('Insomnia') ||
+          userAgent.includes('HTTPie')
+        )
+        
+        if (!hasValidOrigin && !hasValidReferer && !isLegitimateBot) {
+          return new NextResponse('Forbidden - Invalid Origin', { status: 403 })
+        }
+      }
+      
+      // Block suspicious user agents in production
+      const suspiciousPatterns = [
+        /bot/i,
+        /crawler/i,
+        /spider/i,
+        /scraper/i,
+        /scanner/i
+      ]
+      
+      if (userAgent && suspiciousPatterns.some(pattern => pattern.test(userAgent))) {
+        // Allow legitimate search engine bots for public endpoints only
+        const legitimateBots = ['Googlebot', 'Bingbot', 'facebookexternalhit']
+        const isLegitimateBot = legitimateBots.some(bot => userAgent.includes(bot))
+        
+        if (!isLegitimateBot || !isPublicEndpoint) {
+          return new NextResponse('Forbidden - Suspicious User Agent', { status: 403 })
+        }
       }
     }
     
