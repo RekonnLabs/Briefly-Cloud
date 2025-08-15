@@ -1,0 +1,49 @@
+800cddaddbe75f633517aa002a8436c8
+/**
+ * Security Test Setup
+ * 
+ * Sets up the test environment for security tests with proper mocks and configurations.
+ */ // Set test environment
+"use strict";
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+Object.defineProperty(exports, "setupSecurityMocks", {
+    enumerable: true,
+    get: function() {
+        return setupSecurityMocks;
+    }
+});
+process.env.NODE_ENV = 'test';
+process.env.SECURITY_TEST_MODE = 'true';
+// Mock environment variables
+process.env.SUPABASE_URL = 'https://test.supabase.co';
+process.env.SUPABASE_ANON_KEY = 'test-anon-key';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
+process.env.ENCRYPTION_KEY = 'test-encryption-key-32-characters';
+process.env.JWT_SECRET = 'test-jwt-secret-key';
+function setupSecurityMocks() {
+    // Mock console methods to reduce noise in tests
+    global.console = {
+        ...console,
+        log: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        info: jest.fn(),
+        debug: jest.fn()
+    };
+}
+// Global setup
+beforeAll(()=>{
+    setupSecurityMocks();
+});
+// Cleanup after each test
+afterEach(()=>{
+    jest.clearAllMocks();
+});
+// Global cleanup
+afterAll(()=>{
+    console.log('Cleaning up security test resources...');
+});
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIlI6XFxBcHBzXFxCcmllZmx5X0Nsb3VkXFxicmllZmx5LWNsb3VkLW5leHRqc1xcdGVzdHNcXHNlY3VyaXR5XFxzZXR1cC50cyJdLCJzb3VyY2VzQ29udGVudCI6WyIvKipcclxuICogU2VjdXJpdHkgVGVzdCBTZXR1cFxyXG4gKiBcclxuICogU2V0cyB1cCB0aGUgdGVzdCBlbnZpcm9ubWVudCBmb3Igc2VjdXJpdHkgdGVzdHMgd2l0aCBwcm9wZXIgbW9ja3MgYW5kIGNvbmZpZ3VyYXRpb25zLlxyXG4gKi9cclxuXHJcbi8vIFNldCB0ZXN0IGVudmlyb25tZW50XHJcbnByb2Nlc3MuZW52Lk5PREVfRU5WID0gJ3Rlc3QnXHJcbnByb2Nlc3MuZW52LlNFQ1VSSVRZX1RFU1RfTU9ERSA9ICd0cnVlJ1xyXG5cclxuLy8gTW9jayBlbnZpcm9ubWVudCB2YXJpYWJsZXNcclxucHJvY2Vzcy5lbnYuU1VQQUJBU0VfVVJMID0gJ2h0dHBzOi8vdGVzdC5zdXBhYmFzZS5jbydcclxucHJvY2Vzcy5lbnYuU1VQQUJBU0VfQU5PTl9LRVkgPSAndGVzdC1hbm9uLWtleSdcclxucHJvY2Vzcy5lbnYuU1VQQUJBU0VfU0VSVklDRV9ST0xFX0tFWSA9ICd0ZXN0LXNlcnZpY2Uta2V5J1xyXG5wcm9jZXNzLmVudi5FTkNSWVBUSU9OX0tFWSA9ICd0ZXN0LWVuY3J5cHRpb24ta2V5LTMyLWNoYXJhY3RlcnMnXHJcbnByb2Nlc3MuZW52LkpXVF9TRUNSRVQgPSAndGVzdC1qd3Qtc2VjcmV0LWtleSdcclxuXHJcbi8vIFNldHVwIHNlY3VyaXR5IHRlc3QgZW52aXJvbm1lbnRcclxuZXhwb3J0IGZ1bmN0aW9uIHNldHVwU2VjdXJpdHlNb2NrcygpIHtcclxuICAvLyBNb2NrIGNvbnNvbGUgbWV0aG9kcyB0byByZWR1Y2Ugbm9pc2UgaW4gdGVzdHNcclxuICBnbG9iYWwuY29uc29sZSA9IHtcclxuICAgIC4uLmNvbnNvbGUsXHJcbiAgICBsb2c6IGplc3QuZm4oKSxcclxuICAgIHdhcm46IGplc3QuZm4oKSxcclxuICAgIGVycm9yOiBqZXN0LmZuKCksXHJcbiAgICBpbmZvOiBqZXN0LmZuKCksXHJcbiAgICBkZWJ1ZzogamVzdC5mbigpLFxyXG4gIH1cclxufVxyXG5cclxuLy8gR2xvYmFsIHNldHVwXHJcbmJlZm9yZUFsbCgoKSA9PiB7XHJcbiAgc2V0dXBTZWN1cml0eU1vY2tzKClcclxufSlcclxuXHJcbi8vIENsZWFudXAgYWZ0ZXIgZWFjaCB0ZXN0XHJcbmFmdGVyRWFjaCgoKSA9PiB7XHJcbiAgamVzdC5jbGVhckFsbE1vY2tzKClcclxufSlcclxuXHJcbi8vIEdsb2JhbCBjbGVhbnVwXHJcbmFmdGVyQWxsKCgpID0+IHtcclxuICBjb25zb2xlLmxvZygnQ2xlYW5pbmcgdXAgc2VjdXJpdHkgdGVzdCByZXNvdXJjZXMuLi4nKVxyXG59KSJdLCJuYW1lcyI6WyJzZXR1cFNlY3VyaXR5TW9ja3MiLCJwcm9jZXNzIiwiZW52IiwiTk9ERV9FTlYiLCJTRUNVUklUWV9URVNUX01PREUiLCJTVVBBQkFTRV9VUkwiLCJTVVBBQkFTRV9BTk9OX0tFWSIsIlNVUEFCQVNFX1NFUlZJQ0VfUk9MRV9LRVkiLCJFTkNSWVBUSU9OX0tFWSIsIkpXVF9TRUNSRVQiLCJnbG9iYWwiLCJjb25zb2xlIiwibG9nIiwiamVzdCIsImZuIiwid2FybiIsImVycm9yIiwiaW5mbyIsImRlYnVnIiwiYmVmb3JlQWxsIiwiYWZ0ZXJFYWNoIiwiY2xlYXJBbGxNb2NrcyIsImFmdGVyQWxsIl0sIm1hcHBpbmdzIjoiQUFBQTs7OztDQUlDLEdBRUQsdUJBQXVCOzs7OzsrQkFZUEE7OztlQUFBQTs7O0FBWGhCQyxRQUFRQyxHQUFHLENBQUNDLFFBQVEsR0FBRztBQUN2QkYsUUFBUUMsR0FBRyxDQUFDRSxrQkFBa0IsR0FBRztBQUVqQyw2QkFBNkI7QUFDN0JILFFBQVFDLEdBQUcsQ0FBQ0csWUFBWSxHQUFHO0FBQzNCSixRQUFRQyxHQUFHLENBQUNJLGlCQUFpQixHQUFHO0FBQ2hDTCxRQUFRQyxHQUFHLENBQUNLLHlCQUF5QixHQUFHO0FBQ3hDTixRQUFRQyxHQUFHLENBQUNNLGNBQWMsR0FBRztBQUM3QlAsUUFBUUMsR0FBRyxDQUFDTyxVQUFVLEdBQUc7QUFHbEIsU0FBU1Q7SUFDZCxnREFBZ0Q7SUFDaERVLE9BQU9DLE9BQU8sR0FBRztRQUNmLEdBQUdBLE9BQU87UUFDVkMsS0FBS0MsS0FBS0MsRUFBRTtRQUNaQyxNQUFNRixLQUFLQyxFQUFFO1FBQ2JFLE9BQU9ILEtBQUtDLEVBQUU7UUFDZEcsTUFBTUosS0FBS0MsRUFBRTtRQUNiSSxPQUFPTCxLQUFLQyxFQUFFO0lBQ2hCO0FBQ0Y7QUFFQSxlQUFlO0FBQ2ZLLFVBQVU7SUFDUm5CO0FBQ0Y7QUFFQSwwQkFBMEI7QUFDMUJvQixVQUFVO0lBQ1JQLEtBQUtRLGFBQWE7QUFDcEI7QUFFQSxpQkFBaUI7QUFDakJDLFNBQVM7SUFDUFgsUUFBUUMsR0FBRyxDQUFDO0FBQ2QifQ==

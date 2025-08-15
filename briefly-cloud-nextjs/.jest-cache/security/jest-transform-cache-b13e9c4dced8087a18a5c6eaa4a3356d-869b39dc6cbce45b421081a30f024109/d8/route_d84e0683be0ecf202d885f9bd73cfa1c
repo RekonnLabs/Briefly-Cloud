@@ -1,0 +1,528 @@
+11b5b1d1d02d27b2e7a6aa08cb5e5a97
+"use strict";
+
+/* istanbul ignore next */
+function cov_8h0y9ec98() {
+  var path = "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\google\\list\\route.ts";
+  var hash = "97065e34d34fbec492b7a9ebf3f68614c51a5502";
+  var global = new Function("return this")();
+  var gcv = "__coverage__";
+  var coverageData = {
+    path: "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\google\\list\\route.ts",
+    statementMap: {
+      "0": {
+        start: {
+          line: 2,
+          column: 0
+        },
+        end: {
+          line: 4,
+          column: 3
+        }
+      },
+      "1": {
+        start: {
+          line: 5,
+          column: 0
+        },
+        end: {
+          line: 10,
+          column: 3
+        }
+      },
+      "2": {
+        start: {
+          line: 8,
+          column: 8
+        },
+        end: {
+          line: 8,
+          column: 19
+        }
+      },
+      "3": {
+        start: {
+          line: 11,
+          column: 23
+        },
+        end: {
+          line: 11,
+          column: 64
+        }
+      },
+      "4": {
+        start: {
+          line: 12,
+          column: 18
+        },
+        end: {
+          line: 12,
+          column: 54
+        }
+      },
+      "5": {
+        start: {
+          line: 13,
+          column: 19
+        },
+        end: {
+          line: 13,
+          column: 56
+        }
+      },
+      "6": {
+        start: {
+          line: 14,
+          column: 20
+        },
+        end: {
+          line: 14,
+          column: 41
+        }
+      },
+      "7": {
+        start: {
+          line: 15,
+          column: 18
+        },
+        end: {
+          line: 15,
+          column: 53
+        }
+      },
+      "8": {
+        start: {
+          line: 17,
+          column: 21
+        },
+        end: {
+          line: 17,
+          column: 28
+        }
+      },
+      "9": {
+        start: {
+          line: 18,
+          column: 4
+        },
+        end: {
+          line: 18,
+          column: 83
+        }
+      },
+      "10": {
+        start: {
+          line: 18,
+          column: 15
+        },
+        end: {
+          line: 18,
+          column: 83
+        }
+      },
+      "11": {
+        start: {
+          line: 19,
+          column: 28
+        },
+        end: {
+          line: 19,
+          column: 147
+        }
+      },
+      "12": {
+        start: {
+          line: 20,
+          column: 4
+        },
+        end: {
+          line: 20,
+          column: 102
+        }
+      },
+      "13": {
+        start: {
+          line: 20,
+          column: 30
+        },
+        end: {
+          line: 20,
+          column: 102
+        }
+      },
+      "14": {
+        start: {
+          line: 21,
+          column: 25
+        },
+        end: {
+          line: 21,
+          column: 61
+        }
+      },
+      "15": {
+        start: {
+          line: 22,
+          column: 4
+        },
+        end: {
+          line: 25,
+          column: 7
+        }
+      },
+      "16": {
+        start: {
+          line: 26,
+          column: 18
+        },
+        end: {
+          line: 29,
+          column: 6
+        }
+      },
+      "17": {
+        start: {
+          line: 30,
+          column: 16
+        },
+        end: {
+          line: 34,
+          column: 6
+        }
+      },
+      "18": {
+        start: {
+          line: 35,
+          column: 4
+        },
+        end: {
+          line: 37,
+          column: 7
+        }
+      },
+      "19": {
+        start: {
+          line: 39,
+          column: 12
+        },
+        end: {
+          line: 45,
+          column: 2
+        }
+      }
+    },
+    fnMap: {
+      "0": {
+        name: "(anonymous_0)",
+        decl: {
+          start: {
+            line: 7,
+            column: 9
+          },
+          end: {
+            line: 7,
+            column: 10
+          }
+        },
+        loc: {
+          start: {
+            line: 7,
+            column: 20
+          },
+          end: {
+            line: 9,
+            column: 5
+          }
+        },
+        line: 7
+      },
+      "1": {
+        name: "listGoogleFilesHandler",
+        decl: {
+          start: {
+            line: 16,
+            column: 15
+          },
+          end: {
+            line: 16,
+            column: 37
+          }
+        },
+        loc: {
+          start: {
+            line: 16,
+            column: 57
+          },
+          end: {
+            line: 38,
+            column: 1
+          }
+        },
+        line: 16
+      }
+    },
+    branchMap: {
+      "0": {
+        loc: {
+          start: {
+            line: 18,
+            column: 4
+          },
+          end: {
+            line: 18,
+            column: 83
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 18,
+            column: 4
+          },
+          end: {
+            line: 18,
+            column: 83
+          }
+        }, {
+          start: {
+            line: undefined,
+            column: undefined
+          },
+          end: {
+            line: undefined,
+            column: undefined
+          }
+        }],
+        line: 18
+      },
+      "1": {
+        loc: {
+          start: {
+            line: 20,
+            column: 4
+          },
+          end: {
+            line: 20,
+            column: 102
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 20,
+            column: 4
+          },
+          end: {
+            line: 20,
+            column: 102
+          }
+        }, {
+          start: {
+            line: undefined,
+            column: undefined
+          },
+          end: {
+            line: undefined,
+            column: undefined
+          }
+        }],
+        line: 20
+      },
+      "2": {
+        loc: {
+          start: {
+            line: 36,
+            column: 15
+          },
+          end: {
+            line: 36,
+            column: 35
+          }
+        },
+        type: "binary-expr",
+        locations: [{
+          start: {
+            line: 36,
+            column: 15
+          },
+          end: {
+            line: 36,
+            column: 29
+          }
+        }, {
+          start: {
+            line: 36,
+            column: 33
+          },
+          end: {
+            line: 36,
+            column: 35
+          }
+        }],
+        line: 36
+      }
+    },
+    s: {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0,
+      "9": 0,
+      "10": 0,
+      "11": 0,
+      "12": 0,
+      "13": 0,
+      "14": 0,
+      "15": 0,
+      "16": 0,
+      "17": 0,
+      "18": 0,
+      "19": 0
+    },
+    f: {
+      "0": 0,
+      "1": 0
+    },
+    b: {
+      "0": [0, 0],
+      "1": [0, 0],
+      "2": [0, 0]
+    },
+    inputSourceMap: {
+      version: 3,
+      sources: ["R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\google\\list\\route.ts"],
+      sourcesContent: ["import { NextResponse } from 'next/server'\r\nimport { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'\r\nimport { ApiResponse } from '@/app/lib/api-utils'\r\nimport { rateLimitConfigs } from '@/app/lib/rate-limit'\r\nimport { google } from 'googleapis'\r\nimport { supabaseAdmin } from '@/app/lib/supabase'\r\n\r\nasync function listGoogleFilesHandler(_request: Request, context: ApiContext): Promise<NextResponse> {\r\n  const { user } = context\r\n  if (!user) return ApiResponse.unauthorized('User not authenticated')\r\n\r\n  const { data: token } = await supabaseAdmin\r\n    .from('oauth_tokens')\r\n    .select('*')\r\n    .eq('user_id', user.id)\r\n    .eq('provider', 'google')\r\n    .single()\r\n\r\n  if (!token?.access_token) return ApiResponse.badRequest('Google account not connected')\r\n\r\n  const oauth2Client = new google.auth.OAuth2()\r\n  oauth2Client.setCredentials({\r\n    access_token: token.access_token,\r\n    refresh_token: token.refresh_token,\r\n  })\r\n\r\n  const drive = google.drive({ version: 'v3', auth: oauth2Client })\r\n  const res = await drive.files.list({\r\n    pageSize: 50,\r\n    fields: 'files(id, name, mimeType, size, webViewLink)',\r\n    q: \"mimeType != 'application/vnd.google-apps.folder'\",\r\n  })\r\n\r\n  return ApiResponse.success({ files: res.data.files || [] })\r\n}\r\n\r\nexport const GET = createProtectedApiHandler(listGoogleFilesHandler, {\r\n  rateLimit: rateLimitConfigs.general,\r\n  logging: { enabled: true, includeBody: false },\r\n})\r\n\r\n\r\n\r\n"],
+      names: ["GET", "listGoogleFilesHandler", "_request", "context", "user", "ApiResponse", "unauthorized", "data", "token", "supabaseAdmin", "from", "select", "eq", "id", "single", "access_token", "badRequest", "oauth2Client", "google", "auth", "OAuth2", "setCredentials", "refresh_token", "drive", "version", "res", "files", "list", "pageSize", "fields", "q", "success", "createProtectedApiHandler", "rateLimit", "rateLimitConfigs", "general", "logging", "enabled", "includeBody"],
+      mappings: ";;;;+BAoCaA;;;eAAAA;;;+BAnCyC;0BAC1B;2BACK;4BACV;0BACO;AAE9B,eAAeC,uBAAuBC,QAAiB,EAAEC,OAAmB;IAC1E,MAAM,EAAEC,IAAI,EAAE,GAAGD;IACjB,IAAI,CAACC,MAAM,OAAOC,qBAAW,CAACC,YAAY,CAAC;IAE3C,MAAM,EAAEC,MAAMC,KAAK,EAAE,GAAG,MAAMC,uBAAa,CACxCC,IAAI,CAAC,gBACLC,MAAM,CAAC,KACPC,EAAE,CAAC,WAAWR,KAAKS,EAAE,EACrBD,EAAE,CAAC,YAAY,UACfE,MAAM;IAET,IAAI,CAACN,OAAOO,cAAc,OAAOV,qBAAW,CAACW,UAAU,CAAC;IAExD,MAAMC,eAAe,IAAIC,kBAAM,CAACC,IAAI,CAACC,MAAM;IAC3CH,aAAaI,cAAc,CAAC;QAC1BN,cAAcP,MAAMO,YAAY;QAChCO,eAAed,MAAMc,aAAa;IACpC;IAEA,MAAMC,QAAQL,kBAAM,CAACK,KAAK,CAAC;QAAEC,SAAS;QAAML,MAAMF;IAAa;IAC/D,MAAMQ,MAAM,MAAMF,MAAMG,KAAK,CAACC,IAAI,CAAC;QACjCC,UAAU;QACVC,QAAQ;QACRC,GAAG;IACL;IAEA,OAAOzB,qBAAW,CAAC0B,OAAO,CAAC;QAAEL,OAAOD,IAAIlB,IAAI,CAACmB,KAAK,IAAI,EAAE;IAAC;AAC3D;AAEO,MAAM1B,MAAMgC,IAAAA,wCAAyB,EAAC/B,wBAAwB;IACnEgC,WAAWC,2BAAgB,CAACC,OAAO;IACnCC,SAAS;QAAEC,SAAS;QAAMC,aAAa;IAAM;AAC/C"
+    },
+    _coverageSchema: "1a1c01bbd47fc00a2c39e90264f33305004495a9",
+    hash: "97065e34d34fbec492b7a9ebf3f68614c51a5502"
+  };
+  var coverage = global[gcv] || (global[gcv] = {});
+  if (!coverage[path] || coverage[path].hash !== hash) {
+    coverage[path] = coverageData;
+  }
+  var actualCoverage = coverage[path];
+  {
+    // @ts-ignore
+    cov_8h0y9ec98 = function () {
+      return actualCoverage;
+    };
+  }
+  return actualCoverage;
+}
+cov_8h0y9ec98();
+cov_8h0y9ec98().s[0]++;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+/* istanbul ignore next */
+cov_8h0y9ec98().s[1]++;
+Object.defineProperty(exports, "GET", {
+  enumerable: true,
+  get: function () {
+    /* istanbul ignore next */
+    cov_8h0y9ec98().f[0]++;
+    cov_8h0y9ec98().s[2]++;
+    return GET;
+  }
+});
+const _apimiddleware =
+/* istanbul ignore next */
+(cov_8h0y9ec98().s[3]++, require("../../../../lib/api-middleware"));
+const _apiutils =
+/* istanbul ignore next */
+(cov_8h0y9ec98().s[4]++, require("../../../../lib/api-utils"));
+const _ratelimit =
+/* istanbul ignore next */
+(cov_8h0y9ec98().s[5]++, require("../../../../lib/rate-limit"));
+const _googleapis =
+/* istanbul ignore next */
+(cov_8h0y9ec98().s[6]++, require("googleapis"));
+const _supabase =
+/* istanbul ignore next */
+(cov_8h0y9ec98().s[7]++, require("../../../../lib/supabase"));
+async function listGoogleFilesHandler(_request, context) {
+  /* istanbul ignore next */
+  cov_8h0y9ec98().f[1]++;
+  const {
+    user
+  } =
+  /* istanbul ignore next */
+  (cov_8h0y9ec98().s[8]++, context);
+  /* istanbul ignore next */
+  cov_8h0y9ec98().s[9]++;
+  if (!user) {
+    /* istanbul ignore next */
+    cov_8h0y9ec98().b[0][0]++;
+    cov_8h0y9ec98().s[10]++;
+    return _apiutils.ApiResponse.unauthorized('User not authenticated');
+  } else
+  /* istanbul ignore next */
+  {
+    cov_8h0y9ec98().b[0][1]++;
+  }
+  const {
+    data: token
+  } =
+  /* istanbul ignore next */
+  (cov_8h0y9ec98().s[11]++, await _supabase.supabaseAdmin.from('oauth_tokens').select('*').eq('user_id', user.id).eq('provider', 'google').single());
+  /* istanbul ignore next */
+  cov_8h0y9ec98().s[12]++;
+  if (!token?.access_token) {
+    /* istanbul ignore next */
+    cov_8h0y9ec98().b[1][0]++;
+    cov_8h0y9ec98().s[13]++;
+    return _apiutils.ApiResponse.badRequest('Google account not connected');
+  } else
+  /* istanbul ignore next */
+  {
+    cov_8h0y9ec98().b[1][1]++;
+  }
+  const oauth2Client =
+  /* istanbul ignore next */
+  (cov_8h0y9ec98().s[14]++, new _googleapis.google.auth.OAuth2());
+  /* istanbul ignore next */
+  cov_8h0y9ec98().s[15]++;
+  oauth2Client.setCredentials({
+    access_token: token.access_token,
+    refresh_token: token.refresh_token
+  });
+  const drive =
+  /* istanbul ignore next */
+  (cov_8h0y9ec98().s[16]++, _googleapis.google.drive({
+    version: 'v3',
+    auth: oauth2Client
+  }));
+  const res =
+  /* istanbul ignore next */
+  (cov_8h0y9ec98().s[17]++, await drive.files.list({
+    pageSize: 50,
+    fields: 'files(id, name, mimeType, size, webViewLink)',
+    q: "mimeType != 'application/vnd.google-apps.folder'"
+  }));
+  /* istanbul ignore next */
+  cov_8h0y9ec98().s[18]++;
+  return _apiutils.ApiResponse.success({
+    files:
+    /* istanbul ignore next */
+    (cov_8h0y9ec98().b[2][0]++, res.data.files) ||
+    /* istanbul ignore next */
+    (cov_8h0y9ec98().b[2][1]++, [])
+  });
+}
+const GET =
+/* istanbul ignore next */
+(cov_8h0y9ec98().s[19]++, (0, _apimiddleware.createProtectedApiHandler)(listGoogleFilesHandler, {
+  rateLimit: _ratelimit.rateLimitConfigs.general,
+  logging: {
+    enabled: true,
+    includeBody: false
+  }
+}));
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJjb3ZfOGgweTllYzk4IiwiYWN0dWFsQ292ZXJhZ2UiLCJzIiwiR0VUIiwibGlzdEdvb2dsZUZpbGVzSGFuZGxlciIsIl9yZXF1ZXN0IiwiY29udGV4dCIsImYiLCJ1c2VyIiwiYiIsIl9hcGl1dGlscyIsIkFwaVJlc3BvbnNlIiwidW5hdXRob3JpemVkIiwiZGF0YSIsInRva2VuIiwiX3N1cGFiYXNlIiwic3VwYWJhc2VBZG1pbiIsImZyb20iLCJzZWxlY3QiLCJlcSIsImlkIiwic2luZ2xlIiwiYWNjZXNzX3Rva2VuIiwiYmFkUmVxdWVzdCIsIm9hdXRoMkNsaWVudCIsIl9nb29nbGVhcGlzIiwiZ29vZ2xlIiwiYXV0aCIsIk9BdXRoMiIsInNldENyZWRlbnRpYWxzIiwicmVmcmVzaF90b2tlbiIsImRyaXZlIiwidmVyc2lvbiIsInJlcyIsImZpbGVzIiwibGlzdCIsInBhZ2VTaXplIiwiZmllbGRzIiwicSIsInN1Y2Nlc3MiLCJfYXBpbWlkZGxld2FyZSIsImNyZWF0ZVByb3RlY3RlZEFwaUhhbmRsZXIiLCJyYXRlTGltaXQiLCJfcmF0ZWxpbWl0IiwicmF0ZUxpbWl0Q29uZmlncyIsImdlbmVyYWwiLCJsb2dnaW5nIiwiZW5hYmxlZCIsImluY2x1ZGVCb2R5Il0sInNvdXJjZXMiOlsiUjpcXEFwcHNcXEJyaWVmbHlfQ2xvdWRcXGJyaWVmbHktY2xvdWQtbmV4dGpzXFxzcmNcXGFwcFxcYXBpXFxzdG9yYWdlXFxnb29nbGVcXGxpc3RcXHJvdXRlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IE5leHRSZXNwb25zZSB9IGZyb20gJ25leHQvc2VydmVyJ1xyXG5pbXBvcnQgeyBjcmVhdGVQcm90ZWN0ZWRBcGlIYW5kbGVyLCBBcGlDb250ZXh0IH0gZnJvbSAnQC9hcHAvbGliL2FwaS1taWRkbGV3YXJlJ1xyXG5pbXBvcnQgeyBBcGlSZXNwb25zZSB9IGZyb20gJ0AvYXBwL2xpYi9hcGktdXRpbHMnXHJcbmltcG9ydCB7IHJhdGVMaW1pdENvbmZpZ3MgfSBmcm9tICdAL2FwcC9saWIvcmF0ZS1saW1pdCdcclxuaW1wb3J0IHsgZ29vZ2xlIH0gZnJvbSAnZ29vZ2xlYXBpcydcclxuaW1wb3J0IHsgc3VwYWJhc2VBZG1pbiB9IGZyb20gJ0AvYXBwL2xpYi9zdXBhYmFzZSdcclxuXHJcbmFzeW5jIGZ1bmN0aW9uIGxpc3RHb29nbGVGaWxlc0hhbmRsZXIoX3JlcXVlc3Q6IFJlcXVlc3QsIGNvbnRleHQ6IEFwaUNvbnRleHQpOiBQcm9taXNlPE5leHRSZXNwb25zZT4ge1xyXG4gIGNvbnN0IHsgdXNlciB9ID0gY29udGV4dFxyXG4gIGlmICghdXNlcikgcmV0dXJuIEFwaVJlc3BvbnNlLnVuYXV0aG9yaXplZCgnVXNlciBub3QgYXV0aGVudGljYXRlZCcpXHJcblxyXG4gIGNvbnN0IHsgZGF0YTogdG9rZW4gfSA9IGF3YWl0IHN1cGFiYXNlQWRtaW5cclxuICAgIC5mcm9tKCdvYXV0aF90b2tlbnMnKVxyXG4gICAgLnNlbGVjdCgnKicpXHJcbiAgICAuZXEoJ3VzZXJfaWQnLCB1c2VyLmlkKVxyXG4gICAgLmVxKCdwcm92aWRlcicsICdnb29nbGUnKVxyXG4gICAgLnNpbmdsZSgpXHJcblxyXG4gIGlmICghdG9rZW4/LmFjY2Vzc190b2tlbikgcmV0dXJuIEFwaVJlc3BvbnNlLmJhZFJlcXVlc3QoJ0dvb2dsZSBhY2NvdW50IG5vdCBjb25uZWN0ZWQnKVxyXG5cclxuICBjb25zdCBvYXV0aDJDbGllbnQgPSBuZXcgZ29vZ2xlLmF1dGguT0F1dGgyKClcclxuICBvYXV0aDJDbGllbnQuc2V0Q3JlZGVudGlhbHMoe1xyXG4gICAgYWNjZXNzX3Rva2VuOiB0b2tlbi5hY2Nlc3NfdG9rZW4sXHJcbiAgICByZWZyZXNoX3Rva2VuOiB0b2tlbi5yZWZyZXNoX3Rva2VuLFxyXG4gIH0pXHJcblxyXG4gIGNvbnN0IGRyaXZlID0gZ29vZ2xlLmRyaXZlKHsgdmVyc2lvbjogJ3YzJywgYXV0aDogb2F1dGgyQ2xpZW50IH0pXHJcbiAgY29uc3QgcmVzID0gYXdhaXQgZHJpdmUuZmlsZXMubGlzdCh7XHJcbiAgICBwYWdlU2l6ZTogNTAsXHJcbiAgICBmaWVsZHM6ICdmaWxlcyhpZCwgbmFtZSwgbWltZVR5cGUsIHNpemUsIHdlYlZpZXdMaW5rKScsXHJcbiAgICBxOiBcIm1pbWVUeXBlICE9ICdhcHBsaWNhdGlvbi92bmQuZ29vZ2xlLWFwcHMuZm9sZGVyJ1wiLFxyXG4gIH0pXHJcblxyXG4gIHJldHVybiBBcGlSZXNwb25zZS5zdWNjZXNzKHsgZmlsZXM6IHJlcy5kYXRhLmZpbGVzIHx8IFtdIH0pXHJcbn1cclxuXHJcbmV4cG9ydCBjb25zdCBHRVQgPSBjcmVhdGVQcm90ZWN0ZWRBcGlIYW5kbGVyKGxpc3RHb29nbGVGaWxlc0hhbmRsZXIsIHtcclxuICByYXRlTGltaXQ6IHJhdGVMaW1pdENvbmZpZ3MuZ2VuZXJhbCxcclxuICBsb2dnaW5nOiB7IGVuYWJsZWQ6IHRydWUsIGluY2x1ZGVCb2R5OiBmYWxzZSB9LFxyXG59KVxyXG5cclxuXHJcblxyXG4iXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0lBT0E7SUFBQUEsYUFBQSxZQUFBQSxDQUFBO01BQUEs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

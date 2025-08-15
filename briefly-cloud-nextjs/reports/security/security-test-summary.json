@@ -1,0 +1,9 @@
+{
+  "timestamp": "2025-08-15T17:04:40.850Z",
+  "success": false,
+  "totalTests": 103,
+  "passedTests": 81,
+  "failedTests": 22,
+  "criticalFailures": 3,
+  "recommendations": 3
+}

@@ -1,64 +1,25 @@
 /**
  * Global Setup for Security Tests
  * 
- * Sets up the test environment for security tests including database
- * connections, test data, and security configurations.
+ * Sets up the test environment before running security tests.
+ * This includes database connections, test data, and security configurations.
  */
 
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
-
 export default async function globalSetup() {
-  console.log('🔧 Setting up security test environment...');
+  console.log('🔧 Setting up security test environment...')
   
-  // Ensure required directories exist
-  const dirs = [
-    'reports/security',
-    'coverage/security',
-    'logs/security-tests'
-  ];
+  // Set test environment variables
+  process.env.NODE_ENV = 'test'
+  process.env.SECURITY_TEST_MODE = 'true'
   
-  dirs.forEach(dir => {
-    const fullPath = path.join(process.cwd(), dir);
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-    }
-  });
+  // Mock external services for security tests
+  process.env.SUPABASE_URL = 'https://test.supabase.co'
+  process.env.SUPABASE_ANON_KEY = 'test-anon-key'
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key'
   
-  // Set security test environment variables
-  process.env.NODE_ENV = 'test';
-  process.env.SECURITY_TEST_MODE = 'true';
-  process.env.TEST_ISOLATION = 'true';
+  // Mock encryption keys for testing
+  process.env.ENCRYPTION_KEY = 'test-encryption-key-32-characters'
+  process.env.JWT_SECRET = 'test-jwt-secret-key'
   
-  // Validate required environment variables for security tests
-  const requiredEnvVars = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY'
-  ];
-  
-  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-  
-  if (missingVars.length > 0) {
-    console.warn('⚠️  Missing environment variables for security tests:', missingVars.join(', '));
-    console.warn('   Some security tests may be skipped or fail.');
-  }
-  
-  // Initialize test database schema if needed
-  try {
-    if (process.env.TEST_DATABASE_SETUP === 'true') {
-      console.log('📊 Setting up test database schema...');
-      // Add database setup logic here if needed
-    }
-  } catch (error) {
-    console.warn('⚠️  Could not set up test database:', error.message);
-  }
-  
-  // Create security test log file
-  const logFile = path.join(process.cwd(), 'logs/security-tests/setup.log');
-  const timestamp = new Date().toISOString();
-  fs.writeFileSync(logFile, `Security test setup started at ${timestamp}\n`);
-  
-  console.log('✅ Security test environment setup complete');
+  console.log('✅ Security test environment ready')
 }

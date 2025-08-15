@@ -1,6 +1,6 @@
 'use client'
 
-import { signIn } from 'next-auth/react'
+import { signInWithProvider } from '@/app/lib/auth/supabase-client'
 import { useState } from 'react'
 
 export default function SignIn() {
@@ -16,8 +16,7 @@ export default function SignIn() {
     setError('')
     
     try {
-      const result = await signIn('google', { 
-        callbackUrl,
+      await signInWithProvider('google', `${window.location.origin}/auth/callback?next=${callbackUrl}`)
         redirect: false 
       })
       

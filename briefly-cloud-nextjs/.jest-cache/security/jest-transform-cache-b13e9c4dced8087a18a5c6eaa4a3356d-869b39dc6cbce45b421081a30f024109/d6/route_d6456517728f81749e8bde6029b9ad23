@@ -1,0 +1,405 @@
+30a2eddc725dbf4b711ea343549e64bd
+"use strict";
+
+/* istanbul ignore next */
+function cov_2lhxagpcoo() {
+  var path = "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\microsoft\\start\\route.ts";
+  var hash = "d43e93a281f37245b1ce4f826cf2c9993e7f88ad";
+  var global = new Function("return this")();
+  var gcv = "__coverage__";
+  var coverageData = {
+    path: "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\microsoft\\start\\route.ts",
+    statementMap: {
+      "0": {
+        start: {
+          line: 2,
+          column: 0
+        },
+        end: {
+          line: 4,
+          column: 3
+        }
+      },
+      "1": {
+        start: {
+          line: 5,
+          column: 0
+        },
+        end: {
+          line: 10,
+          column: 3
+        }
+      },
+      "2": {
+        start: {
+          line: 8,
+          column: 8
+        },
+        end: {
+          line: 8,
+          column: 19
+        }
+      },
+      "3": {
+        start: {
+          line: 11,
+          column: 16
+        },
+        end: {
+          line: 11,
+          column: 38
+        }
+      },
+      "4": {
+        start: {
+          line: 12,
+          column: 17
+        },
+        end: {
+          line: 12,
+          column: 40
+        }
+      },
+      "5": {
+        start: {
+          line: 14,
+          column: 19
+        },
+        end: {
+          line: 14,
+          column: 37
+        }
+      },
+      "6": {
+        start: {
+          line: 15,
+          column: 24
+        },
+        end: {
+          line: 15,
+          column: 66
+        }
+      },
+      "7": {
+        start: {
+          line: 16,
+          column: 19
+        },
+        end: {
+          line: 16,
+          column: 61
+        }
+      },
+      "8": {
+        start: {
+          line: 18,
+          column: 18
+        },
+        end: {
+          line: 18,
+          column: 37
+        }
+      },
+      "9": {
+        start: {
+          line: 19,
+          column: 4
+        },
+        end: {
+          line: 25,
+          column: 7
+        }
+      },
+      "10": {
+        start: {
+          line: 26,
+          column: 16
+        },
+        end: {
+          line: 26,
+          column: 92
+        }
+      },
+      "11": {
+        start: {
+          line: 27,
+          column: 4
+        },
+        end: {
+          line: 27,
+          column: 70
+        }
+      },
+      "12": {
+        start: {
+          line: 28,
+          column: 4
+        },
+        end: {
+          line: 28,
+          column: 50
+        }
+      },
+      "13": {
+        start: {
+          line: 29,
+          column: 4
+        },
+        end: {
+          line: 29,
+          column: 54
+        }
+      },
+      "14": {
+        start: {
+          line: 30,
+          column: 4
+        },
+        end: {
+          line: 30,
+          column: 51
+        }
+      },
+      "15": {
+        start: {
+          line: 31,
+          column: 4
+        },
+        end: {
+          line: 31,
+          column: 88
+        }
+      },
+      "16": {
+        start: {
+          line: 32,
+          column: 4
+        },
+        end: {
+          line: 32,
+          column: 41
+        }
+      },
+      "17": {
+        start: {
+          line: 33,
+          column: 4
+        },
+        end: {
+          line: 33,
+          column: 57
+        }
+      }
+    },
+    fnMap: {
+      "0": {
+        name: "(anonymous_0)",
+        decl: {
+          start: {
+            line: 7,
+            column: 9
+          },
+          end: {
+            line: 7,
+            column: 10
+          }
+        },
+        loc: {
+          start: {
+            line: 7,
+            column: 20
+          },
+          end: {
+            line: 9,
+            column: 5
+          }
+        },
+        line: 7
+      },
+      "1": {
+        name: "GET",
+        decl: {
+          start: {
+            line: 13,
+            column: 15
+          },
+          end: {
+            line: 13,
+            column: 18
+          }
+        },
+        loc: {
+          start: {
+            line: 13,
+            column: 24
+          },
+          end: {
+            line: 34,
+            column: 1
+          }
+        },
+        line: 13
+      }
+    },
+    branchMap: {
+      "0": {
+        loc: {
+          start: {
+            line: 16,
+            column: 19
+          },
+          end: {
+            line: 16,
+            column: 61
+          }
+        },
+        type: "binary-expr",
+        locations: [{
+          start: {
+            line: 16,
+            column: 19
+          },
+          end: {
+            line: 16,
+            column: 49
+          }
+        }, {
+          start: {
+            line: 16,
+            column: 53
+          },
+          end: {
+            line: 16,
+            column: 61
+          }
+        }],
+        line: 16
+      }
+    },
+    s: {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0,
+      "9": 0,
+      "10": 0,
+      "11": 0,
+      "12": 0,
+      "13": 0,
+      "14": 0,
+      "15": 0,
+      "16": 0,
+      "17": 0
+    },
+    f: {
+      "0": 0,
+      "1": 0
+    },
+    b: {
+      "0": [0, 0]
+    },
+    inputSourceMap: {
+      version: 3,
+      sources: ["R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\microsoft\\start\\route.ts"],
+      sourcesContent: ["import { NextRequest, NextResponse } from 'next/server'\r\nimport { cookies } from 'next/headers'\r\n\r\nexport async function GET(req: NextRequest) {\r\n  const origin = req.nextUrl.origin\r\n  const redirectUri = `${origin}/api/storage/microsoft/callback`\r\n  const tenant = process.env.AZURE_AD_TENANT_ID || 'common'\r\n  \r\n  // Generate CSRF state token\r\n  const state = crypto.randomUUID()\r\n  cookies().set('oauth_state_microsoft', state, { \r\n    httpOnly: true, \r\n    sameSite: 'lax', \r\n    secure: process.env.NODE_ENV === 'production',\r\n    path: '/',\r\n    maxAge: 600 // 10 minutes\r\n  })\r\n  \r\n  const url = new URL(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`)\r\n  url.searchParams.set('client_id', process.env.AZURE_AD_CLIENT_ID!)\r\n  url.searchParams.set('response_type', 'code')\r\n  url.searchParams.set('redirect_uri', redirectUri)\r\n  url.searchParams.set('response_mode', 'query')\r\n  url.searchParams.set('scope', 'openid email profile offline_access Files.Read.All')\r\n  url.searchParams.set('state', state)\r\n  \r\n  return NextResponse.redirect(url.toString())\r\n}"],
+      names: ["GET", "req", "origin", "nextUrl", "redirectUri", "tenant", "process", "env", "AZURE_AD_TENANT_ID", "state", "crypto", "randomUUID", "cookies", "set", "httpOnly", "sameSite", "secure", "NODE_ENV", "path", "maxAge", "url", "URL", "searchParams", "AZURE_AD_CLIENT_ID", "NextResponse", "redirect", "toString"],
+      mappings: ";;;;+BAGsBA;;;eAAAA;;;wBAHoB;yBAClB;AAEjB,eAAeA,IAAIC,GAAgB;IACxC,MAAMC,SAASD,IAAIE,OAAO,CAACD,MAAM;IACjC,MAAME,cAAc,GAAGF,OAAO,+BAA+B,CAAC;IAC9D,MAAMG,SAASC,QAAQC,GAAG,CAACC,kBAAkB,IAAI;IAEjD,4BAA4B;IAC5B,MAAMC,QAAQC,OAAOC,UAAU;IAC/BC,IAAAA,gBAAO,IAAGC,GAAG,CAAC,yBAAyBJ,OAAO;QAC5CK,UAAU;QACVC,UAAU;QACVC,QAAQV,QAAQC,GAAG,CAACU,QAAQ,KAAK;QACjCC,MAAM;QACNC,QAAQ,IAAI,aAAa;IAC3B;IAEA,MAAMC,MAAM,IAAIC,IAAI,CAAC,kCAAkC,EAAEhB,OAAO,sBAAsB,CAAC;IACvFe,IAAIE,YAAY,CAACT,GAAG,CAAC,aAAaP,QAAQC,GAAG,CAACgB,kBAAkB;IAChEH,IAAIE,YAAY,CAACT,GAAG,CAAC,iBAAiB;IACtCO,IAAIE,YAAY,CAACT,GAAG,CAAC,gBAAgBT;IACrCgB,IAAIE,YAAY,CAACT,GAAG,CAAC,iBAAiB;IACtCO,IAAIE,YAAY,CAACT,GAAG,CAAC,SAAS;IAC9BO,IAAIE,YAAY,CAACT,GAAG,CAAC,SAASJ;IAE9B,OAAOe,oBAAY,CAACC,QAAQ,CAACL,IAAIM,QAAQ;AAC3C"
+    },
+    _coverageSchema: "1a1c01bbd47fc00a2c39e90264f33305004495a9",
+    hash: "d43e93a281f37245b1ce4f826cf2c9993e7f88ad"
+  };
+  var coverage = global[gcv] || (global[gcv] = {});
+  if (!coverage[path] || coverage[path].hash !== hash) {
+    coverage[path] = coverageData;
+  }
+  var actualCoverage = coverage[path];
+  {
+    // @ts-ignore
+    cov_2lhxagpcoo = function () {
+      return actualCoverage;
+    };
+  }
+  return actualCoverage;
+}
+cov_2lhxagpcoo();
+cov_2lhxagpcoo().s[0]++;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+/* istanbul ignore next */
+cov_2lhxagpcoo().s[1]++;
+Object.defineProperty(exports, "GET", {
+  enumerable: true,
+  get: function () {
+    /* istanbul ignore next */
+    cov_2lhxagpcoo().f[0]++;
+    cov_2lhxagpcoo().s[2]++;
+    return GET;
+  }
+});
+const _server =
+/* istanbul ignore next */
+(cov_2lhxagpcoo().s[3]++, require("next/server"));
+const _headers =
+/* istanbul ignore next */
+(cov_2lhxagpcoo().s[4]++, require("next/headers"));
+async function GET(req) {
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().f[1]++;
+  const origin =
+  /* istanbul ignore next */
+  (cov_2lhxagpcoo().s[5]++, req.nextUrl.origin);
+  const redirectUri =
+  /* istanbul ignore next */
+  (cov_2lhxagpcoo().s[6]++, `${origin}/api/storage/microsoft/callback`);
+  const tenant =
+  /* istanbul ignore next */
+  (cov_2lhxagpcoo().s[7]++,
+  /* istanbul ignore next */
+  (cov_2lhxagpcoo().b[0][0]++, process.env.AZURE_AD_TENANT_ID) ||
+  /* istanbul ignore next */
+  (cov_2lhxagpcoo().b[0][1]++, 'common'));
+  // Generate CSRF state token
+  const state =
+  /* istanbul ignore next */
+  (cov_2lhxagpcoo().s[8]++, crypto.randomUUID());
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().s[9]++;
+  (0, _headers.cookies)().set('oauth_state_microsoft', state, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 600 // 10 minutes
+  });
+  const url =
+  /* istanbul ignore next */
+  (cov_2lhxagpcoo().s[10]++, new URL(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`));
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().s[11]++;
+  url.searchParams.set('client_id', process.env.AZURE_AD_CLIENT_ID);
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().s[12]++;
+  url.searchParams.set('response_type', 'code');
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().s[13]++;
+  url.searchParams.set('redirect_uri', redirectUri);
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().s[14]++;
+  url.searchParams.set('response_mode', 'query');
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().s[15]++;
+  url.searchParams.set('scope', 'openid email profile offline_access Files.Read.All');
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().s[16]++;
+  url.searchParams.set('state', state);
+  /* istanbul ignore next */
+  cov_2lhxagpcoo().s[17]++;
+  return _server.NextResponse.redirect(url.toString());
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJjb3ZfMmxoeGFncGNvbyIsImFjdHVhbENvdmVyYWdlIiwicyIsIkdFVCIsInJlcSIsImYiLCJvcmlnaW4iLCJuZXh0VXJsIiwicmVkaXJlY3RVcmkiLCJ0ZW5hbnQiLCJiIiwicHJvY2VzcyIsImVudiIsIkFaVVJFX0FEX1RFTkFOVF9JRCIsInN0YXRlIiwiY3J5cHRvIiwicmFuZG9tVVVJRCIsIl9oZWFkZXJzIiwiY29va2llcyIsInNldCIsImh0dHBPbmx5Iiwic2FtZVNpdGUiLCJzZWN1cmUiLCJOT0RFX0VOViIsInBhdGgiLCJtYXhBZ2UiLCJ1cmwiLCJVUkwiLCJzZWFyY2hQYXJhbXMiLCJBWlVSRV9BRF9DTElFTlRfSUQiLCJfc2VydmVyIiwiTmV4dFJlc3BvbnNlIiwicmVkaXJlY3QiLCJ0b1N0cmluZyJdLCJzb3VyY2VzIjpbIlI6XFxBcHBzXFxCcmllZmx5X0Nsb3VkXFxicmllZmx5LWNsb3VkLW5leHRqc1xcc3JjXFxhcHBcXGFwaVxcc3RvcmFnZVxcbWljcm9zb2Z0XFxzdGFydFxccm91dGUudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgTmV4dFJlcXVlc3QsIE5leHRSZXNwb25zZSB9IGZyb20gJ25leHQvc2VydmVyJ1xyXG5pbXBvcnQgeyBjb29raWVzIH0gZnJvbSAnbmV4dC9oZWFkZXJzJ1xyXG5cclxuZXhwb3J0IGFzeW5jIGZ1bmN0aW9uIEdFVChyZXE6IE5leHRSZXF1ZXN0KSB7XHJcbiAgY29uc3Qgb3JpZ2luID0gcmVxLm5leHRVcmwub3JpZ2luXHJcbiAgY29uc3QgcmVkaXJlY3RVcmkgPSBgJHtvcmlnaW59L2FwaS9zdG9yYWdlL21pY3Jvc29mdC9jYWxsYmFja2BcclxuICBjb25zdCB0ZW5hbnQgPSBwcm9jZXNzLmVudi5BWlVSRV9BRF9URU5BTlRfSUQgfHwgJ2NvbW1vbidcclxuICBcclxuICAvLyBHZW5lcmF0ZSBDU1JGIHN0YXRlIHRva2VuXHJcbiAgY29uc3Qgc3RhdGUgPSBjcnlwdG8ucmFuZG9tVVVJRCgpXHJcbiAgY29va2llcygpLnNldCgnb2F1dGhfc3RhdGVfbWljcm9zb2Z0Jywgc3RhdGUsIHsgXHJcbiAgICBodHRwT25seTogdHJ1ZSwgXHJcbiAgICBzYW1lU2l0ZTogJ2xheCcsIFxyXG4gICAgc2VjdXJlOiBwcm9jZXNzLmVudi5OT0RFX0VOViA9PT0gJ3Byb2R1Y3Rpb24nLFxyXG4gICAgcGF0aDogJy8nLFxyXG4gICAgbWF4QWdlOiA2MDAgLy8gMTAgbWludXRlc1xyXG4gIH0pXHJcbiAgXHJcbiAgY29uc3QgdXJsID0gbmV3IFVSTChgaHR0cHM6Ly9sb2dpbi5taWNyb3NvZnRvbmxpbmUuY29tLyR7dGVuYW50fS9vYXV0aDIvdjIuMC9hdXRob3JpemVgKVxyXG4gIHVybC5zZWFyY2hQYXJhbXMuc2V0KCdjbGllbnRfaWQnLCBwcm9jZXNzLmVudi5BWlVSRV9BRF9DTElFTlRfSUQhKVxyXG4gIHVybC5zZWFyY2hQYXJhbXMuc2V0KCdyZXNwb25zZV90eXBlJywgJ2NvZGUnKVxyXG4gIHVybC5zZWFyY2hQYXJhbXMuc2V0KCdyZWRpcmVjdF91cmknLCByZWRpcmVjdFVyaSlcclxuICB1cmwuc2VhcmNoUGFyYW1zLnNldCgncmVzcG9uc2VfbW9kZScsICdxdWVyeScpXHJcbiAgdXJsLnNlYXJjaFBhcmFtcy5zZXQoJ3Njb3BlJywgJ29wZW5pZCBlbWFpbCBwcm9maWxlIG9mZmxpbmVfYWNjZXNzIEZpbGVzLlJlYWQuQWxsJylcclxuICB1cmwuc2VhcmNoUGFyYW1zLnNldCgnc3RhdGUnLCBzdGF0ZSlcclxuICBcclxuICByZXR1cm4gTmV4dFJlc3BvbnNlLnJlZGlyZWN0KHVybC50b1N0cmluZygpKVxyXG59Il0sIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7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

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { signOut } from 'next-auth/react';
+import { signOut } from '@/app/lib/auth/supabase-client';
 import { 
   MessageSquare, 
   FileText, 
@@ -18,6 +18,14 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      window.location.href = '/auth/signin'
+    } catch (error) {
+      console.error('Sign out error:', error)
+    }
+  }
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const navItems = [

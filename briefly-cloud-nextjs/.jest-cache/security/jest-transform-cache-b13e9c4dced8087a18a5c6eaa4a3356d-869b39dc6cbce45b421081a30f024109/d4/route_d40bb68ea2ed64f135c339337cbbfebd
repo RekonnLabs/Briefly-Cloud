@@ -1,0 +1,315 @@
+639a6041dcc45f3e3c54f8d0eddb46dd
+/**
+ * Client IP Address API
+ * 
+ * Returns the client's IP address for GDPR consent logging
+ */"use strict";
+
+/* istanbul ignore next */
+function cov_xt3mqq17c() {
+  var path = "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\client-ip\\route.ts";
+  var hash = "830c06e1fd4920837d2020161f6f18c831ccc317";
+  var global = new Function("return this")();
+  var gcv = "__coverage__";
+  var coverageData = {
+    path: "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\client-ip\\route.ts",
+    statementMap: {
+      "0": {
+        start: {
+          line: 6,
+          column: 0
+        },
+        end: {
+          line: 8,
+          column: 3
+        }
+      },
+      "1": {
+        start: {
+          line: 9,
+          column: 0
+        },
+        end: {
+          line: 14,
+          column: 3
+        }
+      },
+      "2": {
+        start: {
+          line: 12,
+          column: 8
+        },
+        end: {
+          line: 12,
+          column: 19
+        }
+      },
+      "3": {
+        start: {
+          line: 15,
+          column: 18
+        },
+        end: {
+          line: 15,
+          column: 48
+        }
+      },
+      "4": {
+        start: {
+          line: 17,
+          column: 4
+        },
+        end: {
+          line: 28,
+          column: 5
+        }
+      },
+      "5": {
+        start: {
+          line: 19,
+          column: 19
+        },
+        end: {
+          line: 19,
+          column: 202
+        }
+      },
+      "6": {
+        start: {
+          line: 20,
+          column: 8
+        },
+        end: {
+          line: 22,
+          column: 11
+        }
+      },
+      "7": {
+        start: {
+          line: 24,
+          column: 8
+        },
+        end: {
+          line: 24,
+          column: 57
+        }
+      },
+      "8": {
+        start: {
+          line: 25,
+          column: 8
+        },
+        end: {
+          line: 27,
+          column: 11
+        }
+      }
+    },
+    fnMap: {
+      "0": {
+        name: "(anonymous_0)",
+        decl: {
+          start: {
+            line: 11,
+            column: 9
+          },
+          end: {
+            line: 11,
+            column: 10
+          }
+        },
+        loc: {
+          start: {
+            line: 11,
+            column: 20
+          },
+          end: {
+            line: 13,
+            column: 5
+          }
+        },
+        line: 11
+      },
+      "1": {
+        name: "GET",
+        decl: {
+          start: {
+            line: 16,
+            column: 15
+          },
+          end: {
+            line: 16,
+            column: 18
+          }
+        },
+        loc: {
+          start: {
+            line: 16,
+            column: 28
+          },
+          end: {
+            line: 29,
+            column: 1
+          }
+        },
+        line: 16
+      }
+    },
+    branchMap: {
+      "0": {
+        loc: {
+          start: {
+            line: 19,
+            column: 19
+          },
+          end: {
+            line: 19,
+            column: 202
+          }
+        },
+        type: "binary-expr",
+        locations: [{
+          start: {
+            line: 19,
+            column: 19
+          },
+          end: {
+            line: 19,
+            column: 72
+          }
+        }, {
+          start: {
+            line: 19,
+            column: 76
+          },
+          end: {
+            line: 19,
+            column: 108
+          }
+        }, {
+          start: {
+            line: 19,
+            column: 112
+          },
+          end: {
+            line: 19,
+            column: 151
+          }
+        }, {
+          start: {
+            line: 19,
+            column: 155
+          },
+          end: {
+            line: 19,
+            column: 189
+          }
+        }, {
+          start: {
+            line: 19,
+            column: 193
+          },
+          end: {
+            line: 19,
+            column: 202
+          }
+        }],
+        line: 19
+      }
+    },
+    s: {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0
+    },
+    f: {
+      "0": 0,
+      "1": 0
+    },
+    b: {
+      "0": [0, 0, 0, 0, 0]
+    },
+    inputSourceMap: {
+      version: 3,
+      sources: ["R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\client-ip\\route.ts"],
+      sourcesContent: ["/**\r\n * Client IP Address API\r\n * \r\n * Returns the client's IP address for GDPR consent logging\r\n */\r\n\r\nimport { NextRequest, NextResponse } from 'next/server';\r\nimport { createApiResponse } from '@/app/lib/api-utils';\r\n\r\n/**\r\n * GET /api/client-ip\r\n * Get the client's IP address\r\n */\r\nexport async function GET(request: NextRequest) {\r\n  try {\r\n    // Get IP from various headers (Vercel, Cloudflare, etc.)\r\n    const ip = \r\n      request.headers.get('x-forwarded-for')?.split(',')[0] ||\r\n      request.headers.get('x-real-ip') ||\r\n      request.headers.get('cf-connecting-ip') ||\r\n      request.headers.get('x-client-ip') ||\r\n      'unknown';\r\n\r\n    return createApiResponse({\r\n      ip: ip.trim()\r\n    });\r\n\r\n  } catch (error) {\r\n    console.error('Error getting client IP:', error);\r\n    return createApiResponse({\r\n      ip: 'unknown'\r\n    });\r\n  }\r\n}"],
+      names: ["GET", "request", "ip", "headers", "get", "split", "createApiResponse", "trim", "error", "console"],
+      mappings: "AAAA;;;;CAIC;;;;+BASqBA;;;eAAAA;;;0BANY;AAM3B,eAAeA,IAAIC,OAAoB;IAC5C,IAAI;QACF,yDAAyD;QACzD,MAAMC,KACJD,QAAQE,OAAO,CAACC,GAAG,CAAC,oBAAoBC,MAAM,IAAI,CAAC,EAAE,IACrDJ,QAAQE,OAAO,CAACC,GAAG,CAAC,gBACpBH,QAAQE,OAAO,CAACC,GAAG,CAAC,uBACpBH,QAAQE,OAAO,CAACC,GAAG,CAAC,kBACpB;QAEF,OAAOE,IAAAA,2BAAiB,EAAC;YACvBJ,IAAIA,GAAGK,IAAI;QACb;IAEF,EAAE,OAAOC,OAAO;QACdC,QAAQD,KAAK,CAAC,4BAA4BA;QAC1C,OAAOF,IAAAA,2BAAiB,EAAC;YACvBJ,IAAI;QACN;IACF;AACF"
+    },
+    _coverageSchema: "1a1c01bbd47fc00a2c39e90264f33305004495a9",
+    hash: "830c06e1fd4920837d2020161f6f18c831ccc317"
+  };
+  var coverage = global[gcv] || (global[gcv] = {});
+  if (!coverage[path] || coverage[path].hash !== hash) {
+    coverage[path] = coverageData;
+  }
+  var actualCoverage = coverage[path];
+  {
+    // @ts-ignore
+    cov_xt3mqq17c = function () {
+      return actualCoverage;
+    };
+  }
+  return actualCoverage;
+}
+cov_xt3mqq17c();
+cov_xt3mqq17c().s[0]++;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+/* istanbul ignore next */
+cov_xt3mqq17c().s[1]++;
+Object.defineProperty(exports, "GET", {
+  enumerable: true,
+  get: function () {
+    /* istanbul ignore next */
+    cov_xt3mqq17c().f[0]++;
+    cov_xt3mqq17c().s[2]++;
+    return GET;
+  }
+});
+const _apiutils =
+/* istanbul ignore next */
+(cov_xt3mqq17c().s[3]++, require("../../lib/api-utils"));
+async function GET(request) {
+  /* istanbul ignore next */
+  cov_xt3mqq17c().f[1]++;
+  cov_xt3mqq17c().s[4]++;
+  try {
+    // Get IP from various headers (Vercel, Cloudflare, etc.)
+    const ip =
+    /* istanbul ignore next */
+    (cov_xt3mqq17c().s[5]++,
+    /* istanbul ignore next */
+    (cov_xt3mqq17c().b[0][0]++, request.headers.get('x-forwarded-for')?.split(',')[0]) ||
+    /* istanbul ignore next */
+    (cov_xt3mqq17c().b[0][1]++, request.headers.get('x-real-ip')) ||
+    /* istanbul ignore next */
+    (cov_xt3mqq17c().b[0][2]++, request.headers.get('cf-connecting-ip')) ||
+    /* istanbul ignore next */
+    (cov_xt3mqq17c().b[0][3]++, request.headers.get('x-client-ip')) ||
+    /* istanbul ignore next */
+    (cov_xt3mqq17c().b[0][4]++, 'unknown'));
+    /* istanbul ignore next */
+    cov_xt3mqq17c().s[6]++;
+    return (0, _apiutils.createApiResponse)({
+      ip: ip.trim()
+    });
+  } catch (error) {
+    /* istanbul ignore next */
+    cov_xt3mqq17c().s[7]++;
+    console.error('Error getting client IP:', error);
+    /* istanbul ignore next */
+    cov_xt3mqq17c().s[8]++;
+    return (0, _apiutils.createApiResponse)({
+      ip: 'unknown'
+    });
+  }
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJjb3ZfeHQzbXFxMTdjIiwicGF0aCIsImhhc2giLCJnbG9iYWwiLCJGdW5jdGlvbiIsImdjdiIsImNvdmVyYWdlRGF0YSIsInN0YXRlbWVudE1hcCIsInN0YXJ0IiwibGluZSIsImNvbHVtbiIsImVuZCIsImZuTWFwIiwibmFtZSIsImRlY2wiLCJsb2MiLCJicmFuY2hNYXAiLCJ0eXBlIiwibG9jYXRpb25zIiwicyIsImYiLCJiIiwiaW5wdXRTb3VyY2VNYXAiLCJ2ZXJzaW9uIiwic291cmNlcyIsInNvdXJjZXNDb250ZW50IiwibmFtZXMiLCJtYXBwaW5ncyIsIl9jb3ZlcmFnZVNjaGVtYSIsImNvdmVyYWdlIiwiYWN0dWFsQ292ZXJhZ2UiLCJHRVQiLCJyZXF1ZXN0IiwiaXAiLCJoZWFkZXJzIiwiZ2V0Iiwic3BsaXQiLCJfYXBpdXRpbHMiLCJjcmVhdGVBcGlSZXNwb25zZSIsInRyaW0iLCJlcnJvciIsImNvbnNvbGUiXSwic291cmNlcyI6WyJSOlxcQXBwc1xcQnJpZWZseV9DbG91ZFxcYnJpZWZseS1jbG91ZC1uZXh0anNcXHNyY1xcYXBwXFxhcGlcXGNsaWVudC1pcFxccm91dGUudHMiXSwic291cmNlc0NvbnRlbnQiOlsiLyoqXHJcbiAqIENsaWVudCBJUCBBZGRyZXNzIEFQSVxyXG4gKiBcclxuICogUmV0dXJucyB0aGUgY2xpZW50J3MgSVAgYWRkcmVzcyBmb3IgR0RQUiBjb25zZW50IGxvZ2dpbmdcclxuICovXHJcblxyXG5pbXBvcnQgeyBOZXh0UmVxdWVzdCwgTmV4dFJlc3BvbnNlIH0gZnJvbSAnbmV4dC9zZXJ2ZXInO1xyXG5pbXBvcnQgeyBjcmVhdGVBcGlSZXNwb25zZSB9IGZyb20gJ0AvYXBwL2xpYi9hcGktdXRpbHMnO1xyXG5cclxuLyoqXHJcbiAqIEdFVCAvYXBpL2NsaWVudC1pcFxyXG4gKiBHZXQgdGhlIGNsaWVudCdzIElQIGFkZHJlc3NcclxuICovXHJcbmV4cG9ydCBhc3luYyBmdW5jdGlvbiBHRVQocmVxdWVzdDogTmV4dFJlcXVlc3QpIHtcclxuICB0cnkge1xyXG4gICAgLy8gR2V0IElQIGZyb20gdmFyaW91cyBoZWFkZXJzIChWZXJjZWwsIENsb3VkZmxhcmUsIGV0Yy4pXHJcbiAgICBjb25zdCBpcCA9IFxyXG4gICAgICByZXF1ZXN0LmhlYWRlcnMuZ2V0KCd4LWZvcndhcmRlZC1mb3InKT8uc3BsaXQoJywnKVswXSB8fFxyXG4gICAgICByZXF1ZXN0LmhlYWRlcnMuZ2V0KCd4LXJlYWwtaXAnKSB8fFxyXG4gICAgICByZXF1ZXN0LmhlYWRlcnMuZ2V0KCdjZi1jb25uZWN0aW5nLWlwJykgfHxcclxuICAgICAgcmVxdWVzdC5oZWFkZXJzLmdldCgneC1jbGllbnQtaXAnKSB8fFxyXG4gICAgICAndW5rbm93bic7XHJcblxyXG4gICAgcmV0dXJuIGNyZWF0ZUFwaVJlc3BvbnNlKHtcclxuICAgICAgaXA6IGlwLnRyaW0oKVxyXG4gICAgfSk7XHJcblxyXG4gIH0gY2F0Y2ggKGVycm9yKSB7XHJcbiAgICBjb25zb2xlLmVycm9yKCdFcnJvciBnZXR0aW5nIGNsaWVudCBJUDonLCBlcnJvcik7XHJcbiAgICByZXR1cm4gY3JlYXRlQXBpUmVzcG9uc2Uoe1xyXG4gICAgICBpcDogJ3Vua25vd24nXHJcbiAgICB9KTtcclxuICB9XHJcbn0iXSwibWFwcGluZ3MiOiJBQUFBOzs7O0dBSUM7O0FBQUE7QUFBQSxTQUFBQSxjQUFBO0VBQUEsSUFBQUMsSUFBQTtFQUFBLElBQUFDLElBQUE7RUFBQSxJQUFBQyxNQUFBLE9BQUFDLFFBQUE7RUFBQSxJQUFBQyxHQUFBO0VBQUEsSUFBQUMsWUFBQTtJQUFBTCxJQUFBO0lBQUFNLFlBQUE7TUFBQTtRQUFBQyxLQUFBO1VBQUFDLElBQUE7VUFBQUMsTUFBQTtRQUFBO1FBQUFDLEdBQUE7VUFBQUYsSUFBQTtVQUFBQyxNQUFBO1FBQUE7TUFBQTtNQUFBO1FBQUFGLEtBQUE7VUFBQUMsSUFBQTtVQUFBQyxNQUFBO1FBQUE7UUFBQUMsR0FBQTtVQUFBRixJQUFBO1VBQUFDLE1BQUE7UUFBQTtNQUFBO01BQUE7UUFBQUYsS0FBQTtVQUFBQyxJQUFBO1VBQUFDLE1BQUE7UUFBQTtRQUFBQyxHQUFBO1VBQUFGLElBQUE7VUFBQUMsTUFBQTtRQUFBO01BQUE7TUFBQTtRQUFBRixLQUFBO1VBQUFDLElBQUE7VUFBQUMsTUFBQTtRQUFBO1FBQUFDLEdBQUE7VUFBQUYsSUFBQTtVQUFBQyxNQUFBO1FBQUE7TUFBQTtNQUFBO1FBQUFGLEtBQUE7VUFBQUMsSUFBQTtVQUFBQyxNQUFBO1FBQUE7UUFBQUMsR0FBQTtVQUFBRixJQUFBO1VBQUFDLE1BQUE7UUFBQTtNQUFBO01BQUE7UUFBQUYsS0FBQTtVQUFBQyxJQUFBO1VBQUFDLE1BQUE7UUFBQTtRQUFBQyxHQUFBO1VBQUFGLElBQUE7VUFBQUMsTUFBQTtRQUFBO01BQUE7TUFBQTtRQUFBRixLQUFBO1VBQUFDLElBQUE7VUFBQUMsTUFBQTtRQUFBO1FBQUFDLEdBQUE7VUFBQUYsSUFBQTtVQUFBQyxNQUFBO1FBQUE7TUFBQTtNQUFBO1FBQUFGLEtBQUE7VUFBQUMsSUFBQTtVQUFBQyxNQUFBO1FBQUE7UUFBQUMsR0FBQTtVQUFBRixJQUFBO1VBQUFDLE1BQUE7UUFBQTtNQUFBO01BQUE7UUFBQUYsS0FBQTtVQUFBQyxJQUFBO1VBQUFDLE1BQUE7UUFBQTtRQUFBQyxHQUFBO1VBQUFGLElBQUE7VUFBQUMsTUFBQTtRQUFBO01BQUE7SUFBQTtJQUFBRSxLQUFBO01BQUE7UUFBQUMsSUFBQTtRQUFBQyxJQUFBO1VBQUFOLEtBQUE7WUFBQUMsSUFBQTtZQUFBQyxNQUFBO1VBQUE7VUFBQUMsR0FBQTtZQUFBRixJQUFBO1lBQUFDLE1BQUE7VUFBQTtRQUFBO1FBQUFLLEdBQUE7VUFBQVAsS0FBQTtZQUFBQyxJQUFBO1lBQUFDLE1BQUE7VUFBQTtVQUFBQyxHQUFBO1lBQUFGLElBQUE7WUFBQUMsTUFBQTtVQUFBO1FBQUE7UUFBQUQsSUFBQTtNQUFBO01BQUE7UUFBQUksSUFBQTtRQUFBQyxJQUFBO1VBQUFOLEtBQUE7WUFBQUMsSUFBQTtZQUFBQyxNQUFBO1VBQUE7VUFBQUMsR0FBQTtZQUFBRixJQUFBO1lBQUFDLE1BQUE7VUFBQTtRQUFBO1FBQUFLLEdBQUE7VUFBQVAsS0FBQTtZQUFBQyxJQUFBO1lBQUFDLE1BQUE7VUFBQTtVQUFBQyxHQUFBO1lBQUFGLElBQUE7WUFBQUMsTUFBQTtVQUFBO1FBQUE7UUFBQUQsSUFBQTtNQUFBO0lBQUE7SUFBQU8sU0FBQTtNQUFBO1FBQUFELEdBQUE7VUFBQVAsS0FBQTtZQUFBQyxJQUFBO1lBQUFDLE1BQUE7VUFBQTtVQUFBQyxHQUFBO1lBQUFGLElBQUE7WUFBQUMsTUFBQTtVQUFBO1FBQUE7UUFBQU8sSUFBQTtRQUFBQyxTQUFBO1VBQUFWLEtBQUE7WUFBQUMsSUFBQTtZQUFBQyxNQUFBO1VBQUE7VUFBQUMsR0FBQTtZQUFBRixJQUFBO1lBQUFDLE1BQUE7VUFBQTtRQUFBO1VBQUFGLEtBQUE7WUFBQUMsSUFBQTtZQUFBQyxNQUFBO1VBQUE7VUFBQUMsR0FBQTtZQUFBRixJQUFBO1lBQUFDLE1BQUE7VUFBQTtRQUFBO1VBQUFGLEtBQUE7WUFBQUMsSUFBQTtZQUFBQyxNQUFBO1VBQUE7VUFBQUMsR0FBQTtZQUFBRixJQUFBO1lBQUFDLE1BQUE7VUFBQTtRQUFBO1VBQUFGLEtBQUE7WUFBQUMsSUFBQTtZQUFBQyxNQUFBO1VBQUE7VUFBQUMsR0FBQTtZQUFBRixJQUFBO1lBQUFDLE1BQUE7VUFBQTtRQUFBO1VBQUFGLEtBQUE7WUFBQUMsSUFBQTtZQUFBQyxNQUFBO1VBQUE7VUFBQUMsR0FBQTtZQUFBRixJQUFBO1lBQUFDLE1BQUE7VUFBQTtRQUFBO1FBQUFELElBQUE7TUFBQTtJQUFBO0lBQUFVLENBQUE7TUFBQTtNQUFBO01BQUE7TUFBQTtNQUFBO01BQUE7TUFBQTtNQUFBO01BQUE7SUFBQTtJQUFBQyxDQUFBO01BQUE7TUFBQTtJQUFBO0lBQUFDLENBQUE7TUFBQTtJQUFBO0lBQUFDLGNBQUE7TUFBQUMsT0FBQTtNQUFBQyxPQUFBO01BQUFDLGNBQUE7TUFBQUMsS0FBQTtNQUFBQyxRQUFBO0lBQUE7SUFBQUMsZUFBQTtJQUFBMUIsSUFBQTtFQUFBO0VBQUEsSUFBQTJCLFFBQUEsR0FBQTFCLE1BQUEsQ0FBQUUsR0FBQSxNQUFBRixNQUFBLENBQUFFLEdBQUE7RUFBQSxLQUFBd0IsUUFBQSxDQUFBNUIsSUFBQSxLQUFBNEIsUUFBQSxDQUFBNUIsSUFBQSxFQUFBQyxJQUFBLEtBQUFBLElBQUE7SUFBQTJCLFFBQUEsQ0FBQTVCLElBQUEsSUFBQUssWUFBQTtFQUFBO0VBQUEsSUFBQXdCLGNBQUEsR0FBQUQsUUFBQSxDQUFBNUIsSUFBQTtFQUFBO0lBU007SUFBQUQsYUFBQSxZQUFBQSxDQUFBO01BQUEsT0FBQThCLGNBQUE7SUFBQTtFQUFBO0VBQUEsT0FBQUEsY0FBQTtBQUFBO0FBQUE5QixhQUFBO0FBQUFBLGFBQUEsR0FBQW1CLENBQUE7Ozs7OzsrQkFBZTs7Ozs7O1dBQUFZLEdBQUE7Ozs7O2lDQU5ZO0FBTTNCLGVBQWVBLElBQUlDLE9BQW9CO0VBQUE7RUFBQWhDLGFBQUEsR0FBQW9CLENBQUE7RUFBQXBCLGFBQUEsR0FBQW1CLENBQUE7RUFDNUMsSUFBSTtJQUNGO0lBQ0EsTUFBTWMsRUFBQTtJQUFBO0lBQUEsQ0FBQWpDLGFBQUEsR0FBQW1CLENBQUE7SUFDSjtJQUFBLENBQUFuQixhQUFBLEdBQUFxQixDQUFBLFVBQUFXLE9BQUEsQ0FBUUUsT0FBTyxDQUFDQyxHQUFHLENBQUMsb0JBQW9CQyxLQUFBLENBQU0sSUFBSSxDQUFDLEVBQUU7SUFBQTtJQUFBLENBQUFwQyxhQUFBLEdBQUFxQixDQUFBLFVBQ3JEVyxPQUFBLENBQVFFLE9BQU8sQ0FBQ0MsR0FBRyxDQUFDO0lBQUE7SUFBQSxDQUFBbkMsYUFBQSxHQUFBcUIsQ0FBQSxVQUNwQlcsT0FBQSxDQUFRRSxPQUFPLENBQUNDLEdBQUcsQ0FBQztJQUFBO0lBQUEsQ0FBQW5DLGFBQUEsR0FBQXFCLENBQUEsVUFDcEJXLE9BQUEsQ0FBUUUsT0FBTyxDQUFDQyxHQUFHLENBQUM7SUFBQTtJQUFBLENBQUFuQyxhQUFBLEdBQUFxQixDQUFBLFVBQ3BCO0lBQUE7SUFBQXJCLGFBQUEsR0FBQW1CLENBQUE7SUFFRixPQUFPLElBQUFrQixTQUFBLENBQUFDLGlCQUFpQixFQUFDO01BQ3ZCTCxFQUFBLEVBQUlBLEVBQUEsQ0FBR00sSUFBSTtJQUNiO0VBRUYsRUFBRSxPQUFPQyxLQUFBLEVBQU87SUFBQTtJQUFBeEMsYUFBQSxHQUFBbUIsQ0FBQTtJQUNkc0IsT0FBQSxDQUFRRCxLQUFLLENBQUMsNEJBQTRCQSxLQUFBO0lBQUE7SUFBQXhDLGFBQUEsR0FBQW1CLENBQUE7SUFDMUMsT0FBTyxJQUFBa0IsU0FBQSxDQUFBQyxpQkFBaUIsRUFBQztNQUN2QkwsRUFBQSxFQUFJO0lBQ047RUFDRjtBQUNGIiwiaWdub3JlTGlzdCI6W119

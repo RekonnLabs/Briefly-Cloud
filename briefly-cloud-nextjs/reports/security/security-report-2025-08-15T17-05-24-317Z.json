@@ -1,0 +1,96 @@
+{
+  "metadata": {
+    "timestamp": "2025-08-15T17:05:24.317Z",
+    "version": "1.0.0",
+    "commit": "9a8f493a",
+    "branch": "main"
+  },
+  "summary": {
+    "overallStatus": "failed",
+    "totalTests": 0,
+    "passedTests": 0,
+    "failedTests": 0,
+    "coveragePercentage": 0,
+    "criticalIssues": 0,
+    "highIssues": 0,
+    "mediumIssues": 0,
+    "lowIssues": 0
+  },
+  "testResults": {
+    "authentication": {
+      "status": "not_run",
+      "tests": [],
+      "coverage": 0
+    },
+    "authorization": {
+      "status": "not_run",
+      "tests": [],
+      "coverage": 0
+    },
+    "rateLimiting": {
+      "status": "not_run",
+      "tests": [],
+      "coverage": 0
+    },
+    "auditLogging": {
+      "status": "not_run",
+      "tests": [],
+      "coverage": 0
+    },
+    "securityMonitoring": {
+      "status": "not_run",
+      "tests": [],
+      "coverage": 0
+    },
+    "integration": {
+      "status": "not_run",
+      "tests": [],
+      "coverage": 0
+    }
+  },
+  "staticAnalysis": {
+    "eslint": {
+      "status": "not_run",
+      "issues": []
+    },
+    "semgrep": {
+      "status": "not_run",
+      "findings": []
+    },
+    "typescript": {
+      "status": "failed",
+      "errors": []
+    }
+  },
+  "dependencyScans": {
+    "npmAudit": {
+      "status": "not_run",
+      "vulnerabilities": []
+    },
+    "snyk": {
+      "status": "not_run",
+      "issues": []
+    },
+    "ossar": {
+      "status": "not_implemented",
+      "findings": []
+    }
+  },
+  "complianceStatus": {
+    "soc2": false,
+    "gdpr": false,
+    "ccpa": false,
+    "hipaa": false
+  },
+  "recommendations": [
+    "Increase security test coverage to at least 80%"
+  ],
+  "actionItems": [
+    {
+      "type": "test_coverage",
+      "priority": "medium",
+      "description": "Improve security test coverage",
+      "category": "testing"
+    }
+  ]
+}

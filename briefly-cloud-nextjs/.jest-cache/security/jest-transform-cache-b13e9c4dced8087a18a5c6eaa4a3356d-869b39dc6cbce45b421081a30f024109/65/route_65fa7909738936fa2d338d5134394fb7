@@ -1,0 +1,609 @@
+66a5fb1568ba2bf4c67f64c66fd88d30
+"use strict";
+
+/* istanbul ignore next */
+function cov_swy3esj9i() {
+  var path = "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\microsoft\\list\\route.ts";
+  var hash = "503a21d7855ad4fa71a3dcdd17434ecef76cc2c8";
+  var global = new Function("return this")();
+  var gcv = "__coverage__";
+  var coverageData = {
+    path: "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\microsoft\\list\\route.ts",
+    statementMap: {
+      "0": {
+        start: {
+          line: 2,
+          column: 0
+        },
+        end: {
+          line: 4,
+          column: 3
+        }
+      },
+      "1": {
+        start: {
+          line: 5,
+          column: 0
+        },
+        end: {
+          line: 10,
+          column: 3
+        }
+      },
+      "2": {
+        start: {
+          line: 8,
+          column: 8
+        },
+        end: {
+          line: 8,
+          column: 19
+        }
+      },
+      "3": {
+        start: {
+          line: 11,
+          column: 23
+        },
+        end: {
+          line: 11,
+          column: 64
+        }
+      },
+      "4": {
+        start: {
+          line: 12,
+          column: 18
+        },
+        end: {
+          line: 12,
+          column: 54
+        }
+      },
+      "5": {
+        start: {
+          line: 13,
+          column: 19
+        },
+        end: {
+          line: 13,
+          column: 56
+        }
+      },
+      "6": {
+        start: {
+          line: 14,
+          column: 18
+        },
+        end: {
+          line: 14,
+          column: 53
+        }
+      },
+      "7": {
+        start: {
+          line: 16,
+          column: 21
+        },
+        end: {
+          line: 16,
+          column: 28
+        }
+      },
+      "8": {
+        start: {
+          line: 17,
+          column: 4
+        },
+        end: {
+          line: 17,
+          column: 83
+        }
+      },
+      "9": {
+        start: {
+          line: 17,
+          column: 15
+        },
+        end: {
+          line: 17,
+          column: 83
+        }
+      },
+      "10": {
+        start: {
+          line: 18,
+          column: 28
+        },
+        end: {
+          line: 18,
+          column: 150
+        }
+      },
+      "11": {
+        start: {
+          line: 19,
+          column: 4
+        },
+        end: {
+          line: 19,
+          column: 105
+        }
+      },
+      "12": {
+        start: {
+          line: 19,
+          column: 30
+        },
+        end: {
+          line: 19,
+          column: 105
+        }
+      },
+      "13": {
+        start: {
+          line: 20,
+          column: 17
+        },
+        end: {
+          line: 24,
+          column: 6
+        }
+      },
+      "14": {
+        start: {
+          line: 25,
+          column: 4
+        },
+        end: {
+          line: 25,
+          column: 94
+        }
+      },
+      "15": {
+        start: {
+          line: 25,
+          column: 18
+        },
+        end: {
+          line: 25,
+          column: 94
+        }
+      },
+      "16": {
+        start: {
+          line: 26,
+          column: 17
+        },
+        end: {
+          line: 26,
+          column: 34
+        }
+      },
+      "17": {
+        start: {
+          line: 27,
+          column: 18
+        },
+        end: {
+          line: 33,
+          column: 11
+        }
+      },
+      "18": {
+        start: {
+          line: 27,
+          column: 47
+        },
+        end: {
+          line: 33,
+          column: 9
+        }
+      },
+      "19": {
+        start: {
+          line: 34,
+          column: 4
+        },
+        end: {
+          line: 36,
+          column: 7
+        }
+      },
+      "20": {
+        start: {
+          line: 38,
+          column: 12
+        },
+        end: {
+          line: 44,
+          column: 2
+        }
+      }
+    },
+    fnMap: {
+      "0": {
+        name: "(anonymous_0)",
+        decl: {
+          start: {
+            line: 7,
+            column: 9
+          },
+          end: {
+            line: 7,
+            column: 10
+          }
+        },
+        loc: {
+          start: {
+            line: 7,
+            column: 20
+          },
+          end: {
+            line: 9,
+            column: 5
+          }
+        },
+        line: 7
+      },
+      "1": {
+        name: "listOneDriveFilesHandler",
+        decl: {
+          start: {
+            line: 15,
+            column: 15
+          },
+          end: {
+            line: 15,
+            column: 39
+          }
+        },
+        loc: {
+          start: {
+            line: 15,
+            column: 59
+          },
+          end: {
+            line: 37,
+            column: 1
+          }
+        },
+        line: 15
+      },
+      "2": {
+        name: "(anonymous_2)",
+        decl: {
+          start: {
+            line: 27,
+            column: 41
+          },
+          end: {
+            line: 27,
+            column: 42
+          }
+        },
+        loc: {
+          start: {
+            line: 27,
+            column: 47
+          },
+          end: {
+            line: 33,
+            column: 9
+          }
+        },
+        line: 27
+      }
+    },
+    branchMap: {
+      "0": {
+        loc: {
+          start: {
+            line: 17,
+            column: 4
+          },
+          end: {
+            line: 17,
+            column: 83
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 17,
+            column: 4
+          },
+          end: {
+            line: 17,
+            column: 83
+          }
+        }, {
+          start: {
+            line: undefined,
+            column: undefined
+          },
+          end: {
+            line: undefined,
+            column: undefined
+          }
+        }],
+        line: 17
+      },
+      "1": {
+        loc: {
+          start: {
+            line: 19,
+            column: 4
+          },
+          end: {
+            line: 19,
+            column: 105
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 19,
+            column: 4
+          },
+          end: {
+            line: 19,
+            column: 105
+          }
+        }, {
+          start: {
+            line: undefined,
+            column: undefined
+          },
+          end: {
+            line: undefined,
+            column: undefined
+          }
+        }],
+        line: 19
+      },
+      "2": {
+        loc: {
+          start: {
+            line: 25,
+            column: 4
+          },
+          end: {
+            line: 25,
+            column: 94
+          }
+        },
+        type: "if",
+        locations: [{
+          start: {
+            line: 25,
+            column: 4
+          },
+          end: {
+            line: 25,
+            column: 94
+          }
+        }, {
+          start: {
+            line: undefined,
+            column: undefined
+          },
+          end: {
+            line: undefined,
+            column: undefined
+          }
+        }],
+        line: 25
+      },
+      "3": {
+        loc: {
+          start: {
+            line: 27,
+            column: 19
+          },
+          end: {
+            line: 27,
+            column: 35
+          }
+        },
+        type: "binary-expr",
+        locations: [{
+          start: {
+            line: 27,
+            column: 19
+          },
+          end: {
+            line: 27,
+            column: 29
+          }
+        }, {
+          start: {
+            line: 27,
+            column: 33
+          },
+          end: {
+            line: 27,
+            column: 35
+          }
+        }],
+        line: 27
+      }
+    },
+    s: {
+      "0": 0,
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 0,
+      "6": 0,
+      "7": 0,
+      "8": 0,
+      "9": 0,
+      "10": 0,
+      "11": 0,
+      "12": 0,
+      "13": 0,
+      "14": 0,
+      "15": 0,
+      "16": 0,
+      "17": 0,
+      "18": 0,
+      "19": 0,
+      "20": 0
+    },
+    f: {
+      "0": 0,
+      "1": 0,
+      "2": 0
+    },
+    b: {
+      "0": [0, 0],
+      "1": [0, 0],
+      "2": [0, 0],
+      "3": [0, 0]
+    },
+    inputSourceMap: {
+      version: 3,
+      sources: ["R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\src\\app\\api\\storage\\microsoft\\list\\route.ts"],
+      sourcesContent: ["import { NextResponse } from 'next/server'\r\nimport { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'\r\nimport { ApiResponse } from '@/app/lib/api-utils'\r\nimport { rateLimitConfigs } from '@/app/lib/rate-limit'\r\nimport { supabaseAdmin } from '@/app/lib/supabase'\r\n\r\nasync function listOneDriveFilesHandler(_request: Request, context: ApiContext): Promise<NextResponse> {\r\n  const { user } = context\r\n  if (!user) return ApiResponse.unauthorized('User not authenticated')\r\n\r\n  const { data: token } = await supabaseAdmin\r\n    .from('oauth_tokens')\r\n    .select('*')\r\n    .eq('user_id', user.id)\r\n    .eq('provider', 'microsoft')\r\n    .single()\r\n\r\n  if (!token?.access_token) return ApiResponse.badRequest('Microsoft account not connected')\r\n\r\n  const resp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {\r\n    headers: { Authorization: `Bearer ${token.access_token}` },\r\n  })\r\n  if (!resp.ok) return ApiResponse.internalError('Failed to list OneDrive files')\r\n  const data = await resp.json()\r\n\r\n  const files = (data.value || []).map((f: any) => ({\r\n    id: f.id,\r\n    name: f.name,\r\n    size: f.size,\r\n    mimeType: f.file?.mimeType,\r\n    webUrl: f.webUrl,\r\n  }))\r\n\r\n  return ApiResponse.success({ files })\r\n}\r\n\r\nexport const GET = createProtectedApiHandler(listOneDriveFilesHandler, {\r\n  rateLimit: rateLimitConfigs.general,\r\n  logging: { enabled: true, includeBody: false },\r\n})\r\n\r\n\r\n\r\n"],
+      names: ["GET", "listOneDriveFilesHandler", "_request", "context", "user", "ApiResponse", "unauthorized", "data", "token", "supabaseAdmin", "from", "select", "eq", "id", "single", "access_token", "badRequest", "resp", "fetch", "headers", "Authorization", "ok", "internalError", "json", "files", "value", "map", "f", "name", "size", "mimeType", "file", "webUrl", "success", "createProtectedApiHandler", "rateLimit", "rateLimitConfigs", "general", "logging", "enabled", "includeBody"],
+      mappings: ";;;;+BAoCaA;;;eAAAA;;;+BAnCyC;0BAC1B;2BACK;0BACH;AAE9B,eAAeC,yBAAyBC,QAAiB,EAAEC,OAAmB;IAC5E,MAAM,EAAEC,IAAI,EAAE,GAAGD;IACjB,IAAI,CAACC,MAAM,OAAOC,qBAAW,CAACC,YAAY,CAAC;IAE3C,MAAM,EAAEC,MAAMC,KAAK,EAAE,GAAG,MAAMC,uBAAa,CACxCC,IAAI,CAAC,gBACLC,MAAM,CAAC,KACPC,EAAE,CAAC,WAAWR,KAAKS,EAAE,EACrBD,EAAE,CAAC,YAAY,aACfE,MAAM;IAET,IAAI,CAACN,OAAOO,cAAc,OAAOV,qBAAW,CAACW,UAAU,CAAC;IAExD,MAAMC,OAAO,MAAMC,MAAM,2DAA2D;QAClFC,SAAS;YAAEC,eAAe,CAAC,OAAO,EAAEZ,MAAMO,YAAY,EAAE;QAAC;IAC3D;IACA,IAAI,CAACE,KAAKI,EAAE,EAAE,OAAOhB,qBAAW,CAACiB,aAAa,CAAC;IAC/C,MAAMf,OAAO,MAAMU,KAAKM,IAAI;IAE5B,MAAMC,QAAQ,AAACjB,CAAAA,KAAKkB,KAAK,IAAI,EAAE,AAAD,EAAGC,GAAG,CAAC,CAACC,IAAY,CAAA;YAChDd,IAAIc,EAAEd,EAAE;YACRe,MAAMD,EAAEC,IAAI;YACZC,MAAMF,EAAEE,IAAI;YACZC,UAAUH,EAAEI,IAAI,EAAED;YAClBE,QAAQL,EAAEK,MAAM;QAClB,CAAA;IAEA,OAAO3B,qBAAW,CAAC4B,OAAO,CAAC;QAAET;IAAM;AACrC;AAEO,MAAMxB,MAAMkC,IAAAA,wCAAyB,EAACjC,0BAA0B;IACrEkC,WAAWC,2BAAgB,CAACC,OAAO;IACnCC,SAAS;QAAEC,SAAS;QAAMC,aAAa;IAAM;AAC/C"
+    },
+    _coverageSchema: "1a1c01bbd47fc00a2c39e90264f33305004495a9",
+    hash: "503a21d7855ad4fa71a3dcdd17434ecef76cc2c8"
+  };
+  var coverage = global[gcv] || (global[gcv] = {});
+  if (!coverage[path] || coverage[path].hash !== hash) {
+    coverage[path] = coverageData;
+  }
+  var actualCoverage = coverage[path];
+  {
+    // @ts-ignore
+    cov_swy3esj9i = function () {
+      return actualCoverage;
+    };
+  }
+  return actualCoverage;
+}
+cov_swy3esj9i();
+cov_swy3esj9i().s[0]++;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+/* istanbul ignore next */
+cov_swy3esj9i().s[1]++;
+Object.defineProperty(exports, "GET", {
+  enumerable: true,
+  get: function () {
+    /* istanbul ignore next */
+    cov_swy3esj9i().f[0]++;
+    cov_swy3esj9i().s[2]++;
+    return GET;
+  }
+});
+const _apimiddleware =
+/* istanbul ignore next */
+(cov_swy3esj9i().s[3]++, require("../../../../lib/api-middleware"));
+const _apiutils =
+/* istanbul ignore next */
+(cov_swy3esj9i().s[4]++, require("../../../../lib/api-utils"));
+const _ratelimit =
+/* istanbul ignore next */
+(cov_swy3esj9i().s[5]++, require("../../../../lib/rate-limit"));
+const _supabase =
+/* istanbul ignore next */
+(cov_swy3esj9i().s[6]++, require("../../../../lib/supabase"));
+async function listOneDriveFilesHandler(_request, context) {
+  /* istanbul ignore next */
+  cov_swy3esj9i().f[1]++;
+  const {
+    user
+  } =
+  /* istanbul ignore next */
+  (cov_swy3esj9i().s[7]++, context);
+  /* istanbul ignore next */
+  cov_swy3esj9i().s[8]++;
+  if (!user) {
+    /* istanbul ignore next */
+    cov_swy3esj9i().b[0][0]++;
+    cov_swy3esj9i().s[9]++;
+    return _apiutils.ApiResponse.unauthorized('User not authenticated');
+  } else
+  /* istanbul ignore next */
+  {
+    cov_swy3esj9i().b[0][1]++;
+  }
+  const {
+    data: token
+  } =
+  /* istanbul ignore next */
+  (cov_swy3esj9i().s[10]++, await _supabase.supabaseAdmin.from('oauth_tokens').select('*').eq('user_id', user.id).eq('provider', 'microsoft').single());
+  /* istanbul ignore next */
+  cov_swy3esj9i().s[11]++;
+  if (!token?.access_token) {
+    /* istanbul ignore next */
+    cov_swy3esj9i().b[1][0]++;
+    cov_swy3esj9i().s[12]++;
+    return _apiutils.ApiResponse.badRequest('Microsoft account not connected');
+  } else
+  /* istanbul ignore next */
+  {
+    cov_swy3esj9i().b[1][1]++;
+  }
+  const resp =
+  /* istanbul ignore next */
+  (cov_swy3esj9i().s[13]++, await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {
+    headers: {
+      Authorization: `Bearer ${token.access_token}`
+    }
+  }));
+  /* istanbul ignore next */
+  cov_swy3esj9i().s[14]++;
+  if (!resp.ok) {
+    /* istanbul ignore next */
+    cov_swy3esj9i().b[2][0]++;
+    cov_swy3esj9i().s[15]++;
+    return _apiutils.ApiResponse.internalError('Failed to list OneDrive files');
+  } else
+  /* istanbul ignore next */
+  {
+    cov_swy3esj9i().b[2][1]++;
+  }
+  const data =
+  /* istanbul ignore next */
+  (cov_swy3esj9i().s[16]++, await resp.json());
+  const files =
+  /* istanbul ignore next */
+  (cov_swy3esj9i().s[17]++, (
+  /* istanbul ignore next */
+  (cov_swy3esj9i().b[3][0]++, data.value) ||
+  /* istanbul ignore next */
+  (cov_swy3esj9i().b[3][1]++, [])).map(f => {
+    /* istanbul ignore next */
+    cov_swy3esj9i().f[2]++;
+    cov_swy3esj9i().s[18]++;
+    return {
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      mimeType: f.file?.mimeType,
+      webUrl: f.webUrl
+    };
+  }));
+  /* istanbul ignore next */
+  cov_swy3esj9i().s[19]++;
+  return _apiutils.ApiResponse.success({
+    files
+  });
+}
+const GET =
+/* istanbul ignore next */
+(cov_swy3esj9i().s[20]++, (0, _apimiddleware.createProtectedApiHandler)(listOneDriveFilesHandler, {
+  rateLimit: _ratelimit.rateLimitConfigs.general,
+  logging: {
+    enabled: true,
+    includeBody: false
+  }
+}));
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJjb3Zfc3d5M2VzajlpIiwiYWN0dWFsQ292ZXJhZ2UiLCJzIiwiR0VUIiwibGlzdE9uZURyaXZlRmlsZXNIYW5kbGVyIiwiX3JlcXVlc3QiLCJjb250ZXh0IiwiZiIsInVzZXIiLCJiIiwiX2FwaXV0aWxzIiwiQXBpUmVzcG9uc2UiLCJ1bmF1dGhvcml6ZWQiLCJkYXRhIiwidG9rZW4iLCJfc3VwYWJhc2UiLCJzdXBhYmFzZUFkbWluIiwiZnJvbSIsInNlbGVjdCIsImVxIiwiaWQiLCJzaW5nbGUiLCJhY2Nlc3NfdG9rZW4iLCJiYWRSZXF1ZXN0IiwicmVzcCIsImZldGNoIiwiaGVhZGVycyIsIkF1dGhvcml6YXRpb24iLCJvayIsImludGVybmFsRXJyb3IiLCJqc29uIiwiZmlsZXMiLCJ2YWx1ZSIsIm1hcCIsIm5hbWUiLCJzaXplIiwibWltZVR5cGUiLCJmaWxlIiwid2ViVXJsIiwic3VjY2VzcyIsIl9hcGltaWRkbGV3YXJlIiwiY3JlYXRlUHJvdGVjdGVkQXBpSGFuZGxlciIsInJhdGVMaW1pdCIsIl9yYXRlbGltaXQiLCJyYXRlTGltaXRDb25maWdzIiwiZ2VuZXJhbCIsImxvZ2dpbmciLCJlbmFibGVkIiwiaW5jbHVkZUJvZHkiXSwic291cmNlcyI6WyJSOlxcQXBwc1xcQnJpZWZseV9DbG91ZFxcYnJpZWZseS1jbG91ZC1uZXh0anNcXHNyY1xcYXBwXFxhcGlcXHN0b3JhZ2VcXG1pY3Jvc29mdFxcbGlzdFxccm91dGUudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgTmV4dFJlc3BvbnNlIH0gZnJvbSAnbmV4dC9zZXJ2ZXInXHJcbmltcG9ydCB7IGNyZWF0ZVByb3RlY3RlZEFwaUhhbmRsZXIsIEFwaUNvbnRleHQgfSBmcm9tICdAL2FwcC9saWIvYXBpLW1pZGRsZXdhcmUnXHJcbmltcG9ydCB7IEFwaVJlc3BvbnNlIH0gZnJvbSAnQC9hcHAvbGliL2FwaS11dGlscydcclxuaW1wb3J0IHsgcmF0ZUxpbWl0Q29uZmlncyB9IGZyb20gJ0AvYXBwL2xpYi9yYXRlLWxpbWl0J1xyXG5pbXBvcnQgeyBzdXBhYmFzZUFkbWluIH0gZnJvbSAnQC9hcHAvbGliL3N1cGFiYXNlJ1xyXG5cclxuYXN5bmMgZnVuY3Rpb24gbGlzdE9uZURyaXZlRmlsZXNIYW5kbGVyKF9yZXF1ZXN0OiBSZXF1ZXN0LCBjb250ZXh0OiBBcGlDb250ZXh0KTogUHJvbWlzZTxOZXh0UmVzcG9uc2U+IHtcclxuICBjb25zdCB7IHVzZXIgfSA9IGNvbnRleHRcclxuICBpZiAoIXVzZXIpIHJldHVybiBBcGlSZXNwb25zZS51bmF1dGhvcml6ZWQoJ1VzZXIgbm90IGF1dGhlbnRpY2F0ZWQnKVxyXG5cclxuICBjb25zdCB7IGRhdGE6IHRva2VuIH0gPSBhd2FpdCBzdXBhYmFzZUFkbWluXHJcbiAgICAuZnJvbSgnb2F1dGhfdG9rZW5zJylcclxuICAgIC5zZWxlY3QoJyonKVxyXG4gICAgLmVxKCd1c2VyX2lkJywgdXNlci5pZClcclxuICAgIC5lcSgncHJvdmlkZXInLCAnbWljcm9zb2Z0JylcclxuICAgIC5zaW5nbGUoKVxyXG5cclxuICBpZiAoIXRva2VuPy5hY2Nlc3NfdG9rZW4pIHJldHVybiBBcGlSZXNwb25zZS5iYWRSZXF1ZXN0KCdNaWNyb3NvZnQgYWNjb3VudCBub3QgY29ubmVjdGVkJylcclxuXHJcbiAgY29uc3QgcmVzcCA9IGF3YWl0IGZldGNoKCdodHRwczovL2dyYXBoLm1pY3Jvc29mdC5jb20vdjEuMC9tZS9kcml2ZS9yb290L2NoaWxkcmVuJywge1xyXG4gICAgaGVhZGVyczogeyBBdXRob3JpemF0aW9uOiBgQmVhcmVyICR7dG9rZW4uYWNjZXNzX3Rva2VufWAgfSxcclxuICB9KVxyXG4gIGlmICghcmVzcC5vaykgcmV0dXJuIEFwaVJlc3BvbnNlLmludGVybmFsRXJyb3IoJ0ZhaWxlZCB0byBsaXN0IE9uZURyaXZlIGZpbGVzJylcclxuICBjb25zdCBkYXRhID0gYXdhaXQgcmVzcC5qc29uKClcclxuXHJcbiAgY29uc3QgZmlsZXMgPSAoZGF0YS52YWx1ZSB8fCBbXSkubWFwKChmOiBhbnkpID0+ICh7XHJcbiAgICBpZDogZi5pZCxcclxuICAgIG5hbWU6IGYubmFtZSxcclxuICAgIHNpemU6IGYuc2l6ZSxcclxuICAgIG1pbWVUeXBlOiBmLmZpbGU/Lm1pbWVUeXBlLFxyXG4gICAgd2ViVXJsOiBmLndlYlVybCxcclxuICB9KSlcclxuXHJcbiAgcmV0dXJuIEFwaVJlc3BvbnNlLnN1Y2Nlc3MoeyBmaWxlcyB9KVxyXG59XHJcblxyXG5leHBvcnQgY29uc3QgR0VUID0gY3JlYXRlUHJvdGVjdGVkQXBpSGFuZGxlcihsaXN0T25lRHJpdmVGaWxlc0hhbmRsZXIsIHtcclxuICByYXRlTGltaXQ6IHJhdGVMaW1pdENvbmZpZ3MuZ2VuZXJhbCxcclxuICBsb2dnaW5nOiB7IGVuYWJsZWQ6IHRydWUsIGluY2x1ZGVCb2R5OiBmYWxzZSB9LFxyXG59KVxyXG5cclxuXHJcblxyXG4iXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztJ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

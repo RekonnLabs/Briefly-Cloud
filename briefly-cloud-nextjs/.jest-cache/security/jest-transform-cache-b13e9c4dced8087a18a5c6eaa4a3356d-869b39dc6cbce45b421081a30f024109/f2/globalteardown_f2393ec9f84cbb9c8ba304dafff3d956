@@ -1,0 +1,27 @@
+6fb8d1fb7e18125a902f7b9850e4d995
+/**
+ * Global Teardown for Security Tests
+ * 
+ * Cleans up the test environment after running security tests.
+ * This includes closing database connections and cleaning up test data.
+ */ "use strict";
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+Object.defineProperty(exports, "default", {
+    enumerable: true,
+    get: function() {
+        return globalTeardown;
+    }
+});
+async function globalTeardown() {
+    console.log('🧹 Cleaning up security test environment...');
+    // Clean up any test data or connections
+    // This would typically include:
+    // - Closing database connections
+    // - Cleaning up test files
+    // - Resetting mock services
+    console.log('✅ Security test cleanup complete');
+}
+
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIlI6XFxBcHBzXFxCcmllZmx5X0Nsb3VkXFxicmllZmx5LWNsb3VkLW5leHRqc1xcdGVzdHNcXHNlY3VyaXR5XFxnbG9iYWwtdGVhcmRvd24udHMiXSwic291cmNlc0NvbnRlbnQiOlsiLyoqXHJcbiAqIEdsb2JhbCBUZWFyZG93biBmb3IgU2VjdXJpdHkgVGVzdHNcclxuICogXHJcbiAqIENsZWFucyB1cCB0aGUgdGVzdCBlbnZpcm9ubWVudCBhZnRlciBydW5uaW5nIHNlY3VyaXR5IHRlc3RzLlxyXG4gKiBUaGlzIGluY2x1ZGVzIGNsb3NpbmcgZGF0YWJhc2UgY29ubmVjdGlvbnMgYW5kIGNsZWFuaW5nIHVwIHRlc3QgZGF0YS5cclxuICovXHJcblxyXG5leHBvcnQgZGVmYXVsdCBhc3luYyBmdW5jdGlvbiBnbG9iYWxUZWFyZG93bigpIHtcclxuICBjb25zb2xlLmxvZygn8J+nuSBDbGVhbmluZyB1cCBzZWN1cml0eSB0ZXN0IGVudmlyb25tZW50Li4uJylcclxuICBcclxuICAvLyBDbGVhbiB1cCBhbnkgdGVzdCBkYXRhIG9yIGNvbm5lY3Rpb25zXHJcbiAgLy8gVGhpcyB3b3VsZCB0eXBpY2FsbHkgaW5jbHVkZTpcclxuICAvLyAtIENsb3NpbmcgZGF0YWJhc2UgY29ubmVjdGlvbnNcclxuICAvLyAtIENsZWFuaW5nIHVwIHRlc3QgZmlsZXNcclxuICAvLyAtIFJlc2V0dGluZyBtb2NrIHNlcnZpY2VzXHJcbiAgXHJcbiAgY29uc29sZS5sb2coJ+KchSBTZWN1cml0eSB0ZXN0IGNsZWFudXAgY29tcGxldGUnKVxyXG59Il0sIm5hbWVzIjpbImdsb2JhbFRlYXJkb3duIiwiY29uc29sZSIsImxvZyJdLCJtYXBwaW5ncyI6IkFBQUE7Ozs7O0NBS0M7Ozs7K0JBRUQ7OztlQUE4QkE7OztBQUFmLGVBQWVBO0lBQzVCQyxRQUFRQyxHQUFHLENBQUM7SUFFWix3Q0FBd0M7SUFDeEMsZ0NBQWdDO0lBQ2hDLGlDQUFpQztJQUNqQywyQkFBMkI7SUFDM0IsNEJBQTRCO0lBRTVCRCxRQUFRQyxHQUFHLENBQUM7QUFDZCJ9

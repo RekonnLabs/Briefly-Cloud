@@ -1,21 +1,24 @@
 /** @type {import('next').NextConfig} */
 
-const { getSecurityConfig, isProduction } = require('./src/app/lib/config/environment')
+// Simple production check without importing environment module
+const isProduction = () => process.env.NODE_ENV === 'production'
 
-// Initialize environment validation
-try {
-  require('./src/app/lib/config/environment').initializeEnvironment()
-} catch (error) {
-  console.error('Environment initialization failed:', error.message)
-  process.exit(1)
-}
+// Basic security configuration for build time
+const getBasicSecurityConfig = () => ({
+  headers: {
+    hsts: {
+      maxAge: isProduction() ? 31536000 : 0,
+      includeSubDomains: isProduction(),
+      preload: isProduction()
+    }
+  }
+})
 
-const securityConfig = getSecurityConfig()
+const securityConfig = getBasicSecurityConfig()
 
 const nextConfig = {
   // Basic configuration
   reactStrictMode: true,
-  swcMinify: true,
   
   // Security configuration
   poweredByHeader: false, // Remove X-Powered-By header
@@ -24,7 +27,6 @@ const nextConfig = {
   ...(isProduction() && {
     // Production-only settings
     compress: true,
-    generateEtags: true,
     
     // Disable source maps in production for security
     productionBrowserSourceMaps: false,
@@ -122,15 +124,6 @@ const nextConfig = {
 
   // Webpack configuration for security
   webpack: (config, { dev, isServer }) => {
-    // Security-focused webpack configuration
-    if (!dev && isProduction()) {
-      // Remove console logs in production
-      config.optimization.minimizer[0].options.terserOptions.compress.drop_console = true
-      
-      // Remove debugger statements
-      config.optimization.minimizer[0].options.terserOptions.compress.drop_debugger = true
-    }
-
     // Prevent bundling of server-only modules in client
     if (!isServer) {
       config.resolve.fallback = {
@@ -150,11 +143,11 @@ const nextConfig = {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
 
+  // Server external packages
+  serverExternalPackages: ['@supabase/supabase-js'],
+  
   // Experimental features
   experimental: {
-    // Enable server components
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
-    
     // Security-focused experimental features
     ...(isProduction() && {
       optimizeCss: true,
@@ -176,9 +169,6 @@ const nextConfig = {
 
   // Output configuration
   output: 'standalone',
-  
-  // Disable telemetry for privacy
-  telemetry: false,
 }
 
 module.exports = nextConfig

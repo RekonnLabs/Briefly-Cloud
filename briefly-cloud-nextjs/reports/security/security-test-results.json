@@ -1,0 +1,328 @@
+{
+  "metadata": {
+    "timestamp": "2025-08-15T17:04:40.850Z",
+    "testRun": 9,
+    "totalTests": 103,
+    "passedTests": 81,
+    "failedTests": 22,
+    "pendingTests": 0,
+    "runtime": 533
+  },
+  "summary": {
+    "success": false,
+    "coverageThreshold": null,
+    "securityTestCategories": {
+      "authentication": 19,
+      "authorization": 0,
+      "rateLimiting": 10,
+      "auditLogging": 34,
+      "securityMonitoring": 7,
+      "integration": 8,
+      "other": 25
+    },
+    "criticalFailures": [
+      {
+        "testName": "Security Audit Tests SQL Injection Protection should prevent SQL injection in API endpoints",
+        "testFile": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts",
+        "category": "auditLogging",
+        "failureMessage": "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:180:26)"
+      },
+      {
+        "testName": "Security Audit Tests CSRF Protection should require proper content type for state-changing operations",
+        "testFile": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts",
+        "category": "auditLogging",
+        "failureMessage": "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:220:24)"
+      },
+      {
+        "testName": "Security Audit Tests CSRF Protection should validate origin headers",
+        "testFile": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts",
+        "category": "auditLogging",
+        "failureMessage": "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:232:24)"
+      }
+    ],
+    "performanceMetrics": {
+      "totalRuntime": 533,
+      "averageRuntime": 59.22222222222222,
+      "slowestTest": 158,
+      "fastestTest": 29,
+      "testsOverThreshold": 0
+    }
+  },
+  "testResults": [
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\auth-security.test.ts",
+      "numPassingTests": 11,
+      "numFailingTests": 0,
+      "numPendingTests": 0,
+      "runtime": 145,
+      "securityCategory": "authentication",
+      "failureMessages": []
+    },
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\session-security.test.ts",
+      "numPassingTests": 18,
+      "numFailingTests": 0,
+      "numPendingTests": 0,
+      "runtime": 45,
+      "securityCategory": "other",
+      "failureMessages": []
+    },
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\rls-authorization.test.ts",
+      "numPassingTests": 8,
+      "numFailingTests": 0,
+      "numPendingTests": 0,
+      "runtime": 34,
+      "securityCategory": "authentication",
+      "failureMessages": []
+    },
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\rate-limiting.test.ts",
+      "numPassingTests": 10,
+      "numFailingTests": 0,
+      "numPendingTests": 0,
+      "runtime": 33,
+      "securityCategory": "rateLimiting",
+      "failureMessages": []
+    },
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\usage-tracking.test.ts",
+      "numPassingTests": 7,
+      "numFailingTests": 0,
+      "numPendingTests": 0,
+      "runtime": 30,
+      "securityCategory": "other",
+      "failureMessages": []
+    },
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\audit-logging.test.ts",
+      "numPassingTests": 9,
+      "numFailingTests": 0,
+      "numPendingTests": 0,
+      "runtime": 29,
+      "securityCategory": "auditLogging",
+      "failureMessages": []
+    },
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-monitoring.test.ts",
+      "numPassingTests": 7,
+      "numFailingTests": 0,
+      "numPendingTests": 0,
+      "runtime": 29,
+      "securityCategory": "securityMonitoring",
+      "failureMessages": []
+    },
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\integration-e2e.test.ts",
+      "numPassingTests": 8,
+      "numFailingTests": 0,
+      "numPendingTests": 0,
+      "runtime": 30,
+      "securityCategory": "integration",
+      "failureMessages": []
+    },
+    {
+      "testFilePath": "R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts",
+      "numPassingTests": 3,
+      "numFailingTests": 22,
+      "numPendingTests": 0,
+      "runtime": 158,
+      "securityCategory": "auditLogging",
+      "failureMessages": [
+        {
+          "title": "should have all required security headers",
+          "fullName": "Security Audit Tests HTTP Security Headers should have all required security headers",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:15:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should have proper CSP configuration",
+          "fullName": "Security Audit Tests HTTP Security Headers should have proper CSP configuration",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:51:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should protect authenticated routes",
+          "fullName": "Security Audit Tests Authentication Security should protect authenticated routes",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:75:26)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should protect admin routes",
+          "fullName": "Security Audit Tests Authentication Security should protect admin routes",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:91:26)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should validate session tokens properly",
+          "fullName": "Security Audit Tests Authentication Security should validate session tokens properly",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:100:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should validate JSON input",
+          "fullName": "Security Audit Tests Input Validation should validate JSON input",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:112:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should validate required fields",
+          "fullName": "Security Audit Tests Input Validation should validate required fields",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:124:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should sanitize input data",
+          "fullName": "Security Audit Tests Input Validation should sanitize input data",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:145:26)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should prevent SQL injection in API endpoints",
+          "fullName": "Security Audit Tests SQL Injection Protection should prevent SQL injection in API endpoints",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:180:26)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should prevent reflected XSS",
+          "fullName": "Security Audit Tests XSS Protection should prevent reflected XSS",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:205:26)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should require proper content type for state-changing operations",
+          "fullName": "Security Audit Tests CSRF Protection should require proper content type for state-changing operations",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:220:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should validate origin headers",
+          "fullName": "Security Audit Tests CSRF Protection should validate origin headers",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:232:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should have rate limiting headers",
+          "fullName": "Security Audit Tests Rate Limiting should have rate limiting headers",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:250:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should handle rapid requests appropriately",
+          "fullName": "Security Audit Tests Rate Limiting should handle rapid requests appropriately",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async Promise.all (index 0)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:263:25)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should not expose sensitive information in error messages",
+          "fullName": "Security Audit Tests Information Disclosure should not expose sensitive information in error messages",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:274:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should not expose server information",
+          "fullName": "Security Audit Tests Information Disclosure should not expose server information",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:286:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should not expose environment variables",
+          "fullName": "Security Audit Tests Information Disclosure should not expose environment variables",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:294:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should validate file types",
+          "fullName": "Security Audit Tests File Upload Security should validate file types",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:309:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should have secure session configuration",
+          "fullName": "Security Audit Tests Session Security should have secure session configuration",
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeDefined\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mundefined\u001b[39m\n    at Object.toBeDefined (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:320:43)\n    at Promise.finally.completed (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1559:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1499:10)\n    at _callCircusTest (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1009:40)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at _runTest (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:949:3)\n    at _runTestsForDescribeBlock (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:839:13)\n    at _runTestsForDescribeBlock (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:829:11)\n    at _runTestsForDescribeBlock (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:829:11)\n    at run (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:757:3)\n    at runAndTransformResultsToJestFormat (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1920:21)\n    at jestAdapter (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\runner.js:101:19)\n    at runTestInternal (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-runner\\build\\index.js:275:16)\n    at runTest (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-runner\\build\\index.js:343:7)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should not expose internal API structure",
+          "fullName": "Security Audit Tests API Security should not expose internal API structure",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:331:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should not have known vulnerable dependencies",
+          "fullName": "Security Audit Tests Dependency Security should not have known vulnerable dependencies",
+          "failureMessages": [
+            "TypeError: fetch failed\n    at node:internal/deps/undici/undici:13510:13\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at Object.<anonymous> (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:360:24)"
+          ],
+          "location": null
+        },
+        {
+          "title": "should have secure environment configuration",
+          "fullName": "Security Audit Tests Environment Security should have secure environment configuration",
+          "failureMessages": [
+            "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeDefined\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mundefined\u001b[39m\n    at toBeDefined (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:375:37)\n    at Array.forEach (<anonymous>)\n    at Object.forEach (R:\\Apps\\Briefly_Cloud\\briefly-cloud-nextjs\\tests\\security\\security-audit.test.ts:374:29)\n    at Promise.finally.completed (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1559:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1499:10)\n    at _callCircusTest (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1009:40)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at _runTest (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:949:3)\n    at _runTestsForDescribeBlock (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:839:13)\n    at _runTestsForDescribeBlock (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:829:11)\n    at _runTestsForDescribeBlock (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:829:11)\n    at run (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:757:3)\n    at runAndTransformResultsToJestFormat (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1920:21)\n    at jestAdapter (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-circus\\build\\runner.js:101:19)\n    at runTestInternal (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-runner\\build\\index.js:275:16)\n    at runTest (R:\\Apps\\Briefly_Cloud\\node_modules\\jest-runner\\build\\index.js:343:7)"
+          ],
+          "location": null
+        }
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "critical",
+      "message": "22 security tests failed. Review and fix immediately.",
+      "action": "Fix failing security tests before deployment"
+    },
+    {
+      "type": "critical",
+      "message": "3 critical security tests failed.",
+      "action": "Address critical security vulnerabilities immediately"
+    },
+    {
+      "type": "info",
+      "message": "Missing security tests for: authorization",
+      "action": "Add comprehensive security tests for all security categories"
+    }
+  ]
+}
