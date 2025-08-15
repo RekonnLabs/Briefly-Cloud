@@ -16,11 +16,18 @@ import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '
 import { supabaseAdmin } from '@/app/lib/supabase'
 import { withApiPerformanceMonitoring } from '@/app/lib/performance'
 
+// Briefly Voice v1 imports
+import { buildMessages, type ContextSnippet } from '@/lib/prompt/promptBuilder'
+import { BUDGETS } from '@/lib/prompt/budgets'
+import { enforce as lintResponse } from '@/lib/prompt/responseLinter'
+import { routeModel, analyzeQuery, getModelConfig, type UserTier } from '@/lib/prompt/modelRouter'
+
 const chatSchema = z.object({
   message: z.string().min(1).max(2000),
   conversationId: z.string().uuid().optional(),
   stream: z.boolean().optional().default(true),
   useAdvancedFeatures: z.boolean().optional().default(false),
+  boost: z.boolean().optional().default(false),
 })
 
 async function enhancedChatHandler(request: NextRequest, context: ApiContext): Promise<NextResponse> {
@@ -31,7 +38,7 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
   const parsed = chatSchema.safeParse(body)
   if (!parsed.success) return ApiResponse.badRequest('Invalid request data')
 
-  const { message, conversationId, stream, useAdvancedFeatures } = parsed.data
+  const { message, conversationId, stream, useAdvancedFeatures, boost } = parsed.data
 
   // Get feature flag results from middleware
   const featureFlagResult = getFeatureFlagResult(request)
@@ -39,6 +46,7 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
   const streamingConfig = featureFlagResult?.config || {}
 
   const supabase = supabaseAdmin
+  const startTime = Date.now()
 
   // Prepare conversation
   let convoId = conversationId
@@ -80,7 +88,7 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
       const { searchDocuments } = await import('@/app/lib/vector/document-processor')
       contextResults = await withApiPerformanceMonitoring(() =>
         searchDocuments(user.id, message, {
-          limit: 8, // More results with advanced chunking
+          limit: Math.min(8, BUDGETS.TOP_K + 2), // More results with advanced chunking, but respect budgets
           threshold: 0.6, // Lower threshold for better recall
         })
       )
@@ -89,7 +97,7 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
       const { searchDocuments } = await import('@/app/lib/vector/document-processor')
       contextResults = await withApiPerformanceMonitoring(() =>
         searchDocuments(user.id, message, {
-          limit: 5,
+          limit: BUDGETS.TOP_K,
           threshold: 0.7,
         })
       )
@@ -98,18 +106,18 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
     // Standard search
     contextResults = await withApiPerformanceMonitoring(() =>
       searchDocumentContext(message, user.id, {
-        limit: 5,
+        limit: BUDGETS.TOP_K,
         threshold: 0.7,
       })
     )
   }
 
-  const contextText = contextResults
-    .map((r, i) => `Source ${i + 1} [${r.fileName} #${r.chunkIndex} | score=${r.relevanceScore.toFixed(2)}]\n${r.content}`)
-    .join('\n\n')
-
-  // Enhanced system prompt based on feature flags
-  let systemPrompt = `You are Briefly, an AI assistant. Use the provided document context when relevant.\n\nContext:\n${contextText || 'No relevant context found.'}\n\nIf the context is insufficient, say so explicitly. Cite filenames when referencing sources.`
+  // Convert context to Briefly Voice format
+  const contextSnippets: ContextSnippet[] = contextResults.map(r => ({
+    content: r.content,
+    source: `${r.fileName} #${r.chunkIndex}`,
+    relevance: r.relevanceScore || r.similarity
+  }))
 
   // Check for function calling feature
   const functionCallingResponse = await fetch(`${request.nextUrl.origin}/api/feature-flags/check`, {
@@ -125,76 +133,121 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
 
   const functionCallingResult = await functionCallingResponse.json()
   
-  if (functionCallingResult.enabled) {
-    systemPrompt += `\n\nYou have access to function calling capabilities. You can perform actions like searching for specific information, analyzing data, or retrieving additional context when needed.`
+  // Get conversation history summary
+  let historySummary: string | undefined
+  if (convoId) {
+    const { data: recentMessages } = await supabase
+      .from('chat_messages')
+      .select('role, content')
+      .eq('conversation_id', convoId)
+      .order('created_at', { ascending: false })
+      .limit(4)
+    
+    if (recentMessages && recentMessages.length > 0) {
+      historySummary = recentMessages
+        .reverse()
+        .map(m => `${m.role}: ${m.content.slice(0, 100)}`)
+        .join(' | ')
+    }
   }
 
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: message },
-  ] as any
+  // Analyze query and route to appropriate model
+  const tier = (user.subscription_tier || 'free') as UserTier
+  const toolsUsed = functionCallingResult.enabled ? ['function_calling'] : []
+  const routingSignals = analyzeQuery(message, contextSnippets, toolsUsed)
+  
+  const routing = routeModel(tier, boost, routingSignals)
+  const modelConfig = getModelConfig(routing.model)
 
-  const tier = (user.subscription_tier || 'free') as SubscriptionTier
+  // Build enhanced task description
+  let developerTask = "Answer the user's question using the provided context. Be helpful and cite sources when referencing documents."
+  if (useAdvancedFeatures) {
+    developerTask += " Use advanced analysis and provide comprehensive insights."
+  }
+  if (functionCallingResult.enabled) {
+    developerTask += " You can use function calling for additional data retrieval if needed."
+  }
 
+  const developerShape = "Format: Direct answer, detailed analysis as bullets, actionable next steps with specific recommendations."
+
+  // Build messages using Briefly Voice v1
+  const messages = buildMessages({
+    developerTask,
+    developerShape,
+    toolsUsed,
+    contextSnippets: contextSnippets.slice(0, BUDGETS.TOP_K), // Respect budget
+    historySummary,
+    userMessage: message
+  })
+
+  // Generate response using routed model
+  let rawResponse: string
+  
   // Use streaming if feature flag is enabled and requested
   if (stream && isStreamingEnabled) {
     const streamResp = await withApiPerformanceMonitoring(() =>
-      streamChatCompletion(messages, tier, {
-        // Apply streaming configuration from feature flag
-        temperature: streamingConfig.temperature || 0.7,
-        maxTokens: streamingConfig.maxTokens || 1000,
-        enableFunctionCalling: functionCallingResult.enabled,
-      })
+      streamChatCompletion(messages as any, tier)
     )
     
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of streamResp) {
-            const chunkData = typeof chunk === 'string' ? chunk : String(chunk)
-            controller.enqueue(encoder.encode(chunkData))
-          }
-        } catch (error) {
-          console.error('Streaming error:', error)
-          controller.enqueue(encoder.encode('\n\n[Error: Stream interrupted]'))
-        } finally {
-          controller.close()
-        }
-      },
-    })
-
-    return new NextResponse(readable, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        'X-Feature-Streaming': 'enabled',
-        'X-Feature-Variant': featureFlagResult?.variant || 'default',
-      },
-    })
+    // Collect streaming response for linting
+    let collectedResponse = ''
+    for await (const chunk of streamResp) {
+      const content = typeof chunk === 'string' ? chunk : chunk.choices?.[0]?.delta?.content || ''
+      collectedResponse += content
+    }
+    rawResponse = collectedResponse
+  } else {
+    // Non-streaming response
+    rawResponse = await withApiPerformanceMonitoring(() =>
+      generateChatCompletion(messages as any, tier)
+    )
   }
 
-  // Non-streaming response
-  const completion = await withApiPerformanceMonitoring(() =>
-    generateChatCompletion(messages, tier, {
-      enableFunctionCalling: functionCallingResult.enabled,
-    })
-  )
+  // Apply Briefly Voice linting
+  const lintResult = lintResponse(rawResponse)
+  const finalResponse = lintResult.output
 
+  // Calculate metrics
+  const latency = Date.now() - startTime
+  const inputTokens = messages.reduce((sum, msg) => sum + Math.ceil(msg.content.length / 4), 0)
+  const outputTokens = Math.ceil(finalResponse.length / 4)
+
+  // Log enhanced telemetry
+  console.log('Enhanced chat completion telemetry:', {
+    modelRoute: routing.model,
+    inputTokens,
+    outputTokens,
+    latency,
+    contextCount: contextSnippets.length,
+    linterApplied: lintResult.rewritten,
+    boost,
+    tier,
+    useAdvancedFeatures,
+    functionCallingEnabled: functionCallingResult.enabled,
+    streamingEnabled: isStreamingEnabled,
+    userId: user.id
+  })
+
+  // Save assistant response with enhanced metadata
   if (convoId) {
     await supabase
       .from('chat_messages')
       .insert({ 
         conversation_id: convoId, 
         role: 'assistant', 
-        content: completion, 
+        content: finalResponse, 
         sources: contextResults.map(r => ({ 
           file_id: r.fileId, 
           file_name: r.fileName, 
           chunk_index: r.chunkIndex, 
-          relevance_score: r.relevanceScore 
+          relevance_score: r.relevanceScore || r.similarity 
         })),
         metadata: {
+          modelRoute: routing.model,
+          inputTokens,
+          outputTokens,
+          latency,
+          linterApplied: lintResult.rewritten,
           feature_flags_used: {
             streaming: isStreamingEnabled,
             advanced_chunking: useAdvancedFeatures,
@@ -204,14 +257,48 @@ async function enhancedChatHandler(request: NextRequest, context: ApiContext): P
       })
   }
 
+  if (stream && isStreamingEnabled) {
+    // Return linted response as stream
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(finalResponse))
+        controller.close()
+      },
+    })
+
+    return new NextResponse(readable, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'X-Feature-Streaming': 'enabled',
+        'X-Feature-Variant': featureFlagResult?.variant || 'default',
+        'X-Model-Route': routing.model,
+      },
+    })
+  }
+
   return ApiResponse.success({
     conversation_id: convoId,
-    response: completion,
+    response: finalResponse,
     sources: contextResults,
+    modelRoute: routing.model,
+    routing: {
+      model: routing.model,
+      reason: routing.reason,
+      estimatedCost: routing.estimatedCost
+    },
     feature_info: {
       streaming_available: isStreamingEnabled,
       advanced_features_used: useAdvancedFeatures,
       function_calling_enabled: functionCallingResult.enabled,
+    },
+    telemetry: {
+      inputTokens,
+      outputTokens,
+      latency,
+      contextCount: contextSnippets.length,
+      linterApplied: lintResult.rewritten
     }
   })
 }

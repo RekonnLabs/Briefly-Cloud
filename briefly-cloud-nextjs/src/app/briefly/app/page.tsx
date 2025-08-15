@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/app/components/auth/AuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FileUpload } from '@/app/components/FileUpload';
 import { ChatInterface } from '@/app/components/ChatInterface';
@@ -11,7 +11,7 @@ import { Sidebar } from '@/app/components/Sidebar';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
 function AppContent() {
-  const { data: session, status } = useSession();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'chat' | 'files' | 'storage'>('chat');

@@ -10,6 +10,7 @@ AI-powered document assistant that transforms your documents into intelligent co
 - **AI Chat** - Chat with your documents using GPT-4 Turbo
 - **Vector Search** - Semantic document search with ChromaDB
 - **Subscription Management** - Free, Pro, and Pro BYOK tiers
+- **Briefly Voice v1** - Consistent AI voice with intelligent routing and response linting
 
 ## Quick Start
 
@@ -42,6 +43,18 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to see the application.
+
+## Briefly Voice v1
+
+This application uses the Briefly Voice v1 system for consistent, cost-effective AI interactions:
+
+- **Unified Voice**: Consistent persona and style across all LLM calls
+- **Smart Routing**: Automatic model selection based on user tier and query complexity
+- **Response Linting**: Ensures structured output with "Next steps" sections
+- **Budget Management**: Token-aware prompts and context limits
+- **Telemetry**: Comprehensive usage tracking and performance metrics
+
+See [Briefly Voice v1 Documentation](./docs/Briefly_Voice_v1.md) for detailed information.
 
 ## Authentication Flow
 

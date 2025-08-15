@@ -20,21 +20,20 @@ jest.mock('next/navigation', () => ({
   },
 }))
 
-// Mock NextAuth
-jest.mock('next-auth/react', () => ({
-  useSession: jest.fn(() => ({
-    data: null,
-    status: 'unauthenticated',
+// Mock Supabase Auth (replaced NextAuth)
+jest.mock('@/app/lib/auth/supabase-client', () => ({
+  createSupabaseBrowserClient: jest.fn(() => ({
+    auth: {
+      getUser: jest.fn(() => Promise.resolve({ data: { user: null }, error: null })),
+      signInWithOAuth: jest.fn(),
+      signOut: jest.fn(),
+    },
   })),
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  SessionProvider: ({ children }) => children,
 }))
 
 // Mock environment variables
-process.env.NEXTAUTH_SECRET = 'test-secret'
-process.env.NEXTAUTH_URL = 'http://localhost:3000'
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key'
 process.env.OPENAI_API_KEY = 'test-openai-key'
+process.env.ENCRYPTION_KEY = 'test-encryption-key-32-characters'
