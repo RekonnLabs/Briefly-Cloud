@@ -102,8 +102,8 @@ npm run type-check   # TypeScript type checking
 
 Key environment variables (see `.env.example` for complete list):
 
-- `NEXTAUTH_URL` - Your application URL
-- `NEXTAUTH_SECRET` - NextAuth secret key
+- `NEXTAUTH_URL` - Your application URL (legacy variable name)
+- `NEXTAUTH_SECRET` - Authentication secret key (legacy variable name)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - Google OAuth
 - `AZURE_AD_CLIENT_ID` / `AZURE_AD_CLIENT_SECRET` - Microsoft OAuth
 - `OPENAI_API_KEY` - OpenAI API key

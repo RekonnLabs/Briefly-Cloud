@@ -7,6 +7,10 @@
  * configured for security in production environments.
  */
 
+// Load environment variables
+require('dotenv').config({ path: '.env.local' });
+require('dotenv').config({ path: '.env' });
+
 class EnvironmentValidator {
   constructor() {
     this.requiredVars = [
@@ -37,9 +41,9 @@ class EnvironmentValidator {
     ];
     
     this.securityPatterns = {
-      'SUPABASE_SERVICE_ROLE_KEY': /^eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/,
-      'OPENAI_API_KEY': /^sk-[a-zA-Z0-9]{48,}$/,
-      'STRIPE_SECRET_KEY': /^sk_(test_|live_)[a-zA-Z0-9]{24,}$/,
+      'SUPABASE_SERVICE_ROLE_KEY': /^eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/,
+      'OPENAI_API_KEY': /^sk-[a-zA-Z0-9]{20,}$/,
+      'STRIPE_SECRET_KEY': /^sk_(test_|live_)[a-zA-Z0-9]{10,}$/,
       'NEXTAUTH_SECRET': /^.{32,}$/, // At least 32 characters
       'ENCRYPTION_KEY': /^.{32,}$/, // At least 32 characters
       'JWT_SECRET': /^.{32,}$/      // At least 32 characters

@@ -2,7 +2,7 @@
  * Supabase Authentication Helpers
  * 
  * This module provides server-side and client-side authentication utilities
- * for the new Supabase Auth implementation, replacing NextAuth.
+ * for Supabase Auth implementation with enterprise security features.
  */
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'

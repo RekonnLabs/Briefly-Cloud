@@ -75,43 +75,19 @@ export function getCurrentNonce(): string {
 }
 
 /**
- * React component to inject nonce into script tags
+ * Helper to create script tag with nonce (for use in JSX components)
  */
-export function NonceScript({ 
-  children, 
-  nonce 
-}: { 
-  children: string
-  nonce?: string 
-}) {
+export function createNonceScript(children: string, nonce?: string): string {
   const scriptNonce = nonce || getCurrentNonce()
-  
-  return (
-    <script
-      nonce={scriptNonce}
-      dangerouslySetInnerHTML={{ __html: children }}
-    />
-  )
+  return `<script nonce="${scriptNonce}">${children}</script>`
 }
 
 /**
- * React component to inject nonce into style tags
+ * Helper to create style tag with nonce (for use in JSX components)
  */
-export function NonceStyle({ 
-  children, 
-  nonce 
-}: { 
-  children: string
-  nonce?: string 
-}) {
+export function createNonceStyle(children: string, nonce?: string): string {
   const styleNonce = nonce || getCurrentNonce()
-  
-  return (
-    <style
-      nonce={styleNonce}
-      dangerouslySetInnerHTML={{ __html: children }}
-    />
-  )
+  return `<style nonce="${styleNonce}">${children}</style>`
 }
 
 /**

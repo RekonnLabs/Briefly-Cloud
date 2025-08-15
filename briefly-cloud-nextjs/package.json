@@ -56,7 +56,11 @@
     "security:config:monitor": "node scripts/security-config-monitor.js",
     "security:config:snapshot": "node scripts/security-config-monitor.js --snapshot",
     "security:config:validate": "node scripts/security-config-monitor.js --validate",
-    "security:config:report": "node scripts/security-config-monitor.js --report"
+    "security:config:report": "node scripts/security-config-monitor.js --report",
+    "clean": "node scripts/clean-build.js",
+    "clean:build": "node scripts/clean-build.js && npm run build",
+    "test:security:minimal": "node scripts/run-minimal-security-tests.js",
+    "launch:checklist": "node scripts/launch-checklist.js"
   },
   "keywords": [
     "ai",
@@ -135,7 +139,7 @@
     "supertest": "^7.0.0",
     "@types/supertest": "^6.0.2",
     "playwright": "^1.54.2",
-    "semgrep": "^1.95.0",
+
     "snyk": "^1.1293.1",
     "audit-ci": "^7.1.0",
     "tailwindcss": "^4",
