@@ -10,7 +10,7 @@ import { isFeatureEnabled, UserContext } from '@/app/lib/feature-flags';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 const CheckFeatureSchema = z.object({
   feature_name: z.string().min(1)

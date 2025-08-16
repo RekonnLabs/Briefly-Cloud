@@ -15,6 +15,7 @@ import { useAuth } from '@/app/components/auth/SupabaseAuthProvider'
 // Force dynamic rendering for pages with search params
 export const dynamic = 'force-dynamic'
 
+// This page must be a client component to use hooks
 function SignInContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,6 +25,7 @@ function SignInContent() {
   
   const callbackUrl = searchParams.get('callbackUrl') || '/briefly/app/dashboard'
   const supabase = createSupabaseBrowserClient()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -40,7 +42,7 @@ function SignInContent() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(callbackUrl)}`,
+          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(callbackUrl)}`,
           scopes: 'openid email profile'
         }
       })
@@ -63,7 +65,7 @@ function SignInContent() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(callbackUrl)}`,
+          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(callbackUrl)}`,
           scopes: 'openid email profile'
         }
       })
@@ -132,6 +134,8 @@ function SignInContent() {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
+                data-provider="google"
+                data-redirect-uri={`${siteUrl}/auth/callback`}
                 className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
@@ -147,6 +151,8 @@ function SignInContent() {
                 type="button"
                 onClick={handleMicrosoftSignIn}
                 disabled={isLoading}
+                data-provider="azure-ad"
+                data-redirect-uri={`${siteUrl}/auth/callback`}
                 className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">

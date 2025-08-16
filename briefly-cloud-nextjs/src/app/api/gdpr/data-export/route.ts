@@ -9,7 +9,7 @@ import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
 import { gdprService } from '@/app/lib/gdpr-compliance';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 /**
  * POST /api/gdpr/data-export

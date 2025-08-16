@@ -5,7 +5,7 @@
  * and validation with integration to Supabase Vault.
  */
 
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 import { getAuditLogger } from '@/app/lib/audit/audit-logger'

@@ -4,7 +4,7 @@ import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
 import { createClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 // User analytics schema
 const UserAnalyticsSchema = z.object({

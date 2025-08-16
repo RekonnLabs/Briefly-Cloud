@@ -5,7 +5,7 @@
  * using database-backed encryption via SECURITY DEFINER functions.
  */
 
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 

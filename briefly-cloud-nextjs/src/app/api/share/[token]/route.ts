@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { getAuditLogger } from '@/app/lib/audit/audit-logger'
 import { logger } from '@/app/lib/logger'
 

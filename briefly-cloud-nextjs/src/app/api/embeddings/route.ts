@@ -14,7 +14,7 @@ import {
   getEmbeddingModelInfo
 } from '@/app/lib/embeddings'
 import { z } from 'zod'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 // Validation schemas
 const embeddingRequestSchema = z.object({

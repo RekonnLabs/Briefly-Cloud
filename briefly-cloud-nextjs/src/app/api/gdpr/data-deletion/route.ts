@@ -10,7 +10,7 @@ import { gdprService } from '@/app/lib/gdpr-compliance';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 const DeletionRequestSchema = z.object({
   deletion_type: z.enum(['account', 'data_only']).default('account'),

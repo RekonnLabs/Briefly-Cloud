@@ -5,7 +5,7 @@
  * capabilities with automated scheduling, monitoring, and validation.
  */
 
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 import { getAuditLogger } from '@/app/lib/audit/audit-logger'

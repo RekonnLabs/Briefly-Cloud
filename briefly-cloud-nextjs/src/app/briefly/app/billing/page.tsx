@@ -8,7 +8,7 @@ export default async function BillingPage() {
   const user = await getAuthenticatedUser()
   
   if (!user) {
-    redirect('/briefly/app/auth/signin?callbackUrl=/briefly/app/billing')
+    redirect('/auth/signin?callbackUrl=/briefly/app/billing')
   }
 
   return (

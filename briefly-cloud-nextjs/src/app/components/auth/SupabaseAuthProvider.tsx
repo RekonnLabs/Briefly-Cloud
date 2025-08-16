@@ -50,6 +50,7 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createSupabaseBrowserClient()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
   // Fetch full user profile from our app.users table
   const fetchUserProfile = async (supabaseUser: User): Promise<AuthUser | null> => {
@@ -112,7 +113,7 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: provider === 'microsoft' ? 'azure' : provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${siteUrl}/auth/callback`,
           scopes: provider === 'google' 
             ? 'openid email profile'
             : 'openid email profile'

@@ -10,7 +10,7 @@ import { createError } from '@/app/lib/api-errors'
 import { getVectorStore } from './vector-store-factory'
 import { generateEmbedding, generateEmbeddings } from '@/app/lib/embeddings'
 import { createTextChunks } from '@/app/lib/document-chunker'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import type {
   IDocumentProcessor,
   VectorDocument,

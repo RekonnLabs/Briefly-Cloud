@@ -21,11 +21,12 @@ export async function signInWithProvider(
   redirectTo?: string
 ) {
   const supabase = createSupabaseBrowserClient()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
   
   return await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: redirectTo || `${window.location.origin}/auth/callback`,
+      redirectTo: redirectTo || `${siteUrl}/auth/callback`,
       scopes: 'openid email profile'
     }
   })

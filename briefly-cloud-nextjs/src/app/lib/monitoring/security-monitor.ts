@@ -3,7 +3,7 @@
  * Real-time security event monitoring and alerting
  */
 
-import { supabaseAdmin } from '@/app/lib/supabase';
+import { supabaseAdmin } from '@/app/lib/supabase-admin';
 import { logger } from '@/app/lib/logger';
 
 export interface SecurityEvent {

@@ -5,7 +5,7 @@
  * with built-in RLS (Row Level Security) for user isolation.
  */
 
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { createSupabaseServerClient } from '@/app/lib/auth/supabase-auth'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'

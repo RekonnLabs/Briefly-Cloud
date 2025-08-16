@@ -13,7 +13,7 @@ import { FEATURE_FLAGS } from '@/app/lib/feature-flags'
 import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
 import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '@/app/lib/openai'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { withApiPerformanceMonitoring } from '@/app/lib/performance'
 
 // Briefly Voice v1 imports

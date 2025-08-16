@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
-import { useAuth } from '@/app/components/auth/AuthProvider';
+import { useAuth } from '@/app/components/auth/SupabaseAuthProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FileUpload } from '@/app/components/FileUpload';
 import { ChatInterface } from '@/app/components/ChatInterface';

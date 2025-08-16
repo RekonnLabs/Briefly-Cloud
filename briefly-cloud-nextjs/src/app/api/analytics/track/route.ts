@@ -5,7 +5,7 @@ import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
 import { rateLimitConfigs } from '@/app/lib/usage/rate-limiter'
 import { createClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 // Analytics event schema
 const AnalyticsEventSchema = z.object({

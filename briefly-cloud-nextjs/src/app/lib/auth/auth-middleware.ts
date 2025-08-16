@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, getAuthenticatedUser, type AuthUser } from './supabase-auth'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 export interface AuthContext {
   user: AuthUser
