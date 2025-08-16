@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';

@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createOrUpdateUserProfile } from '@/app/lib/auth/supabase-auth'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)

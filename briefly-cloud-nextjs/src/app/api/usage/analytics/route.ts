@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
 import { logger } from '@/app/lib/logger';
-import { supabaseAdmin } from '@/app/lib/supabase';
+import { supabaseAdmin } from '@/app/lib/supabase-admin';
 
 /**
  * GET /api/usage/analytics

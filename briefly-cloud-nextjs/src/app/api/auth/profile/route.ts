@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth, type AuthContext } from '@/app/lib/auth/auth-middleware'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 // GET /api/auth/profile - Get current user profile
 async function getProfileHandler(request: NextRequest, context: AuthContext): Promise<NextResponse> {

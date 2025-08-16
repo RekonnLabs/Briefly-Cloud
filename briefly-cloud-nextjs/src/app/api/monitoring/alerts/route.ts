@@ -4,7 +4,7 @@ import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
 import { withRateLimit } from '@/app/lib/rate-limit'
 import { createClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 // Alert schema
 const AlertSchema = z.object({

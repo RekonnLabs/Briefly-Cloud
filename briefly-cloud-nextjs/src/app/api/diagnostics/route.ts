@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createPublicApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 // Diagnostics handler
 async function diagnosticsHandler(_request: Request, _context: ApiContext): Promise<NextResponse> {

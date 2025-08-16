@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/app/components/auth/AuthProvider'
+import { useAuth } from '@/app/components/auth/SupabaseAuthProvider'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card'
 import { Button } from '@/app/components/ui/button'
 import { Alert, AlertDescription } from '@/app/components/ui/alert'

@@ -11,7 +11,7 @@ import { withRateLimit } from '@/app/lib/usage/usage-middleware'
 import { createError } from '@/app/lib/api-errors'
 import { logger } from '@/app/lib/logger'
 import { verifyBackupIntegrity } from '@/app/lib/backup/pitr-manager'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { z } from 'zod'
 
 // Validation schemas

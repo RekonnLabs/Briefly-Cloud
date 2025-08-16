@@ -1,4 +1,6 @@
-import { supabaseAdmin, User, getUserById, updateUser } from './supabase'
+import { supabaseAdmin } from './supabase-admin'
+import type { User } from './supabase'
+import { getUserById, updateUser } from './supabase'
 
 // Updated tier limits (migrated from Python)
 export const TIER_LIMITS = {

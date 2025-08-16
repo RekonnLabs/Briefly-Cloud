@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const { data: { user }, error } = await supabase.auth.getUser()
     
     if (error || !user) {
-      return NextResponse.redirect(new URL('/briefly/app/auth/signin', req.url))
+      return NextResponse.redirect(new URL('/auth/signin', req.url))
     }
 
     // Validate CSRF state

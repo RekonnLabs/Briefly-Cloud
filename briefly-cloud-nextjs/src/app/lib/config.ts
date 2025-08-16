@@ -94,6 +94,7 @@ const envSchema = z.object({
   MOCK_EXTERNAL_SERVICES: z.string().transform(val => val === 'true').default('false'),
   
   // Deployment
+  NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
   VERCEL_URL: z.string().optional(),
   VERCEL_ENV: z.string().default('production'),
   CUSTOM_DOMAIN: z.string().default('rekonnlabs.com'),

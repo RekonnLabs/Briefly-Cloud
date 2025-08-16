@@ -10,7 +10,7 @@ import { gdprService } from '@/app/lib/gdpr-compliance';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 const ConsentSchema = z.object({
   consent: z.object({

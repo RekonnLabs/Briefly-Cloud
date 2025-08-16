@@ -5,7 +5,7 @@
  * data access, and administrative actions with proper tenant isolation.
  */
 
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 

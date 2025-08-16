@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
 import { createClient } from '@supabase/supabase-js';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 interface SystemMetrics {
   overview: {

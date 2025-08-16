@@ -9,7 +9,7 @@ import { featureFlagService } from '@/app/lib/feature-flags';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 const BetaUserSchema = z.object({
   user_id: z.string().uuid(),

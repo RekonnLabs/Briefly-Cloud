@@ -5,7 +5,7 @@
  * for the multi-tenant security architecture.
  */
 
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 // Define tier limits directly here since we removed the old auth file

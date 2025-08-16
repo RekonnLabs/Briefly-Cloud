@@ -10,13 +10,14 @@ export default function SignIn() {
   // Get callback URL from query params
   const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
   const callbackUrl = params?.get('callbackUrl') || '/briefly/app/dashboard'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
     setError('')
     
     try {
-      const { error } = await signInWithProvider('google', `${window.location.origin}/auth/callback?next=${callbackUrl}`)
+      const { error } = await signInWithProvider('google', `${siteUrl}/auth/callback?next=${callbackUrl}`)
       
       if (error) {
         setError('Failed to sign in with Google. Please try again.')
@@ -36,9 +37,9 @@ export default function SignIn() {
     setError('')
     
     try {
-      const { error } = await signInWithProvider('azure', `${window.location.origin}/auth/callback?next=${callbackUrl}`)
+      const { error } = await signInWithProvider('azure', `${siteUrl}/auth/callback?next=${callbackUrl}`)
       
-      if (error) {
+    if (error) {
         setError('Failed to sign in with Microsoft. Please try again.')
       } else {
         // Redirect will be handled by Supabase
@@ -89,6 +90,8 @@ export default function SignIn() {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
+                data-provider="google"
+                data-redirect-uri={`${siteUrl}/auth/callback`}
                 className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
@@ -104,6 +107,8 @@ export default function SignIn() {
                 type="button"
                 onClick={handleMicrosoftSignIn}
                 disabled={isLoading}
+                data-provider="azure-ad"
+                data-redirect-uri={`${siteUrl}/auth/callback`}
                 className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">

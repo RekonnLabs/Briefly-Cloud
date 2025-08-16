@@ -3,7 +3,7 @@ import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { google } from 'googleapis'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 async function listGoogleFilesHandler(_request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context

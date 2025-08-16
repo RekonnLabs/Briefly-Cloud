@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { logger } from '@/app/lib/logger';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 interface HealthStatus {
   timestamp: string;

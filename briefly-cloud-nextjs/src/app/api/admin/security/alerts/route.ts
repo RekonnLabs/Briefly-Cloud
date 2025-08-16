@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
-import { supabaseAdmin } from '@/app/lib/supabase';
+import { supabaseAdmin } from '@/app/lib/supabase-admin';
 
 // GET /api/admin/security/alerts - Get security alerts
 export async function GET(request: NextRequest) {

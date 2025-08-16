@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/app/lib/auth/auth-middleware'
 import { withStandardSecurity } from '@/app/lib/security/security-middleware'
 import { getAuditLogger, type AuditLogFilter } from '@/app/lib/audit/audit-logger'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logger } from '@/app/lib/logger'
 
 /**

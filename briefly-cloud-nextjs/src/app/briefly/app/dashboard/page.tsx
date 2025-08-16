@@ -9,7 +9,7 @@ export default async function DashboardPage() {
   const user = await getAuthenticatedUser()
   
   if (!user) {
-    redirect('/briefly/app/auth/signin?callbackUrl=/briefly/app/dashboard')
+    redirect('/auth/signin?callbackUrl=/briefly/app/dashboard')
   }
 
   return <DashboardClient user={user} />
