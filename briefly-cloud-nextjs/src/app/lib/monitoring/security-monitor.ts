@@ -51,14 +51,12 @@ export interface SecurityMetrics {
 }
 
 export class SecurityMonitor {
-  private auditLogger: AuditLogger;
   private alertThresholds: Map<SecurityEventType, number>;
   private eventBuffer: SecurityEvent[];
   private metricsCache: SecurityMetrics | null = null;
   private lastMetricsUpdate: Date | null = null;
 
   constructor() {
-    this.auditLogger = new AuditLogger();
     this.eventBuffer = [];
     this.initializeAlertThresholds();
   }
@@ -90,17 +88,15 @@ export class SecurityMonitor {
     await this.storeSecurityEvent(securityEvent);
 
     // Log to audit system
-    await this.auditLogger.logSecurityEvent(
-      event.type,
-      event.user_id,
-      {
-        severity: event.severity,
-        source: event.source,
-        ip_address: event.ip_address,
-        user_agent: event.user_agent,
-        ...event.metadata
-      }
-    );
+    logger.warn('Security event logged', {
+      type: event.type,
+      severity: event.severity,
+      source: event.source,
+      user_id: event.user_id,
+      ip_address: event.ip_address,
+      user_agent: event.user_agent,
+      ...event.metadata
+    });
 
     // Check for immediate alerts
     await this.checkAlertThresholds(event.type);

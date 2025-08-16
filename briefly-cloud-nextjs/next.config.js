@@ -150,7 +150,7 @@ const nextConfig = {
   experimental: {
     // Security-focused experimental features
     ...(isProduction() && {
-      optimizeCss: true,
+      // optimizeCss: true, // Disabled due to missing critters dependency
       scrollRestoration: true,
     }),
   },

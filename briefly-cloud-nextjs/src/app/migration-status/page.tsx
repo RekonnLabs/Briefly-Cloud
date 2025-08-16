@@ -7,11 +7,11 @@ import { Button } from '@/app/components/ui/button'
 import { Alert, AlertDescription } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
 import { Progress } from '@/app/components/ui/progress'
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  AlertTriangle, 
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertTriangle,
   RefreshCw,
   ExternalLink,
   MessageCircle,
@@ -42,32 +42,32 @@ interface Notification {
 }
 
 export default function MigrationStatusPage() {
-  const { data: session, status } = useSession()
+  const { user, loading } = useAuth()
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatus | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
+    if (!loading && user) {
       fetchMigrationStatus()
       fetchNotifications()
-    } else if (status === 'unauthenticated') {
+    } else if (!loading && !user) {
       setIsLoading(false)
     }
-  }, [session, status])
+  }, [user, loading])
 
   const fetchMigrationStatus = async () => {
     try {
       const response = await fetch('/api/migration?action=status')
       const data = await response.json()
-      
+
       if (data.success && data.data.migrations?.length > 0) {
         const latestMigration = data.data.migrations[0]
-        const progress = latestMigration.records_total > 0 
+        const progress = latestMigration.records_total > 0
           ? Math.round((latestMigration.records_processed / latestMigration.records_total) * 100)
           : 0
-        
+
         setMigrationStatus({
           ...latestMigration,
           progress
@@ -83,7 +83,7 @@ export default function MigrationStatusPage() {
     try {
       const response = await fetch('/api/notifications?limit=10')
       const data = await response.json()
-      
+
       if (data.success) {
         setNotifications(data.data.notifications || [])
       }
@@ -129,7 +129,7 @@ export default function MigrationStatusPage() {
     return new Date(dateString).toLocaleString()
   }
 
-  if (status === 'loading' || isLoading) {
+  if (loading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex items-center gap-2">
@@ -140,7 +140,7 @@ export default function MigrationStatusPage() {
     )
   }
 
-  if (status === 'unauthenticated') {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -194,7 +194,7 @@ export default function MigrationStatusPage() {
                     <span className="font-medium">Status</span>
                     {getStatusBadge(migrationStatus.status)}
                   </div>
-                  
+
                   {migrationStatus.status === 'running' && (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
@@ -207,7 +207,7 @@ export default function MigrationStatusPage() {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600">Started:</span>
@@ -220,7 +220,7 @@ export default function MigrationStatusPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   {migrationStatus.error && (
                     <Alert className="border-red-200 bg-red-50">
                       <XCircle className="h-4 w-4" />
@@ -229,7 +229,7 @@ export default function MigrationStatusPage() {
                       </AlertDescription>
                     </Alert>
                   )}
-                  
+
                   {migrationStatus.status === 'completed' && (
                     <Alert className="border-green-200 bg-green-50">
                       <CheckCircle className="h-4 w-4" />
@@ -313,7 +313,7 @@ export default function MigrationStatusPage() {
                     Start Chat
                   </Button>
                 </div>
-                
+
                 <div className="flex items-center gap-3 p-3 border rounded-lg">
                   <Mail className="h-5 w-5 text-green-500" />
                   <div className="flex-1">
@@ -324,7 +324,7 @@ export default function MigrationStatusPage() {
                     <a href="mailto:support@rekonnlabs.com">Send Email</a>
                   </Button>
                 </div>
-                
+
                 <div className="flex items-center gap-3 p-3 border rounded-lg">
                   <Phone className="h-5 w-5 text-purple-500" />
                   <div className="flex-1">
@@ -336,7 +336,7 @@ export default function MigrationStatusPage() {
                   </Button>
                 </div>
               </div>
-              
+
               <div className="mt-6 pt-4 border-t">
                 <h4 className="font-medium mb-2">Common Issues</h4>
                 <div className="space-y-2 text-sm">

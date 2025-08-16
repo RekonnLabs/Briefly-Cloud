@@ -32,7 +32,7 @@ interface SupportTicket {
 }
 
 export default function SupportPage() {
-  const { data: session } = useSession()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<'contact' | 'tickets' | 'faq'>('contact')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
@@ -339,7 +339,7 @@ export default function SupportPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {session ? (
+                  {user ? (
                     <div className="text-center py-8">
                       <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-600">No tickets found</p>

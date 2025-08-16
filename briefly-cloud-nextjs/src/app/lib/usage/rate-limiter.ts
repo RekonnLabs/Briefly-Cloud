@@ -19,6 +19,45 @@ export type RateLimitAction =
   | 'file_download'
   | 'oauth_request'
 
+// Rate limit configurations for different actions
+export const rateLimitConfigs = {
+  api_request: {
+    minute: 100,
+    hour: 1000,
+    day: 10000
+  },
+  chat_message: {
+    minute: 30,
+    hour: 500,
+    day: 2000
+  },
+  document_upload: {
+    minute: 10,
+    hour: 100,
+    day: 500
+  },
+  vector_search: {
+    minute: 50,
+    hour: 1000,
+    day: 5000
+  },
+  embedding_generation: {
+    minute: 20,
+    hour: 200,
+    day: 1000
+  },
+  file_download: {
+    minute: 20,
+    hour: 200,
+    day: 1000
+  },
+  oauth_request: {
+    minute: 5,
+    hour: 20,
+    day: 100
+  }
+} as const
+
 export interface RateLimitConfig {
   action: RateLimitAction
   window: RateLimitWindow

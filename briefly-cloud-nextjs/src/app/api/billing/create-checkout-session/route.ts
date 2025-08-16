@@ -5,7 +5,14 @@ import { rateLimitConfigs } from '@/app/lib/usage/rate-limiter'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/app/lib/supabase'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
+// Lazy initialization to avoid build-time issues
+let _stripe: Stripe | null = null
+const getStripe = () => {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
+  }
+  return _stripe
+}
 
 async function createCheckoutHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
@@ -26,7 +33,7 @@ async function createCheckoutHandler(request: Request, context: ApiContext): Pro
 
   let customerId = profile?.stripe_customer_id as string | null
   if (!customerId) {
-    const customer = await stripe.customers.create({ email: profile?.email || user.email, metadata: { user_id: user.id } })
+    const customer = await getStripe().customers.create({ email: profile?.email || user.email, metadata: { user_id: user.id } })
     customerId = customer.id
     await supabase
       .from('users')
@@ -37,7 +44,7 @@ async function createCheckoutHandler(request: Request, context: ApiContext): Pro
   const priceId = tier === 'pro' ? process.env.STRIPE_PRICE_PRO : process.env.STRIPE_PRICE_PRO_BYOK
   if (!priceId) return ApiResponse.internalError('Price ID not configured')
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
     payment_method_types: ['card'],

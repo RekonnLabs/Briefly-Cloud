@@ -90,11 +90,22 @@ export class EmbeddingsService {
   private isUserKey: boolean
 
   constructor(apiKey?: string, config: Partial<EmbeddingConfig> = {}) {
-    this.openai = new OpenAI({
-      apiKey: apiKey || process.env.OPENAI_API_KEY!,
-    })
+    // Lazy initialization to avoid build-time issues
+    this.openai = null as any
     this.config = { ...DEFAULT_EMBEDDING_CONFIG, ...config }
     this.isUserKey = !!apiKey
+    this._apiKey = apiKey
+  }
+
+  private _apiKey?: string
+  
+  private getOpenAI(): OpenAI {
+    if (!this.openai) {
+      this.openai = new OpenAI({
+        apiKey: this._apiKey || process.env.OPENAI_API_KEY!,
+      })
+    }
+    return this.openai
   }
 
   /**
@@ -111,7 +122,7 @@ export class EmbeddingsService {
     const startTime = Date.now()
 
     try {
-      const response = await this.openai.embeddings.create({
+      const response = await this.getOpenAI().embeddings.create({
         model,
         input: text,
         dimensions: this.config.dimensions,
@@ -179,7 +190,7 @@ export class EmbeddingsService {
       const batch = batches[i]
 
       try {
-        const response = await this.openai.embeddings.create({
+        const response = await this.getOpenAI().embeddings.create({
           model,
           input: batch,
           dimensions: this.config.dimensions,
@@ -215,7 +226,7 @@ export class EmbeddingsService {
           try {
             await this.delay(this.config.retryDelay * (retryCount + 1))
             
-            const retryResponse = await this.openai.embeddings.create({
+            const retryResponse = await this.getOpenAI().embeddings.create({
               model,
               input: batch,
               dimensions: this.config.dimensions,
@@ -473,3 +484,6 @@ export function estimateEmbeddingCost(
   const estimatedTokens = Math.ceil(textLength / 4) // Rough estimate: 4 chars per token
   return (estimatedTokens / 1000) * modelConfig.costPer1kTokens
 }
+
+// Alias for backward compatibility
+export const generateEmbeddings = generateBatchEmbeddings

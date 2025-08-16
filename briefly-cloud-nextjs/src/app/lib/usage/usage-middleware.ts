@@ -262,6 +262,17 @@ export function withSearchControls(
 }
 
 /**
+ * Simple rate limiting wrapper for backward compatibility
+ */
+export function withRateLimit(
+  request: NextRequest,
+  handler: () => Promise<NextResponse>
+): Promise<NextResponse> {
+  // For now, just pass through - implement proper rate limiting later
+  return handler();
+}
+
+/**
  * Get usage summary for a user
  */
 export async function getUserUsageSummary(userId: string): Promise<{

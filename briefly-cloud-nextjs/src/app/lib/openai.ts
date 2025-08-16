@@ -1,8 +1,17 @@
 import OpenAI from 'openai'
 
-// Default OpenAI client using system API key
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
+// Default OpenAI client using system API key - lazy initialization
+let _openai: OpenAI | null = null
+
+export const openai = new Proxy({} as OpenAI, {
+  get(target, prop) {
+    if (!_openai) {
+      _openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY!,
+      })
+    }
+    return _openai[prop as keyof OpenAI]
+  }
 })
 
 // Create OpenAI client with user's API key (for BYOK tier)

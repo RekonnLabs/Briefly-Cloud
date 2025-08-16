@@ -9,7 +9,7 @@ import { supabaseAdmin } from '@/app/lib/supabase'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 // Define tier limits directly here since we removed the old auth file
-const TIER_LIMITS = {
+export const TIER_LIMITS = {
   free: {
     max_files: 10,
     max_llm_calls: 100,
