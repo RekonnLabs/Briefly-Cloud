@@ -7,7 +7,8 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/app/lib/supabase'
+import { cookies } from 'next/headers'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 // Subscription tier definitions
 export const TIER_LIMITS = {

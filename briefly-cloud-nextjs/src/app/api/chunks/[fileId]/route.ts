@@ -14,6 +14,10 @@ import {
 import { extractTextFromBuffer } from '@/app/lib/document-extractor'
 import { z } from 'zod'
 
+// Force Node.js runtime and dynamic rendering
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // Validation schema
 const fileChunkingSchema = z.object({
   strategy: z.enum(['paragraph', 'sentence', 'fixed', 'semantic', 'sliding']).optional().default('paragraph'),

@@ -3,9 +3,6 @@
  * Handles text extraction from various document formats
  */
 
-import pdfParse from 'pdf-parse'
-import mammoth from 'mammoth'
-import * as XLSX from 'xlsx'
 import { createError } from './api-errors'
 import { logger } from './logger'
 
@@ -195,6 +192,7 @@ async function extractPdfText(buffer: Buffer): Promise<{
   warnings: string[]
 }> {
   try {
+    const pdfParse = (await import('pdf-parse')).default
     const data = await pdfParse(buffer)
     
     return {
@@ -215,6 +213,7 @@ async function extractDocxText(buffer: Buffer): Promise<{
   warnings: string[]
 }> {
   try {
+    const mammoth = await import('mammoth')
     const result = await mammoth.extractRawText({ buffer })
     
     return {
@@ -234,6 +233,7 @@ async function extractXlsxText(buffer: Buffer): Promise<{
   warnings: string[]
 }> {
   try {
+    const XLSX = await import('xlsx')
     const workbook = XLSX.read(buffer, { type: 'buffer' })
     const warnings: string[] = []
     let text = ''

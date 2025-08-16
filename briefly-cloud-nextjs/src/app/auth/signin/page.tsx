@@ -9,7 +9,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/app/lib/auth/supabase-auth'
+import { createSupabaseBrowserClient } from '@/app/lib/auth/supabase-client'
 import { useAuth } from '@/app/components/auth/SupabaseAuthProvider'
 
 // Force dynamic rendering for pages with search params

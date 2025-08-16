@@ -8,9 +8,19 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { createSupabaseBrowserClient } from '@/app/lib/auth/supabase-auth'
+import { createSupabaseBrowserClient } from '@/app/lib/auth/supabase-client'
 import type { User, Session } from '@supabase/supabase-js'
-import type { AuthUser } from '@/app/lib/auth/supabase-auth'
+
+// Define AuthUser type here since it's client-side
+interface AuthUser {
+  id: string
+  email: string
+  full_name?: string
+  subscription_tier: 'free' | 'pro' | 'pro_byok'
+  role?: string
+  features_enabled?: Record<string, boolean>
+  permissions?: Record<string, boolean>
+}
 
 interface AuthContextType {
   user: AuthUser | null

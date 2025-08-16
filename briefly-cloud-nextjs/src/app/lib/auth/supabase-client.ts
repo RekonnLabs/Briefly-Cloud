@@ -1,15 +1,13 @@
 /**
- * Supabase Client-Side Authentication Helpers
+ * Supabase Client-Side Authentication
  * 
- * This module provides client-side authentication utilities
- * for browser-based Supabase Auth operations.
+ * This module provides client-side authentication utilities for Supabase Auth.
+ * Use this in client components and browser-side code.
  */
 
 import { createBrowserClient } from '@supabase/ssr'
 
-/**
- * Create Supabase client for client-side operations (components, hooks)
- */
+// Create browser client for client-side operations
 export function createSupabaseBrowserClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,67 +15,36 @@ export function createSupabaseBrowserClient() {
   )
 }
 
-/**
- * Get current user from client-side
- */
-export async function getCurrentUser() {
-  const supabase = createSupabaseBrowserClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  
-  if (error) {
-    console.error('Error getting current user:', error)
-    return null
-  }
-  
-  return user
-}
-
-/**
- * Sign in with OAuth provider
- */
+// Sign in with OAuth provider
 export async function signInWithProvider(
   provider: 'google' | 'azure',
   redirectTo?: string
 ) {
   const supabase = createSupabaseBrowserClient()
   
-  const { error } = await supabase.auth.signInWithOAuth({
+  return await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: redirectTo || `${window.location.origin}/auth/callback`
+      redirectTo: redirectTo || `${window.location.origin}/auth/callback`,
+      scopes: 'openid email profile'
     }
   })
-  
-  if (error) {
-    console.error(`Error signing in with ${provider}:`, error)
-    throw error
-  }
 }
 
-/**
- * Sign out user
- */
+// Sign out
 export async function signOut() {
   const supabase = createSupabaseBrowserClient()
-  const { error } = await supabase.auth.signOut()
-  
-  if (error) {
-    console.error('Error signing out:', error)
-    throw error
-  }
+  return await supabase.auth.signOut()
 }
 
-/**
- * Get current session
- */
+// Get current session (client-side)
 export async function getSession() {
   const supabase = createSupabaseBrowserClient()
-  const { data: { session }, error } = await supabase.auth.getSession()
-  
-  if (error) {
-    console.error('Error getting session:', error)
-    return null
-  }
-  
-  return session
+  return await supabase.auth.getSession()
+}
+
+// Get current user (client-side)
+export async function getUser() {
+  const supabase = createSupabaseBrowserClient()
+  return await supabase.auth.getUser()
 }
