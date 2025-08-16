@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
 import { isFeatureEnabled, UserContext } from './feature-flags';
 import { createClient } from '@supabase/supabase-js';
 

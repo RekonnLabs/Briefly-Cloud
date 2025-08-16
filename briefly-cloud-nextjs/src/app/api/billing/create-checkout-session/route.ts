@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
-import { rateLimitConfigs } from '@/app/lib/rate-limit'
+import { rateLimitConfigs } from '@/app/lib/usage/rate-limiter'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/app/lib/supabase'
 

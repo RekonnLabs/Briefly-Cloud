@@ -144,41 +144,11 @@ export function chunksToVectorDocuments(
   }))
 }
 
-// Legacy search function
-export async function searchDocumentContext(
-  query: string,
-  userId: string,
-  options: {
-    limit?: number
-    threshold?: number
-    fileIds?: string[]
-    embeddingService?: any
-  } = {}
-): Promise<any[]> {
-  const { searchDocuments } = await import('./vector/document-processor')
-  return searchDocuments(userId, query, options)
-}
+// searchDocumentContext is already exported above as an alias for searchDocuments
 
-// Legacy store function
-export async function storeDocumentVectors(
-  chunks: DocumentChunk[],
-  embeddings: number[][],
-  userId: string,
-  fileName: string
-): Promise<void> {
-  const vectorDocuments = chunksToVectorDocuments(chunks, embeddings, userId, fileName)
-  const vectorStore = getVectorStore()
-  return vectorStore.addDocuments(userId, vectorDocuments)
-}
+// storeDocumentVectors is already exported above as an alias for processDocument
 
-// Legacy delete function
-export async function deleteDocumentVectors(
-  fileId: string,
-  userId: string
-): Promise<void> {
-  const vectorStore = getVectorStore()
-  return vectorStore.deleteUserDocuments(userId, fileId)
-}
+// deleteDocumentVectors is already exported above as an alias for deleteDocument
 
 // Legacy stats function
 export async function getUserVectorStats(userId: string): Promise<{

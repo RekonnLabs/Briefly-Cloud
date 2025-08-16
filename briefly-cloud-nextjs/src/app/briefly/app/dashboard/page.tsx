@@ -1,16 +1,15 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/lib/auth'
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { redirect } from 'next/navigation'
 import DashboardClient from './DashboardClient'
 
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions)
+  const user = await getAuthenticatedUser()
   
-  if (!session?.user) {
+  if (!user) {
     redirect('/briefly/app/auth/signin?callbackUrl=/briefly/app/dashboard')
   }
 
-  return <DashboardClient user={session.user} />
+  return <DashboardClient user={user} />
 }
 

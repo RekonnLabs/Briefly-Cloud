@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/lib/auth'
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
-import { withRateLimit } from '@/app/lib/rate-limit'
+import { rateLimitConfigs } from '@/app/lib/usage/rate-limiter'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/app/lib/supabase'
 
@@ -18,14 +17,18 @@ const AnalyticsEventSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  return withRateLimit(request, async () => {
-    try {
-      const body = await request.json()
-      const { event, properties, userId, sessionId, timestamp } = AnalyticsEventSchema.parse(body)
+  try {
+    const body = await request.json()
+    const { event, properties, userId, sessionId, timestamp } = AnalyticsEventSchema.parse(body)
 
-      // Get user session if available
-      const session = await getServerSession(authOptions)
-      const currentUserId = userId || session?.user?.id
+    // Get user session if available
+    let currentUserId = userId
+    try {
+      const user = await getAuthenticatedUser()
+      currentUserId = userId || user?.id
+    } catch {
+      // User not authenticated, use provided userId or null
+    }
 
       // Store analytics event in database
       const supabase = supabaseAdmin
@@ -58,27 +61,25 @@ export async function POST(request: NextRequest) {
       logger.error('Analytics tracking error', { error })
       return formatErrorResponse('Invalid request', 400)
     }
-  })
 }
 
 export async function GET(request: NextRequest) {
-  return withRateLimit(request, async () => {
-    try {
-      // Check authentication
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
-        return formatErrorResponse('Unauthorized', 401)
-      }
+  try {
+    // Check authentication
+    const user = await getAuthenticatedUser()
+    if (!user) {
+      return formatErrorResponse('Unauthorized', 401)
+    }
 
-      // Get analytics events for the user
-      const supabase = supabaseAdmin
+    // Get analytics events for the user
+    const supabase = supabaseAdmin
 
-      const { data: events, error } = await supabase
-        .from('analytics_events')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(100)
+    const { data: events, error } = await supabase
+      .from('analytics_events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(100)
 
       if (error) {
         logger.error('Failed to get analytics events', { error })
@@ -97,5 +98,4 @@ export async function GET(request: NextRequest) {
       logger.error('Analytics retrieval error', { error })
       return formatErrorResponse('Internal server error', 500)
     }
-  })
 }

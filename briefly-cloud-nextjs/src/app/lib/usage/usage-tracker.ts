@@ -8,7 +8,27 @@
 import { supabaseAdmin } from '@/app/lib/supabase'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
-import { TIER_LIMITS } from '@/app/lib/auth'
+// Define tier limits directly here since we removed the old auth file
+const TIER_LIMITS = {
+  free: {
+    max_files: 10,
+    max_llm_calls: 100,
+    max_storage_bytes: 100 * 1024 * 1024, // 100MB
+    features: ['basic_chat', 'document_upload']
+  },
+  pro: {
+    max_files: 1000,
+    max_llm_calls: 10000,
+    max_storage_bytes: 10 * 1024 * 1024 * 1024, // 10GB
+    features: ['basic_chat', 'document_upload', 'advanced_search', 'api_access']
+  },
+  pro_byok: {
+    max_files: -1, // unlimited
+    max_llm_calls: -1, // unlimited
+    max_storage_bytes: 50 * 1024 * 1024 * 1024, // 50GB
+    features: ['basic_chat', 'document_upload', 'advanced_search', 'api_access', 'byok']
+  }
+}
 
 export type SubscriptionTier = 'free' | 'pro' | 'pro_byok'
 export type UsageAction = 

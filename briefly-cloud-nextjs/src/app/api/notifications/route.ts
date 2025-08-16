@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/lib/auth'
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { NotificationManager } from '@/app/lib/notifications'
 import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
@@ -30,8 +29,8 @@ const UpdatePreferencesSchema = z.object({
 export async function GET(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
+      const user = await getAuthenticatedUser()
+      if (!user) {
         return formatErrorResponse('Unauthorized', 401)
       }
 
@@ -50,7 +49,7 @@ export async function GET(request: NextRequest) {
       )
 
       const notifications = await notificationManager.getUserNotifications(
-        session.user.id,
+        user.id,
         validatedQuery.limit,
         validatedQuery.offset
       )
@@ -79,8 +78,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
+      const user = await getAuthenticatedUser()
+      if (!user) {
         return formatErrorResponse('Unauthorized', 401)
       }
 
@@ -109,8 +108,8 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
+      const user = await getAuthenticatedUser()
+      if (!user) {
         return formatErrorResponse('Unauthorized', 401)
       }
 
@@ -123,7 +122,7 @@ export async function PUT(request: NextRequest) {
       )
 
       await notificationManager.updateNotificationPreferences(
-        session.user.id,
+        user.id,
         preferences
       )
 

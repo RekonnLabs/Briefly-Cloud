@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '@/lib/auth/supabase-auth';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
+import { supabaseAdmin } from '@/app/lib/supabase';
 
 // GET /api/admin/security/threats - Get threat intelligence
 export async function GET(request: NextRequest) {

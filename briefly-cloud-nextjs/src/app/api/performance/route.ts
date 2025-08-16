@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/lib/auth'
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { PerformanceMonitor } from '@/app/lib/performance'
 import { cacheManager } from '@/app/lib/cache'
 import { withPerformanceMonitoring } from '@/app/lib/performance'
 
 export const GET = withPerformanceMonitoring(async (req: NextRequest) => {
-  const session = await getServerSession(authOptions)
+  const user = await getAuthenticatedUser()
   
   // Only allow authenticated users to access performance metrics
-  if (!session?.user) {
+  if (!user) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -17,7 +16,7 @@ export const GET = withPerformanceMonitoring(async (req: NextRequest) => {
   }
 
   // Check if user is admin (you can implement your own admin check)
-  const isAdmin = session.user.email === process.env.ADMIN_EMAIL
+  const isAdmin = user.email === process.env.ADMIN_EMAIL
   
   if (!isAdmin) {
     return NextResponse.json(
@@ -53,16 +52,16 @@ export const GET = withPerformanceMonitoring(async (req: NextRequest) => {
 })
 
 export const POST = withPerformanceMonitoring(async (req: NextRequest) => {
-  const session = await getServerSession(authOptions)
+  const user = await getAuthenticatedUser()
   
-  if (!session?.user) {
+  if (!user) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
     )
   }
 
-  const isAdmin = session.user.email === process.env.ADMIN_EMAIL
+  const isAdmin = user.email === process.env.ADMIN_EMAIL
   
   if (!isAdmin) {
     return NextResponse.json(

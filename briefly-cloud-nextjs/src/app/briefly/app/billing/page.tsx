@@ -1,11 +1,10 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/lib/auth'
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { redirect } from 'next/navigation'
 
 export default async function BillingPage() {
-  const session = await getServerSession(authOptions)
+  const user = await getAuthenticatedUser()
   
-  if (!session?.user) {
+  if (!user) {
     redirect('/briefly/app/auth/signin?callbackUrl=/briefly/app/billing')
   }
 

@@ -4,9 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser } from '@/lib/auth/supabase-auth';
-import { securityMonitor } from '@/lib/monitoring/security-monitor';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
+import { securityMonitor } from '@/app/lib/monitoring/security-monitor';
+import { supabaseAdmin } from '@/app/lib/supabase';
 
 // GET /api/admin/security/monitoring - Get security dashboard data
 export async function GET(request: NextRequest) {

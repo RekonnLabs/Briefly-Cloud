@@ -16,14 +16,13 @@ export default function SignIn() {
     setError('')
     
     try {
-      await signInWithProvider('google', `${window.location.origin}/auth/callback?next=${callbackUrl}`)
-        redirect: false 
-      })
+      const { error } = await signInWithProvider('google', `${window.location.origin}/auth/callback?next=${callbackUrl}`)
       
-      if (result?.error) {
+      if (error) {
         setError('Failed to sign in with Google. Please try again.')
-      } else if (result?.url) {
-        window.location.href = result.url
+      } else {
+        // Redirect will be handled by Supabase
+        window.location.href = callbackUrl
       }
     } catch (err) {
       setError('An error occurred during sign in. Please try again.')
@@ -37,15 +36,13 @@ export default function SignIn() {
     setError('')
     
     try {
-      const result = await signIn('azure-ad', { 
-        callbackUrl,
-        redirect: false 
-      })
+      const { error } = await signInWithProvider('azure', `${window.location.origin}/auth/callback?next=${callbackUrl}`)
       
-      if (result?.error) {
+      if (error) {
         setError('Failed to sign in with Microsoft. Please try again.')
-      } else if (result?.url) {
-        window.location.href = result.url
+      } else {
+        // Redirect will be handled by Supabase
+        window.location.href = callbackUrl
       }
     } catch (err) {
       setError('An error occurred during sign in. Please try again.')

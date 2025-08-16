@@ -5,8 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/lib/auth';
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
 import { featureFlagService, isFeatureEnabled, UserContext } from '@/app/lib/feature-flags';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { z } from 'zod';

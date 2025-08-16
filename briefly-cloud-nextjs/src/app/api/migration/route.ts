@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { runMigration, validateMigrationData, MigrationConfig } from '@/app/lib/migration'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/lib/auth'
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
 import { withRateLimit } from '@/app/lib/rate-limit'
@@ -27,17 +26,13 @@ export async function POST(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
       // Check authentication and admin privileges
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
+      const user = await getAuthenticatedUser()
+      if (!user) {
         return formatErrorResponse('Unauthorized', 401)
       }
 
       // Only allow admin users to run migrations
-      const { data: user } = await fetch(`${process.env.NEXTAUTH_URL}/api/user/profile`, {
-        headers: { Authorization: `Bearer ${session.accessToken}` }
-      }).then(res => res.json())
-
-      if (!user?.is_admin) {
+      if (user.role !== 'admin') {
         return formatErrorResponse('Admin privileges required', 403)
       }
 
@@ -134,8 +129,8 @@ export async function GET(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
       // Check authentication
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
+      const user = await getAuthenticatedUser()
+      if (!user) {
         return formatErrorResponse('Unauthorized', 401)
       }
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/lib/auth'
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { logger } from '@/app/lib/logger'
 import { formatErrorResponse } from '@/app/lib/api-errors'
 import { withRateLimit } from '@/app/lib/rate-limit'
@@ -23,8 +22,8 @@ const UpdateTicketSchema = z.object({
 export async function POST(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
+      const user = await getAuthenticatedUser()
+      if (!user) {
         return formatErrorResponse('Unauthorized', 401)
       }
 
@@ -34,7 +33,7 @@ export async function POST(request: NextRequest) {
       // Create support ticket in database
       const ticket = {
         id: crypto.randomUUID(),
-        user_id: session.user.id,
+        user_id: user.id,
         subject,
         description,
         priority,
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
       // For now, we'll log it and return success
       logger.info('Support ticket created', {
         ticketId: ticket.id,
-        userId: session.user.id,
+        userId: user.id,
         subject,
         priority,
         category,
@@ -75,8 +74,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
+      const user = await getAuthenticatedUser()
+      if (!user) {
         return formatErrorResponse('Unauthorized', 401)
       }
 
@@ -86,7 +85,7 @@ export async function GET(request: NextRequest) {
 
       // Get user's support tickets from database
       // This would be implemented with your database
-      const tickets = await getUserTickets(session.user.id, limit, offset)
+      const tickets = await getUserTickets(user.id, limit, offset)
 
       return NextResponse.json({
         success: true,
@@ -106,8 +105,8 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
+      const user = await getAuthenticatedUser()
+      if (!user) {
         return formatErrorResponse('Unauthorized', 401)
       }
 
@@ -116,7 +115,7 @@ export async function PUT(request: NextRequest) {
 
       // Update ticket in database
       // This would be implemented with your database
-      const updatedTicket = await updateTicket(ticket_id, session.user.id, { status, response })
+      const updatedTicket = await updateTicket(ticket_id, user.id, { status, response })
 
       if (!updatedTicket) {
         return formatErrorResponse('Ticket not found', 404)

@@ -5,8 +5,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/lib/auth';
 import { featureFlagService } from '@/app/lib/feature-flags';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { createClient } from '@supabase/supabase-js';
@@ -30,14 +28,14 @@ const BulkBetaUserSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
       return createErrorResponse('Unauthorized', 401);
     }
 
     // Check if user is admin
     const isAdmin = session.user.email.endsWith('@rekonnlabs.com');
-    
+
     if (!isAdmin) {
       return createErrorResponse('Admin access required', 403);
     }
@@ -72,24 +70,24 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
       return createErrorResponse('Unauthorized', 401);
     }
 
     // Check if user is admin
     const isAdmin = session.user.email.endsWith('@rekonnlabs.com');
-    
+
     if (!isAdmin) {
       return createErrorResponse('Admin access required', 403);
     }
 
     const body = await request.json();
-    
+
     // Check if it's a bulk operation
     if (body.user_ids && Array.isArray(body.user_ids)) {
       const { user_ids, action } = BulkBetaUserSchema.parse(body);
-      
+
       const results = await Promise.allSettled(
         user_ids.map(async (userId) => {
           if (action === 'add') {
@@ -113,7 +111,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Single user operation
       const { user_id, action } = BetaUserSchema.parse(body);
-      
+
       if (action === 'add') {
         await featureFlagService.addBetaUser(user_id);
       } else {

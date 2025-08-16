@@ -2,15 +2,15 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/app/components/auth/AuthProvider';
 
 export default function Home() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     // Wait for session to load
-    if (status === 'loading') return;
+    if (loading) return;
 
     // Preserve any query parameters or hash fragments
     const currentUrl = new URL(window.location.href);
@@ -20,7 +20,7 @@ export default function Home() {
 
     // Redirect to the dashboard
     router.replace(`/dashboard${urlSuffix}`);
-  }, [router, status]);
+  }, [router, loading]);
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">

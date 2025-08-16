@@ -5,8 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/lib/auth';
+import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth';
 import { createClient } from '@supabase/supabase-js';
 import { createApiResponse, createErrorResponse } from '@/app/lib/api-utils';
 import { supabaseAdmin } from '@/app/lib/supabase'
@@ -54,14 +53,14 @@ interface SystemMetrics {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getAuthenticatedUser();
     
-    if (!session?.user?.email) {
+    if (!user?.email) {
       return createErrorResponse('Unauthorized', 401);
     }
 
     // Check if user is admin
-    const isAdmin = session.user.email.endsWith('@rekonnlabs.com');
+    const isAdmin = user.email.endsWith('@rekonnlabs.com');
     
     if (!isAdmin) {
       return createErrorResponse('Admin access required', 403);
@@ -183,9 +182,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await getAuthenticatedUser();
     
-    if (!session?.user?.email?.endsWith('@rekonnlabs.com')) {
+    if (!user?.email?.endsWith('@rekonnlabs.com')) {
       return createErrorResponse('Admin access required', 403);
     }
 
