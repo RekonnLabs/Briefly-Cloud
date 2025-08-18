@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { applySecurityHeaders, validateCORSOrigin } from '@/app/lib/security/security-headers'
 import { getSecurityConfig, isProduction } from '@/app/lib/config/environment'
-import { createSupabaseMiddlewareClient } from '@/app/lib/auth/supabase-auth'
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 
 /**
  * Middleware function that runs on every request
@@ -48,27 +48,23 @@ export async function middleware(request: NextRequest) {
 
     // Gate authenticated app routes
     if (pathname.startsWith('/briefly/app/')) {
-      const { supabase, response: supabaseResponse } = createSupabaseMiddlewareClient(request)
-      // Ensure downstream uses the response that carries any set-cookie
-      response = supabaseResponse
+      const supabase = createMiddlewareClient({ req: request, res: response })
 
       const { data: { user }, error } = await supabase.auth.getUser()
 
       if (error || !user) {
         const redirectUrl = new URL('/auth/signin', request.url)
-        // Preserve path and query for post-login return
-        redirectUrl.searchParams.set('callbackUrl', request.nextUrl.pathname + request.nextUrl.search)
-
-        const redirectResponse = NextResponse.redirect(redirectUrl)
+        // Preserve path and query for post-login return using 'next' parameter
+        redirectUrl.searchParams.set('next', encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search))
 
         // Carry over rate limit headers for consistency
         const rateLimitHeaders = getRateLimitHeaders(request)
         Object.entries(rateLimitHeaders).forEach(([k, v]) => {
-          redirectResponse.headers.set(k, v)
+          response.headers.set(k, v)
         })
 
-        // Apply global security headers to redirect as well
-        return applySecurityHeaders(redirectResponse, {
+        // Apply global security headers
+        const securedResponse = applySecurityHeaders(response, {
           enableHSTS: isProduction(),
           enableCSP: true,
           enableCORS: false,
@@ -77,6 +73,9 @@ export async function middleware(request: NextRequest) {
             'X-Timestamp': new Date().toISOString()
           }
         })
+
+        // Create redirect response preserving headers
+        return NextResponse.redirect(redirectUrl, { headers: securedResponse.headers })
       }
     }
     
@@ -183,13 +182,7 @@ function generateRequestId(): string {
  */
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder files
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Gate app pages only - avoid redirect loops and unnecessary middleware execution
+    '/briefly/app/:path*',
   ],
 }

@@ -9,7 +9,7 @@ export default function SignIn() {
 
   // Get callback URL from query params
   const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
-  const callbackUrl = params?.get('callbackUrl') || '/briefly/app/dashboard'
+  const callbackUrl = params?.get('next') || '/briefly/app/dashboard'
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
   const handleGoogleSignIn = async () => {

@@ -1,14 +1,14 @@
-import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
+import { getUserSession } from '@/app/lib/auth/supabase-auth'
 import { redirect } from 'next/navigation'
 
 // Force dynamic rendering for authenticated pages
 export const dynamic = 'force-dynamic'
 
 export default async function BillingPage() {
-  const user = await getAuthenticatedUser()
+  const user = await getUserSession()
   
   if (!user) {
-    redirect('/auth/signin?callbackUrl=/briefly/app/billing')
+    redirect('/auth/signin?next=' + encodeURIComponent('/briefly/app/billing'))
   }
 
   return (
@@ -73,9 +73,9 @@ export default async function BillingPage() {
 
           <div className="pt-6 border-t border-gray-200">
             <p className="text-sm text-gray-500">
-              Current plan: <span className="font-medium capitalize">{session.user.subscription_tier}</span>
-              {session.user.subscription_status !== 'active' && (
-                <span className="text-red-600 ml-2">({session.user.subscription_status})</span>
+              Current plan: <span className="font-medium capitalize">{user.subscription_tier || 'free'}</span>
+              {user.subscription_status !== 'active' && (
+                <span className="text-red-600 ml-2">({user.subscription_status || 'inactive'})</span>
               )}
             </p>
             <a 

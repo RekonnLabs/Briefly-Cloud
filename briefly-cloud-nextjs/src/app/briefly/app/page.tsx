@@ -24,18 +24,18 @@ function AppContent() {
 
   // Handle authentication-based routing
   useEffect(() => {
-    if (status === 'loading') return; // Wait for session to load
+    if (loading) return; // Wait for user to load
 
-    if (!session) {
+    if (!user) {
       // Preserve current URL as return destination
       const returnUrl = window.location.pathname + window.location.search;
       const encodedReturnUrl = encodeURIComponent(returnUrl);
-      router.replace(`/api/auth/signin?callbackUrl=${encodedReturnUrl}`);
+      router.replace(`/auth/signin?next=${encodedReturnUrl}`);
       return;
     }
 
     // If user is authenticated and on the root app page, redirect to dashboard
-    if (session && window.location.pathname === '/briefly/app') {
+    if (user && window.location.pathname === '/briefly/app') {
       // Check for any saved preference for default view
       const savedTab = localStorage.getItem('briefly-default-tab');
       if (savedTab && ['chat', 'files', 'storage'].includes(savedTab)) {
@@ -50,9 +50,9 @@ function AppContent() {
         router.replace('/briefly/app/dashboard');
       }
     }
-  }, [session, status, router]);
+  }, [user, loading, router]);
 
-  if (status === 'loading') {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -63,7 +63,7 @@ function AppContent() {
     );
   }
 
-  if (!session) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -78,7 +78,7 @@ function AppContent() {
     <ErrorBoundary>
       <div className="min-h-screen bg-gray-50 flex">
         {/* Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={session.user} />
+        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
         
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
@@ -90,15 +90,15 @@ function AppContent() {
                 <p className="text-sm text-gray-600">AI-Powered Document Assistant</p>
               </div>
               <div className="flex items-center space-x-4">
-                <SubscriptionStatus user={session.user} />
+                <SubscriptionStatus user={user} />
                 <div className="flex items-center space-x-2">
                   <img 
-                    src={session.user?.image || '/default-avatar.png'} 
+                    src={user?.image || '/default-avatar.png'} 
                     alt="Profile" 
                     className="w-8 h-8 rounded-full"
                   />
                   <span className="text-sm font-medium text-gray-700">
-                    {session.user?.name || session.user?.email}
+                    {user?.name || user?.email}
                   </span>
                 </div>
               </div>

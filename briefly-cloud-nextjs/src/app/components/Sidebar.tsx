@@ -130,7 +130,7 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
                 <button
                   onClick={() => {
                     setShowUserMenu(false);
-                    signOut({ callbackUrl: '/' });
+                    handleSignOut();
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 rounded-lg transition-colors"
                 >
