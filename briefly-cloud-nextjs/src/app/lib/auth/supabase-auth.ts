@@ -5,7 +5,7 @@
  * for Supabase Auth implementation with enterprise security features.
  */
 
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient, createBrowserClient, type CookieOptions } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'

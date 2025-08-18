@@ -8,12 +8,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { applySecurityHeaders, validateCORSOrigin } from '@/app/lib/security/security-headers'
 import { getSecurityConfig, isProduction } from '@/app/lib/config/environment'
+import { createSupabaseMiddlewareClient } from '@/app/lib/auth/supabase-auth'
 
 /**
  * Middleware function that runs on every request
  */
-export function middleware(request: NextRequest) {
-  const response = NextResponse.next()
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next()
   
   try {
     const securityConfig = getSecurityConfig()
@@ -42,6 +43,40 @@ export function middleware(request: NextRequest) {
         preflightResponse.headers.set('Access-Control-Max-Age', '86400')
         
         return applySecurityHeaders(preflightResponse)
+      }
+    }
+
+    // Gate authenticated app routes
+    if (pathname.startsWith('/briefly/app/')) {
+      const { supabase, response: supabaseResponse } = createSupabaseMiddlewareClient(request)
+      // Ensure downstream uses the response that carries any set-cookie
+      response = supabaseResponse
+
+      const { data: { user }, error } = await supabase.auth.getUser()
+
+      if (error || !user) {
+        const redirectUrl = new URL('/auth/signin', request.url)
+        // Preserve path and query for post-login return
+        redirectUrl.searchParams.set('callbackUrl', request.nextUrl.pathname + request.nextUrl.search)
+
+        const redirectResponse = NextResponse.redirect(redirectUrl)
+
+        // Carry over rate limit headers for consistency
+        const rateLimitHeaders = getRateLimitHeaders(request)
+        Object.entries(rateLimitHeaders).forEach(([k, v]) => {
+          redirectResponse.headers.set(k, v)
+        })
+
+        // Apply global security headers to redirect as well
+        return applySecurityHeaders(redirectResponse, {
+          enableHSTS: isProduction(),
+          enableCSP: true,
+          enableCORS: false,
+          customHeaders: {
+            'X-Request-ID': generateRequestId(),
+            'X-Timestamp': new Date().toISOString()
+          }
+        })
       }
     }
     
