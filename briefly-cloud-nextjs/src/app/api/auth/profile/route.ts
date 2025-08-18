@@ -2,83 +2,39 @@
  * User Profile API Route for Supabase Auth
  * 
  * This route provides user profile information for authenticated users
- * and handles profile updates.
+ * and handles profile creation if missing.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { withAuth, type AuthContext } from '@/app/lib/auth/auth-middleware'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
-// GET /api/auth/profile - Get current user profile
-async function getProfileHandler(request: NextRequest, context: AuthContext): Promise<NextResponse> {
-  try {
-    const { user } = context
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        avatar_url: user.avatar_url,
-        subscription_tier: user.subscription_tier,
-        subscription_status: user.subscription_status,
-        usage_count: user.usage_count,
-        usage_limit: user.usage_limit,
-        features_enabled: user.features_enabled,
-        permissions: user.permissions,
-        last_login_at: user.last_login_at,
-        created_at: user.created_at
+// GET /api/auth/profile - Get or create user profile
+export async function GET() {
+  try {
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { 
+        cookies: { 
+          get: (name: string) => cookieStore.get(name)?.value 
+        } 
       }
-    })
-  } catch (error) {
-    console.error('Error fetching user profile:', error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'PROFILE_FETCH_ERROR',
-        message: 'Failed to fetch user profile'
-      },
-      { status: 500 }
     )
-  }
-}
 
-// PUT /api/auth/profile - Update user profile
-async function updateProfileHandler(request: NextRequest, context: AuthContext): Promise<NextResponse> {
-  try {
-    const { user } = context
-    const body = await request.json()
-
-    // Validate allowed fields for update
-    const allowedFields = ['full_name', 'preferences', 'marketing_consent', 'analytics_consent']
-    const updateData: any = {}
-
-    for (const field of allowedFields) {
-      if (body[field] !== undefined) {
-        updateData[field] = body[field]
-      }
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
 
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'NO_VALID_FIELDS',
-          message: 'No valid fields provided for update'
-        },
-        { status: 400 }
-      )
-    }
-
-    // Update user profile
-    const { data: updatedUser, error } = await supabaseAdmin
+    // Check if profile exists in app.users table
+    const { data: existing, error: fetchError } = await supabaseAdmin
       .from('app.users')
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', user.id)
       .select(`
         id,
         email,
@@ -90,116 +46,104 @@ async function updateProfileHandler(request: NextRequest, context: AuthContext):
         chat_messages_limit,
         features_enabled,
         permissions,
-        preferences,
-        marketing_consent,
-        analytics_consent,
         last_login_at,
-        created_at,
-        updated_at
+        created_at
       `)
-      .single()
+      .eq('id', user.id)
+      .maybeSingle()
 
-    if (error) {
-      throw error
+    if (fetchError) {
+      console.error('Error fetching user profile:', fetchError)
+      return NextResponse.json({ error: 'profile_fetch_failed' }, { status: 500 })
     }
 
-    // Log profile update
-    await supabaseAdmin
-      .from('private.audit_logs')
-      .insert({
-        user_id: user.id,
-        action: 'USER_PROFILE_UPDATE',
-        resource_type: 'user_profile',
-        resource_id: user.id,
-        old_values: { 
-          full_name: user.full_name,
-          preferences: user.preferences || {}
+    // Create profile if missing (use admin to bypass RLS on first insert)
+    if (!existing) {
+      const newProfile = {
+        id: user.id,
+        email: user.email!,
+        full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
+        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+        subscription_tier: 'free' as const,
+        subscription_status: 'active',
+        chat_messages_count: 0,
+        chat_messages_limit: 100,
+        documents_uploaded: 0,
+        documents_limit: 25,
+        api_calls_count: 0,
+        api_calls_limit: 1000,
+        storage_used_bytes: 0,
+        storage_limit_bytes: 104857600, // 100MB
+        usage_stats: {},
+        preferences: {},
+        features_enabled: {
+          cloud_storage: true,
+          ai_chat: true,
+          document_upload: true
         },
-        new_values: updateData,
-        severity: 'info'
-      })
+        permissions: {
+          can_upload: true,
+          can_chat: true,
+          can_export: false
+        },
+        usage_reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        last_login_at: new Date().toISOString(),
+        gdpr_consent_version: '1.0',
+        marketing_consent: false,
+        analytics_consent: true
+      }
 
+      const { error: insertError } = await supabaseAdmin
+        .from('app.users')
+        .insert(newProfile)
+
+      if (insertError) {
+        console.error('Error creating user profile:', insertError)
+        return NextResponse.json({ error: 'profile_insert_failed' }, { status: 500 })
+      }
+
+      // Return the newly created profile
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: newProfile.id,
+          email: newProfile.email,
+          full_name: newProfile.full_name,
+          avatar_url: newProfile.avatar_url,
+          subscription_tier: newProfile.subscription_tier,
+          subscription_status: newProfile.subscription_status,
+          usage_count: newProfile.chat_messages_count,
+          usage_limit: newProfile.chat_messages_limit,
+          features_enabled: newProfile.features_enabled,
+          permissions: newProfile.permissions,
+          last_login_at: newProfile.last_login_at,
+          created_at: new Date().toISOString()
+        }
+      })
+    }
+
+    // Return existing profile
     return NextResponse.json({
       success: true,
       user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        full_name: updatedUser.full_name,
-        avatar_url: updatedUser.avatar_url,
-        subscription_tier: updatedUser.subscription_tier,
-        subscription_status: updatedUser.subscription_status,
-        usage_count: updatedUser.chat_messages_count || 0,
-        usage_limit: updatedUser.chat_messages_limit || 100,
-        features_enabled: updatedUser.features_enabled || {},
-        permissions: updatedUser.permissions || {},
-        preferences: updatedUser.preferences || {},
-        marketing_consent: updatedUser.marketing_consent,
-        analytics_consent: updatedUser.analytics_consent,
-        last_login_at: updatedUser.last_login_at,
-        created_at: updatedUser.created_at
+        id: existing.id,
+        email: existing.email,
+        full_name: existing.full_name,
+        avatar_url: existing.avatar_url,
+        subscription_tier: existing.subscription_tier,
+        subscription_status: existing.subscription_status,
+        usage_count: existing.chat_messages_count || 0,
+        usage_limit: existing.chat_messages_limit || 100,
+        features_enabled: existing.features_enabled || {},
+        permissions: existing.permissions || {},
+        last_login_at: existing.last_login_at,
+        created_at: existing.created_at
       }
     })
   } catch (error) {
-    console.error('Error updating user profile:', error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'PROFILE_UPDATE_ERROR',
-        message: 'Failed to update user profile'
-      },
-      { status: 500 }
-    )
+    console.error('Error in profile route:', error)
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 })
   }
 }
 
-// DELETE /api/auth/profile - Delete user account (GDPR compliance)
-async function deleteProfileHandler(request: NextRequest, context: AuthContext): Promise<NextResponse> {
-  try {
-    const { user } = context
-
-    // Create data deletion request
-    const { error: deletionError } = await supabaseAdmin
-      .from('app.data_deletion_requests')
-      .insert({
-        user_id: user.id,
-        status: 'pending',
-        deletion_type: 'account',
-        reason: 'User requested account deletion'
-      })
-
-    if (deletionError) {
-      throw deletionError
-    }
-
-    // Log account deletion request
-    await supabaseAdmin
-      .from('private.audit_logs')
-      .insert({
-        user_id: user.id,
-        action: 'ACCOUNT_DELETION_REQUESTED',
-        resource_type: 'user_account',
-        resource_id: user.id,
-        severity: 'warning'
-      })
-
-    return NextResponse.json({
-      success: true,
-      message: 'Account deletion request submitted. Your account will be deleted within 30 days.'
-    })
-  } catch (error) {
-    console.error('Error processing account deletion:', error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'DELETION_REQUEST_ERROR',
-        message: 'Failed to process account deletion request'
-      },
-      { status: 500 }
-    )
-  }
-}
-
-// Export handlers with authentication middleware
-export const GET = withAuth(getProfileHandler)
-export const PUT = withAuth(updateProfileHandler)
-export const DELETE = withAuth(deleteProfileHandler)

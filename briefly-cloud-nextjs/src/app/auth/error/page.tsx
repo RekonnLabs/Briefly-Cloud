@@ -8,19 +8,28 @@ import { Button } from '@/app/components/ui/button'
 function ErrorContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
+  const description = searchParams.get('description')
 
-  const getErrorMessage = (error: string | null) => {
+  const getErrorMessage = (error: string | null, description: string | null) => {
+    // If we have a description, use it
+    if (description) {
+      return description
+    }
+    
+    // Otherwise use predefined messages
     switch (error) {
       case 'Configuration':
         return 'There is a problem with the server configuration.'
       case 'AccessDenied':
+      case 'access_denied':
         return 'Access denied. You do not have permission to sign in.'
       case 'Verification':
         return 'The verification token has expired or has already been used.'
       case 'OAuthSignin':
         return 'Error in constructing an authorization URL.'
       case 'OAuthCallback':
-        return 'Error in handling the response from an OAuth provider.'
+      case 'callback_error':
+        return 'Error in handling the response from the OAuth provider.'
       case 'OAuthCreateAccount':
         return 'Could not create OAuth provider user in the database.'
       case 'EmailCreateAccount':
@@ -35,6 +44,10 @@ function ErrorContent() {
         return 'The authorize callback returned null in the Credentials provider.'
       case 'SessionRequired':
         return 'The content of this page requires you to be signed in at all times.'
+      case 'profile_creation_failed':
+        return 'Failed to create your user profile. Please try signing in again.'
+      case 'unexpected_error':
+        return 'An unexpected error occurred during authentication.'
       default:
         return 'An error occurred during authentication.'
     }
@@ -52,7 +65,7 @@ function ErrorContent() {
 
         <div className="p-4 bg-red-50 border border-red-200 rounded-md">
           <p className="text-sm text-red-600">
-            {getErrorMessage(error)}
+            {getErrorMessage(error, description)}
           </p>
         </div>
 

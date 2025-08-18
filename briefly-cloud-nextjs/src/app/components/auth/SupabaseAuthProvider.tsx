@@ -56,19 +56,39 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
   const fetchUserProfile = async (supabaseUser: User): Promise<AuthUser | null> => {
     try {
       const response = await fetch('/api/auth/profile', {
+        method: 'GET',
+        credentials: 'same-origin', // explicit same-origin (same-origin is default, but be safe)
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`
+          'Content-Type': 'application/json'
         }
       })
       
       if (!response.ok) {
-        throw new Error('Failed to fetch user profile')
+        console.error(`Profile fetch failed: ${response.status} ${response.statusText}`)
+        throw new Error(`Failed to fetch user profile: ${response.status}`)
       }
       
-      const { user: userProfile } = await response.json()
-      return userProfile
+      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch user profile')
+      }
+      
+      return result.user
     } catch (error) {
       console.error('Error fetching user profile:', error)
+      
+      // Return basic user info if profile fetch fails but we have user data
+      if (supabaseUser) {
+        return {
+          id: supabaseUser.id,
+          email: supabaseUser.email || '',
+          full_name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || '',
+          subscription_tier: 'free',
+          features_enabled: {},
+          permissions: {}
+        }
+      }
+      
       return null
     }
   }

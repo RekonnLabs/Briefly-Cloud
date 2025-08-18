@@ -33,7 +33,33 @@ export function withAuth(
     try {
       // Always try to get user if auth is required
       if (config.requireAuth) {
-        const user = await getAuthenticatedUser()
+        let user: AuthUser
+        try {
+          user = await getAuthenticatedUser()
+        } catch (error) {
+          // Check if this is just a profile not found error during OAuth flow
+          if (error instanceof Error && error.message.includes('User profile not found')) {
+            // Try to create the user profile if we have a valid session but no profile
+            const supabase = createSupabaseServerClient()
+            const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+            
+            if (!authError && authUser) {
+              // User is authenticated but profile doesn't exist yet
+              // This can happen during the OAuth flow
+              return NextResponse.json(
+                {
+                  success: false,
+                  error: 'PROFILE_PENDING',
+                  message: 'User profile is being created. Please wait a moment and try again.'
+                },
+                { status: 202 } // Accepted, but processing
+              )
+            }
+          }
+          
+          // For other auth errors, return unauthorized
+          throw error
+        }
         
         // Check admin requirement
         if (config.requireAdmin && !user.email.endsWith('@rekonnlabs.com')) {

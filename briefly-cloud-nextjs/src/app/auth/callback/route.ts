@@ -13,17 +13,27 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const next = requestUrl.searchParams.get('next') || '/briefly/app/dashboard'
+  const error = requestUrl.searchParams.get('error')
+  const errorDescription = requestUrl.searchParams.get('error_description')
+
+  // Handle OAuth errors from provider
+  if (error) {
+    console.error('OAuth provider error:', error, errorDescription)
+    return NextResponse.redirect(new URL(`/auth/error?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}`, request.url))
+  }
 
   if (code) {
     try {
       const supabase = createSupabaseServerClient()
+      
+      console.log('Processing OAuth callback with code:', code.substring(0, 10) + '...')
       
       // Exchange code for session
       const { data: { user, session }, error } = await supabase.auth.exchangeCodeForSession(code)
       
       if (error) {
         console.error('Auth callback error:', error)
-        return NextResponse.redirect(new URL('/auth/error?error=callback_error', request.url))
+        return NextResponse.redirect(new URL(`/auth/error?error=callback_error&description=${encodeURIComponent(error.message)}`, request.url))
       }
 
       if (user && session) {
