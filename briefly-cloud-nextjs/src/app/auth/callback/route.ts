@@ -6,7 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient, createOrUpdateUserProfile } from '@/app/lib/auth/supabase-auth'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 export async function GET(request: NextRequest) {
@@ -24,7 +25,24 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     try {
-      const supabase = createSupabaseServerClient()
+      const cookieStore = cookies()
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            get(name: string) {
+              return cookieStore.get(name)?.value
+            },
+            set(name: string, value: string, options: any) {
+              cookieStore.set({ name, value, ...options })
+            },
+            remove(name: string, options: any) {
+              cookieStore.set({ name, value: '', ...options })
+            },
+          },
+        }
+      )
       
       console.log('Processing OAuth callback with code:', code.substring(0, 10) + '...')
       
@@ -37,16 +55,13 @@ export async function GET(request: NextRequest) {
       }
 
       if (user && session) {
-        // Create or update user profile in our app.users table
+        console.log('User authenticated successfully:', user.email)
+        
+        // Note: User profile will be automatically created by the database trigger
+        // when the user was inserted into auth.users during OAuth flow
+        
+        // Log successful authentication
         try {
-          await createOrUpdateUserProfile(
-            user.id,
-            user.email!,
-            user.user_metadata?.full_name || user.user_metadata?.name,
-            user.user_metadata?.avatar_url || user.user_metadata?.picture
-          )
-
-          // Log successful authentication
           await supabaseAdmin
             .from('private.audit_logs')
             .insert({
@@ -60,11 +75,9 @@ export async function GET(request: NextRequest) {
               },
               severity: 'info'
             })
-
-          console.log('User authenticated successfully:', user.email)
-        } catch (profileError) {
-          console.error('Failed to create/update user profile:', profileError)
-          return NextResponse.redirect(new URL('/auth/error?error=profile_creation_failed', request.url))
+        } catch (auditError) {
+          // Don't fail the auth flow if audit logging fails
+          console.warn('Failed to log authentication:', auditError)
         }
       }
 
