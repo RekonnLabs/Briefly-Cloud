@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
       { count: totalDocuments },
       { count: totalConversations }
     ] = await Promise.all([
-      supabase.from('users').select('*', { count: 'exact', head: true }),
-      supabase.from('users').select('*', { count: 'exact', head: true })
+      supabase.from('app.users').select('*', { count: 'exact', head: true }),
+      supabase.from('app.users').select('*', { count: 'exact', head: true })
         .gte('last_login_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       supabase.from('file_metadata').select('*', { count: 'exact', head: true }),
       supabase.from('conversations').select('*', { count: 'exact', head: true })
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
 
     // Get subscription metrics
     const { data: subscriptionData } = await supabase
-      .from('users')
+      .from('app.users')
       .select('subscription_tier')
       .not('subscription_tier', 'is', null);
 
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
 
     // Inactive users alert
     const { count: inactiveUsers } = await supabase
-      .from('users')
+      .from('app.users')
       .select('*', { count: 'exact', head: true })
       .lt('last_login_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
 

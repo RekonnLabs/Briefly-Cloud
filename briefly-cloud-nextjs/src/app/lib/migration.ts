@@ -111,7 +111,7 @@ export class DataMigrationManager {
   private config: MigrationConfig
 
   constructor(supabaseUrl: string, supabaseKey: string, config: Partial<MigrationConfig> = {}) {
-    this.supabase = createClient(supabaseUrl, supabaseKey)
+    this.supabase = createClient(supabaseUrl, supabaseKey, { db: { schema: 'app' } })
     this.config = {
       batchSize: 100,
       maxRetries: 3,
