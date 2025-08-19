@@ -68,6 +68,7 @@ export function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      db: { schema: 'app' },
       cookies: {
         get(name: string) {
           return cookieStore.get(name)?.value
@@ -107,6 +108,7 @@ export function createSupabaseMiddlewareClient(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      db: { schema: 'app' },
       cookies: {
         get(name: string) {
           return request.cookies.get(name)?.value
@@ -158,7 +160,8 @@ export function createSupabaseMiddlewareClient(request: NextRequest) {
 export function createSupabaseBrowserClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { db: { schema: 'app' } }
   )
 }
 
@@ -177,7 +180,7 @@ export async function getAuthenticatedUser(): Promise<AuthUser> {
 
   // Get full user profile from app.users table
   const { data: userProfile, error: profileError } = await supabaseAdmin
-    .from('app.users')
+    .from('users')
     .select(`
       id,
       email,
@@ -207,7 +210,7 @@ export async function getAuthenticatedUser(): Promise<AuthUser> {
 
   // Update last login timestamp
   await supabaseAdmin
-    .from('app.users')
+    .from('users')
     .update({ last_login_at: new Date().toISOString() })
     .eq('id', user.id)
 
@@ -281,7 +284,7 @@ export async function createOrUpdateUserProfile(
 ): Promise<AuthUser> {
   // Check if user exists
   const { data: existingUser } = await supabaseAdmin
-    .from('app.users')
+    .from('users')
     .select('id')
     .eq('id', userId)
     .single()
@@ -324,7 +327,7 @@ export async function createOrUpdateUserProfile(
     }
 
     const { error } = await supabaseAdmin
-      .from('app.users')
+      .from('users')
       .insert(newUser)
 
     if (error) {
@@ -348,7 +351,7 @@ export async function createOrUpdateUserProfile(
   } else {
     // Update existing user's login timestamp and profile info
     const { data: updatedUser, error } = await supabaseAdmin
-      .from('app.users')
+      .from('users')
       .update({
         full_name: fullName || undefined,
         avatar_url: avatarUrl || undefined,

@@ -40,7 +40,7 @@ export const GET = async (request: NextRequest, { params }: RouteParams) => {
 
     // Get share info with file details
     const { data: share, error: shareError } = await supabaseAdmin
-      .from('app.file_shares')
+      .from('file_shares')
       .select(`
         *,
         file:app.files(
@@ -136,7 +136,7 @@ export const GET = async (request: NextRequest, { params }: RouteParams) => {
 
       // Update access count and last accessed time
       await supabaseAdmin
-        .from('app.file_shares')
+        .from('file_shares')
         .update({
           access_count: share.access_count + 1,
           last_accessed_at: new Date().toISOString()
