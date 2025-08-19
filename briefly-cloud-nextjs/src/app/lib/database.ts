@@ -68,7 +68,7 @@ export async function withRetry<T>(
 export async function testDatabaseConnection(): Promise<boolean> {
   try {
     const { error } = await supabaseAdmin
-      .from('users')
+      .from('app.users')
       .select('id')
       .limit(1)
 
@@ -93,7 +93,7 @@ export async function getDatabaseHealth(): Promise<{
   
   try {
     const { error } = await supabaseAdmin
-      .from('users')
+      .from('app.users')
       .select('id')
       .limit(1)
 

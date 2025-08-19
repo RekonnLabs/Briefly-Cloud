@@ -74,7 +74,7 @@ export const GET = withAuth(
 
       // Get file info for response
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('name, content_type, file_size')
         .eq('id', fileId)
         .single()

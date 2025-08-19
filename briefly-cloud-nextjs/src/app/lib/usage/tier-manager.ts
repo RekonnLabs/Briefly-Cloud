@@ -58,7 +58,7 @@ export class TierManager {
   async getUserSubscription(userId: string): Promise<TierStatus> {
     try {
       const { data: user, error } = await supabaseAdmin
-        .from('app.users')
+        .from('users')
         .select(`
           subscription_tier,
           subscription_status,

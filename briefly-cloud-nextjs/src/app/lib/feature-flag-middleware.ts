@@ -64,7 +64,7 @@ export async function withFeatureFlag(
       );
 
       const { data: userData, error } = await supabase
-        .from('users')
+        .from('app.users')
         .select('id, email, subscription_tier, is_beta_user, created_at')
         .eq('email', token.email)
         .single();

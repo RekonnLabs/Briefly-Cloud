@@ -284,7 +284,7 @@ export class UsageTracker {
 
       // Get usage counts by action type
       const { data: usageCounts, error } = await supabaseAdmin
-        .from('app.usage_logs')
+        .from('usage_logs')
         .select('action, quantity')
         .eq('user_id', userId)
         .gte('created_at', periodStart.toISOString())
@@ -354,7 +354,7 @@ export class UsageTracker {
   private async getUserTier(userId: string): Promise<SubscriptionTier> {
     try {
       const { data: user, error } = await supabaseAdmin
-        .from('app.users')
+        .from('users')
         .select('subscription_tier')
         .eq('id', userId)
         .single()
@@ -393,7 +393,7 @@ export class UsageTracker {
   async hasFeature(userId: string, feature: string): Promise<boolean> {
     try {
       const { data: user, error } = await supabaseAdmin
-        .from('app.users')
+        .from('users')
         .select('features_enabled, subscription_tier')
         .eq('id', userId)
         .single()
@@ -427,7 +427,7 @@ export class UsageTracker {
   ): Promise<any[]> {
     try {
       let query = supabaseAdmin
-        .from('app.usage_logs')
+        .from('usage_logs')
         .select('action, quantity, created_at, user_id')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString())
@@ -517,7 +517,7 @@ export class UsageTracker {
       if (userId) {
         // Reset for specific user
         await supabaseAdmin
-          .from('app.users')
+          .from('users')
           .update({
             chat_messages_count: 0,
             documents_uploaded: 0,

@@ -70,7 +70,7 @@ export const POST = withAuth(
 
       // Verify file ownership
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('*')
         .eq('id', fileId)
         .eq('user_id', user.id)
@@ -94,7 +94,7 @@ export const POST = withAuth(
 
       // Create share record
       const { data: share, error: shareError } = await supabaseAdmin
-        .from('app.file_shares')
+        .from('file_shares')
         .insert({
           file_id: fileId,
           shared_by: user.id,
@@ -190,7 +190,7 @@ export const GET = withAuth(
 
       // Verify file ownership
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('id, name')
         .eq('id', fileId)
         .eq('user_id', user.id)
@@ -210,7 +210,7 @@ export const GET = withAuth(
 
       // Get active shares
       const { data: shares, error: sharesError } = await supabaseAdmin
-        .from('app.file_shares')
+        .from('file_shares')
         .select('*')
         .eq('file_id', fileId)
         .gt('expires_at', new Date().toISOString())
@@ -282,7 +282,7 @@ export const DELETE = withAuth(
 
       // Verify file ownership
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('id, name')
         .eq('id', fileId)
         .eq('user_id', user.id)
@@ -301,7 +301,7 @@ export const DELETE = withAuth(
       }
 
       let query = supabaseAdmin
-        .from('app.file_shares')
+        .from('file_shares')
         .delete()
         .eq('file_id', fileId)
 
