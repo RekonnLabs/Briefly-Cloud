@@ -396,7 +396,7 @@ export class SecurityMonitor {
   private async getActiveSessionCount(): Promise<number> {
     try {
       const { count } = await supabaseAdmin
-        .from('app.users')
+        .from('users')
         .select('*', { count: 'exact', head: true })
         .gte('last_login', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 

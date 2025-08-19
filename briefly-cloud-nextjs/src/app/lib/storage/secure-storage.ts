@@ -131,7 +131,7 @@ export class SecureStorage {
 
       // Create file record in database
       const { data: dbFile, error: dbError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .insert({
           user_id: upload.userId,
           name: upload.fileName,
@@ -217,7 +217,7 @@ export class SecureStorage {
     try {
       // Get file info and validate access
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('*')
         .eq('id', fileId)
         .single()
@@ -302,7 +302,7 @@ export class SecureStorage {
     try {
       // Get file info and validate access
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('*')
         .eq('id', fileId)
         .single()
@@ -348,7 +348,7 @@ export class SecureStorage {
 
       // Mark as deleted in database (soft delete)
       const { error: dbError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .update({
           deleted_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -402,7 +402,7 @@ export class SecureStorage {
   }> {
     try {
       let query = supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('*', { count: 'exact' })
         .eq('user_id', userId)
         .is('deleted_at', null)

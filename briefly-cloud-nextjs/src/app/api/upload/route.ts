@@ -229,7 +229,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       
       // Mark as failed but don't fail the upload
       await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .update({ processed: false, processing_status: 'failed' })
         .eq('id', fileId)
         .eq('user_id', user.id)

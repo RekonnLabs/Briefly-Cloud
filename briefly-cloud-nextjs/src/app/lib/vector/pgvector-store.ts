@@ -120,7 +120,7 @@ export class PgVectorStore implements IVectorStore {
 
       // Insert chunks using the secure function
       const { error } = await supabaseAdmin
-        .from('app.document_chunks')
+        .from('document_chunks')
         .upsert(chunks, {
           onConflict: 'id',
           ignoreDuplicates: false
@@ -223,7 +223,7 @@ export class PgVectorStore implements IVectorStore {
 
       // Log the search operation
       await supabaseAdmin
-        .from('app.usage_logs')
+        .from('usage_logs')
         .insert({
           user_id: userId,
           action: 'vector_search',
@@ -287,7 +287,7 @@ export class PgVectorStore implements IVectorStore {
 
         // Get count of deleted chunks for logging
         const { count } = await supabaseAdmin
-          .from('app.document_chunks')
+          .from('document_chunks')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', userId)
           .eq('file_id', fileId)
@@ -297,7 +297,7 @@ export class PgVectorStore implements IVectorStore {
       } else {
         // Delete all vectors for user
         const { error, count } = await supabaseAdmin
-          .from('app.document_chunks')
+          .from('document_chunks')
           .delete({ count: 'exact' })
           .eq('user_id', userId)
 
@@ -349,7 +349,7 @@ export class PgVectorStore implements IVectorStore {
 
       // Get document count for user
       const { count, error } = await supabaseAdmin
-        .from('app.document_chunks')
+        .from('document_chunks')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
 
@@ -417,7 +417,7 @@ export class PgVectorStore implements IVectorStore {
     try {
       // Check if user exists in our system
       const { data: user, error } = await supabaseAdmin
-        .from('app.users')
+        .from('users')
         .select('id, subscription_status')
         .eq('id', userId)
         .single()
@@ -434,7 +434,7 @@ export class PgVectorStore implements IVectorStore {
       // If resourceId is provided, validate access to that specific resource
       if (resourceId) {
         const { data: resource, error: resourceError } = await supabaseAdmin
-          .from('app.files')
+          .from('files')
           .select('id')
           .eq('id', resourceId)
           .eq('user_id', userId)

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     
     // Check if user is admin
     const { data: userData } = await supabaseAdmin
-      .from('app.users')
+      .from('users')
       .select('email')
       .eq('id', user.id)
       .single();
@@ -93,7 +93,7 @@ export async function PATCH(request: NextRequest) {
     
     // Check if user is admin
     const { data: userData } = await supabaseAdmin
-      .from('app.users')
+      .from('users')
       .select('email')
       .eq('id', user.id)
       .single();

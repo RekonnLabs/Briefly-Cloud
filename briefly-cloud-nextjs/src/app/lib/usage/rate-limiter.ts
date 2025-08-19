@@ -219,7 +219,7 @@ export class RateLimiter {
       
       // Get current count for this window
       const { data: rateLimit, error } = await supabaseAdmin
-        .from('app.rate_limits')
+        .from('rate_limits')
         .select('count')
         .eq('user_id', userId)
         .eq('limit_type', window)
@@ -329,7 +329,7 @@ export class RateLimiter {
 
       // Upsert the rate limit record
       const { error } = await supabaseAdmin
-        .from('app.rate_limits')
+        .from('rate_limits')
         .upsert({
           user_id: userId,
           limit_type: window,
@@ -384,7 +384,7 @@ export class RateLimiter {
           const limit = await this.getLimitForUser(userId, action, window)
 
           const { data: rateLimit } = await supabaseAdmin
-            .from('app.rate_limits')
+            .from('rate_limits')
             .select('count')
             .eq('user_id', userId)
             .eq('limit_type', window)
@@ -427,7 +427,7 @@ export class RateLimiter {
     try {
       // Get user's subscription tier
       const { data: user, error } = await supabaseAdmin
-        .from('app.users')
+        .from('users')
         .select('subscription_tier')
         .eq('id', userId)
         .single()
@@ -497,7 +497,7 @@ export class RateLimiter {
       const cutoffTime = new Date(Date.now() - olderThanHours * 60 * 60 * 1000)
 
       const { error } = await supabaseAdmin
-        .from('app.rate_limits')
+        .from('rate_limits')
         .delete()
         .lt('window_start', cutoffTime.toISOString())
 
@@ -518,7 +518,7 @@ export class RateLimiter {
   async resetUserRateLimits(userId: string): Promise<void> {
     try {
       const { error } = await supabaseAdmin
-        .from('app.rate_limits')
+        .from('rate_limits')
         .delete()
         .eq('user_id', userId)
 

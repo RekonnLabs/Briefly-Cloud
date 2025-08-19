@@ -86,7 +86,7 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Step 5: Update file processing status
       await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .update({
           processed: true,
           processing_status: 'completed',
@@ -97,7 +97,7 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Step 6: Log usage for analytics
       await supabaseAdmin
-        .from('app.usage_logs')
+        .from('usage_logs')
         .insert({
           user_id: userId,
           action: 'document_processed',
@@ -131,7 +131,7 @@ export class DocumentProcessor implements IDocumentProcessor {
       // Update file status to failed
       try {
         await supabaseAdmin
-          .from('app.files')
+          .from('files')
           .update({
             processed: false,
             processing_status: 'failed',
@@ -174,7 +174,7 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Step 3: Log search usage
       await supabaseAdmin
-        .from('app.usage_logs')
+        .from('usage_logs')
         .insert({
           user_id: userId,
           action: 'document_search',
@@ -219,7 +219,7 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Step 2: Delete file metadata (this will cascade to chunks via foreign key)
       const { error } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .delete()
         .eq('id', fileId)
         .eq('user_id', userId)
@@ -230,7 +230,7 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Step 3: Log deletion
       await supabaseAdmin
-        .from('app.usage_logs')
+        .from('usage_logs')
         .insert({
           user_id: userId,
           action: 'document_deleted',
@@ -263,7 +263,7 @@ export class DocumentProcessor implements IDocumentProcessor {
     try {
       // Get file statistics
       const { data: fileStats, error: fileError } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('processed, processing_status')
         .eq('user_id', userId)
 
@@ -277,7 +277,7 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Get chunk statistics
       const { count: totalChunks, error: chunkError } = await supabaseAdmin
-        .from('app.document_chunks')
+        .from('document_chunks')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
 
@@ -321,7 +321,7 @@ export class DocumentProcessor implements IDocumentProcessor {
     try {
       // Get file information
       const { data: file, error } = await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .select('name, processed, processing_status')
         .eq('id', fileId)
         .eq('user_id', userId)
@@ -346,7 +346,7 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Mark file as not processed
       await supabaseAdmin
-        .from('app.files')
+        .from('files')
         .update({
           processed: false,
           processing_status: 'processing',

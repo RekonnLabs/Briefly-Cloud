@@ -206,7 +206,7 @@ export async function checkRateLimit(
     
     // Get current count for this window
     const { data: rateLimit } = await supabaseAdmin
-      .from('app.rate_limits')
+      .from('rate_limits')
       .select('count')
       .eq('user_id', userId)
       .eq('limit_type', windowType)
@@ -223,7 +223,7 @@ export async function checkRateLimit(
     
     // Increment counter
     await supabaseAdmin
-      .from('app.rate_limits')
+      .from('rate_limits')
       .upsert({
         user_id: userId,
         limit_type: windowType,
