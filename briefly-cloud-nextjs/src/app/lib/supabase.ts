@@ -146,7 +146,7 @@ export class SupabaseError extends Error {
 export async function getUserById(userId: string): Promise<User | null> {
   try {
     const { data, error } = await supabaseAdmin
-      .from('users')
+      .from('app.users')
       .select('*')
       .eq('id', userId)
       .single()
@@ -166,7 +166,7 @@ export async function getUserById(userId: string): Promise<User | null> {
 export async function getUserByEmail(email: string): Promise<User | null> {
   try {
     const { data, error } = await supabaseAdmin
-      .from('users')
+      .from('app.users')
       .select('*')
       .eq('email', email)
       .single()
@@ -186,7 +186,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 export async function updateUser(userId: string, updates: Partial<User>): Promise<User> {
   try {
     const { data, error } = await supabaseAdmin
-      .from('users')
+      .from('app.users')
       .update(updates)
       .eq('id', userId)
       .select()
