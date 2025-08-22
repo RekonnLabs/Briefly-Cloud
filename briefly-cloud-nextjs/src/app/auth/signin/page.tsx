@@ -40,15 +40,13 @@ function SignInContent() {
     setError('')
     
     try {
-      // Validate callback URL is same-origin
-      const safeCallbackUrl = callbackUrl.startsWith('/') ? callbackUrl : '/briefly/app/dashboard'
+      const next = '/briefly/app/dashboard'
+      const redirectTo = new URL('/auth/callback', window.location.origin)
+      redirectTo.searchParams.set('next', next)
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(safeCallbackUrl)}`,
-          scopes: 'openid email profile'
-        }
+        options: { redirectTo: redirectTo.toString() }
       })
       
       if (error) {
@@ -67,15 +65,13 @@ function SignInContent() {
     setError('')
     
     try {
-      // Validate callback URL is same-origin
-      const safeCallbackUrl = callbackUrl.startsWith('/') ? callbackUrl : '/briefly/app/dashboard'
+      const next = '/briefly/app/dashboard'
+      const redirectTo = new URL('/auth/callback', window.location.origin)
+      redirectTo.searchParams.set('next', next)
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
-        options: {
-          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(safeCallbackUrl)}`,
-          scopes: 'openid email profile'
-        }
+        options: { redirectTo: redirectTo.toString() }
       })
       
       if (error) {

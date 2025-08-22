@@ -1,26 +1,11 @@
-import { supabase } from '@/app/lib/supabase'
-import { createSuccessResponse, createErrorResponse } from '@/app/lib/utils'
+import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@supabase/ssr'
 
 export async function POST() {
-  try {
-    const { error } = await supabase.auth.signOut()
-    
-    if (error) {
-      console.error('Logout error:', error)
-      return Response.json(
-        createErrorResponse('Logout failed'),
-        { status: 500 }
-      )
-    }
-
-    return Response.json(
-      createSuccessResponse({ message: 'Logged out successfully' })
-    )
-  } catch (error) {
-    console.error('Logout error:', error)
-    return Response.json(
-      createErrorResponse('Logout failed'),
-      { status: 500 }
-    )
-  }
+  const supabase = createRouteHandlerClient({ cookies }, {
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  })
+  await supabase.auth.signOut()
+  return Response.json({ ok: true })
 }
