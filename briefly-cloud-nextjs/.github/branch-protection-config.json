@@ -20,13 +20,18 @@
         "require_last_push_approval": true,
         "bypass_pull_request_allowances": {
           "users": [],
-          "teams": ["security-team"],
+          "teams": [
+            "security-team"
+          ],
           "apps": []
         }
       },
       "restrictions": {
         "users": [],
-        "teams": ["core-developers", "security-team"],
+        "teams": [
+          "core-developers",
+          "security-team"
+        ],
         "apps": []
       },
       "required_linear_history": true,
@@ -107,7 +112,12 @@
       "manual_approval_required": true,
       "security_team_approval_required": true,
       "deployment_window": {
-        "allowed_days": ["monday", "tuesday", "wednesday", "thursday"],
+        "allowed_days": [
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday"
+        ],
         "allowed_hours": "09:00-17:00",
         "timezone": "UTC"
       }

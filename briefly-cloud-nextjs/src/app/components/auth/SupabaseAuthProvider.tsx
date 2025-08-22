@@ -76,11 +76,16 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
       
       if (!mounted) return
       
-      // Handle different auth events
+      // Handle different auth events with additional validation
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        setSession(session)
-        if (session?.user) {
+        // Validate session before setting
+        if (session?.user?.email && session.access_token) {
+          setSession(session)
           setUser(createAuthUser(session.user))
+        } else {
+          console.warn('Invalid session data received:', { hasUser: !!session?.user, hasToken: !!session?.access_token })
+          setSession(null)
+          setUser(null)
         }
         setLoading(false)
       } else if (event === 'SIGNED_OUT') {
@@ -88,9 +93,13 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
         setUser(null)
         setLoading(false)
       } else if (event === 'INITIAL_SESSION') {
-        setSession(session)
-        if (session?.user) {
+        // Validate initial session
+        if (session?.user?.email && session.access_token) {
+          setSession(session)
           setUser(createAuthUser(session.user))
+        } else if (session) {
+          console.warn('Invalid initial session, signing out')
+          await supabase.auth.signOut()
         }
         setLoading(false)
       }

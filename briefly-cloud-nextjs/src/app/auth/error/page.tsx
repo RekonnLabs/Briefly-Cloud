@@ -44,8 +44,6 @@ function ErrorContent() {
         return 'The authorize callback returned null in the Credentials provider.'
       case 'SessionRequired':
         return 'The content of this page requires you to be signed in at all times.'
-      case 'profile_creation_failed':
-        return 'Failed to create your user profile. Please try signing in again.'
       case 'unexpected_error':
         return 'An unexpected error occurred during authentication.'
       default:

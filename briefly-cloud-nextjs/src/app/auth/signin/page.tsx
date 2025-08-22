@@ -40,10 +40,13 @@ function SignInContent() {
     setError('')
     
     try {
+      // Validate callback URL is same-origin
+      const safeCallbackUrl = callbackUrl.startsWith('/') ? callbackUrl : '/briefly/app/dashboard'
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(callbackUrl)}`,
+          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(safeCallbackUrl)}`,
           scopes: 'openid email profile'
         }
       })
@@ -51,6 +54,7 @@ function SignInContent() {
       if (error) {
         throw error
       }
+      // Don't set loading to false here - let the redirect happen
     } catch (err: any) {
       console.error('Google sign in error:', err)
       setError('Failed to sign in with Google. Please try again.')
@@ -63,10 +67,13 @@ function SignInContent() {
     setError('')
     
     try {
+      // Validate callback URL is same-origin
+      const safeCallbackUrl = callbackUrl.startsWith('/') ? callbackUrl : '/briefly/app/dashboard'
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
-          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(callbackUrl)}`,
+          redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(safeCallbackUrl)}`,
           scopes: 'openid email profile'
         }
       })
@@ -74,6 +81,7 @@ function SignInContent() {
       if (error) {
         throw error
       }
+      // Don't set loading to false here - let the redirect happen
     } catch (err: any) {
       console.error('Microsoft sign in error:', err)
       setError('Failed to sign in with Microsoft. Please try again.')
