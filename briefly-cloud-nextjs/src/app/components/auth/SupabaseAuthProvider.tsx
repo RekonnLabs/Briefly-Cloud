@@ -67,35 +67,67 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
 
   // Handle authentication state changes
   useEffect(() => {
+    let mounted = true
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state change:', event, session?.user?.email)
       
-      setSession(session)
+      if (!mounted) return
       
-      if (session?.user) {
-        // Create auth user from Supabase user data
-        setUser(createAuthUser(session.user))
-      } else {
+      // Handle different auth events
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setSession(session)
+        if (session?.user) {
+          setUser(createAuthUser(session.user))
+        }
+        setLoading(false)
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null)
         setUser(null)
+        setLoading(false)
+      } else if (event === 'INITIAL_SESSION') {
+        setSession(session)
+        if (session?.user) {
+          setUser(createAuthUser(session.user))
+        }
+        setLoading(false)
       }
-      
-      setLoading(false)
     })
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      
-      if (session?.user) {
-        setUser(createAuthUser(session.user))
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (!mounted) return
+        
+        if (error) {
+          console.error('Error getting initial session:', error)
+        }
+        
+        setSession(session)
+        
+        if (session?.user) {
+          setUser(createAuthUser(session.user))
+        }
+        
+        setLoading(false)
+      } catch (error) {
+        console.error('Error in getInitialSession:', error)
+        if (mounted) {
+          setLoading(false)
+        }
       }
-      
-      setLoading(false)
-    })
+    }
 
-    return () => subscription.unsubscribe()
+    getInitialSession()
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [supabase.auth])
 
   // Sign in with OAuth provider

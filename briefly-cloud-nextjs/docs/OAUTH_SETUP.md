@@ -139,7 +139,7 @@ openssl rand -base64 32
 ## Testing OAuth Flows
 
 ### 1. Test Login
-1. Visit `/briefly/app/auth/signin`
+1. Visit `/auth/signin`
 2. Click "Continue with Google" or "Continue with Microsoft"
 3. Should redirect to `/briefly/app/dashboard` after success
 

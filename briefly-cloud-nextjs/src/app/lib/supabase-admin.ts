@@ -25,16 +25,9 @@ export const supabaseAdmin = createClient(
       autoRefreshToken: false,
       persistSession: false
     },
-<<<<<<< Current (Your changes)
-<<<<<<< Current (Your changes)
-    db: { schema: 'app' }
-=======
-=======
->>>>>>> Incoming (Background Agent changes)
     db: {
       schema: 'app'
     }
->>>>>>> Incoming (Background Agent changes)
   }
 )
 

@@ -11,6 +11,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/app/lib/auth/supabase-client'
 import { useAuth } from '@/app/components/auth/SupabaseAuthProvider'
+import { AuthLoadingScreen } from '@/app/components/auth/AuthLoadingScreen'
 
 // Force dynamic rendering for pages with search params
 export const dynamic = 'force-dynamic'
@@ -82,18 +83,7 @@ function SignInContent() {
 
   // Show loading state while checking authentication
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-8 lg:p-10">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-              <p className="text-gray-300">Checking authentication...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <AuthLoadingScreen message="Checking authentication..." />
   }
 
   return (
@@ -192,18 +182,7 @@ function SignInContent() {
 
 export default function SignIn() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-8 lg:p-10">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-              <p className="text-gray-300">Loading...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<AuthLoadingScreen message="Loading..." />}>
       <SignInContent />
     </Suspense>
   )

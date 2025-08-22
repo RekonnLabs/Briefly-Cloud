@@ -155,7 +155,7 @@ export default function MigrationStatusPage() {
           </CardHeader>
           <CardContent>
             <Button asChild className="w-full">
-              <a href="/briefly/app/auth/signin">Sign In</a>
+              <a href="/auth/signin">Sign In</a>
             </Button>
           </CardContent>
         </Card>

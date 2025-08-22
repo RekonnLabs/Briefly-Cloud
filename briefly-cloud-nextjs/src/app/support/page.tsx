@@ -352,7 +352,7 @@ export default function SupportPage() {
                       <AlertTriangle className="h-12 w-12 text-orange-500 mx-auto mb-4" />
                       <p className="text-gray-600">Please sign in to view your tickets</p>
                       <Button className="mt-4" asChild>
-                        <a href="/briefly/app/auth/signin">Sign In</a>
+                        <a href="/auth/signin">Sign In</a>
                       </Button>
                     </div>
                   )}
