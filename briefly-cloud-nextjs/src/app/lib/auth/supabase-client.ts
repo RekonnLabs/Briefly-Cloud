@@ -3,6 +3,10 @@
  * 
  * This module provides client-side authentication utilities for Supabase Auth.
  * Use this in client components and browser-side code.
+ * 
+ * Note: For production cookie configuration with explicit SameSite settings,
+ * see cookie-config.ts. The default configuration here works well for most cases
+ * and avoids SSR issues during build time.
  */
 
 import { createBrowserClient } from '@supabase/ssr'
@@ -12,7 +16,14 @@ export function createSupabaseBrowserClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { db: { schema: 'app' } }
+    { 
+      db: { schema: 'app' },
+      global: {
+        headers: {
+          'X-Client-Info': 'briefly-cloud-browser'
+        }
+      }
+    }
   )
 }
 
