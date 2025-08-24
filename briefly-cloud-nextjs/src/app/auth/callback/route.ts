@@ -28,8 +28,31 @@ export async function GET(req: NextRequest) {
       {
         cookies: {
           get: (name) => cookieStore.get(name)?.value,
-          set: (name, value, options) => cookieStore.set({ name, value, ...options }),
-          remove: (name, options) => cookieStore.set({ name, value: '', ...options }),
+          set: (name, value, options) => {
+            // Normalize cookie options for Vercel deployment
+            const normalizedOptions = {
+              ...options,
+              httpOnly: true,
+              secure: true,
+              sameSite: 'lax' as const,
+              path: '/',
+              // Remove domain to let browser set it automatically
+              domain: undefined
+            }
+            cookieStore.set({ name, value, ...normalizedOptions })
+          },
+          remove: (name, options) => {
+            const normalizedOptions = {
+              ...options,
+              httpOnly: true,
+              secure: true,
+              sameSite: 'lax' as const,
+              path: '/',
+              domain: undefined,
+              expires: new Date(0)
+            }
+            cookieStore.set({ name, value: '', ...normalizedOptions })
+          },
         },
       }
     )

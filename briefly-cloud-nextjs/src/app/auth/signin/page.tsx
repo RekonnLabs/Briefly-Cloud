@@ -28,12 +28,8 @@ function SignInContent() {
   const supabase = createSupabaseBrowserClient()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (!loading && user) {
-      router.push(callbackUrl)
-    }
-  }, [user, loading, router, callbackUrl])
+  // Let middleware handle redirecting authenticated users
+  // Removed client-side redirect to prevent flicker
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
@@ -88,6 +84,11 @@ function SignInContent() {
   // Show loading state while checking authentication
   if (loading) {
     return <AuthLoadingScreen message="Checking authentication..." />
+  }
+
+  // Show loading state for authenticated users (middleware will redirect)
+  if (user) {
+    return <AuthLoadingScreen message="Redirecting to dashboard..." />
   }
 
   return (

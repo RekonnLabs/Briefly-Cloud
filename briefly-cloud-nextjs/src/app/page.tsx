@@ -19,7 +19,7 @@ export default function Home() {
     const urlSuffix = queryString + hashFragment;
 
     // Redirect to the dashboard
-    router.replace(`/dashboard${urlSuffix}`);
+    router.replace(`/briefly/app/dashboard${urlSuffix}`);
   }, [router, loading]);
 
   return (

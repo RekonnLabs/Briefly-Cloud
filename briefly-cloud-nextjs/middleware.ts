@@ -10,8 +10,31 @@ export async function middleware(req: NextRequest) {
     {
       cookies: {
         get: (name) => req.cookies.get(name)?.value,
-        set: (name, value, options) => res.cookies.set({ name, value, ...options }),
-        remove: (name, options) => res.cookies.set({ name, value: '', expires: new Date(0), ...options }),
+        set: (name, value, options) => {
+          // Normalize cookie options for Vercel deployment
+          const normalizedOptions = {
+            ...options,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax' as const,
+            path: '/',
+            // Remove domain to let browser set it automatically
+            domain: undefined
+          }
+          res.cookies.set({ name, value, ...normalizedOptions })
+        },
+        remove: (name, options) => {
+          const normalizedOptions = {
+            ...options,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax' as const,
+            path: '/',
+            domain: undefined,
+            expires: new Date(0)
+          }
+          res.cookies.set({ name, value: '', ...normalizedOptions })
+        },
       },
     }
   )
@@ -29,4 +52,9 @@ export async function middleware(req: NextRequest) {
   return res
 }
 
-export const config = { matcher: ['/briefly/app/:path*', '/api/auth/:path*'] }
+export const config = { 
+  matcher: [
+    '/briefly/app/:path*',
+    '/((?!auth/callback|api/storage/.*/callback|api/billing/webhook|_next/static|_next/image|favicon.ico).*)'
+  ]
+}
