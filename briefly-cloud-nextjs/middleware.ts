@@ -4,43 +4,33 @@ import { createServerClient } from '@supabase/ssr'
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
+  // Cookie normalizer to strip domain and set safe defaults
+  const normalize = (o?: any) => {
+    const { domain, ...rest } = o || {}  // strip Domain
+    return { httpOnly: true, secure: true, sameSite: 'none' as const, path: '/', ...rest }
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get: (name) => req.cookies.get(name)?.value,
-        set: (name, value, options) => {
-          // Normalize cookie options for Vercel deployment
-          const normalizedOptions = {
-            ...options,
-            httpOnly: true,
-            secure: true,
-            sameSite: 'lax' as const,
-            path: '/',
-            // Remove domain to let browser set it automatically
-            domain: undefined
-          }
-          res.cookies.set({ name, value, ...normalizedOptions })
-        },
-        remove: (name, options) => {
-          const normalizedOptions = {
-            ...options,
-            httpOnly: true,
-            secure: true,
-            sameSite: 'lax' as const,
-            path: '/',
-            domain: undefined,
-            expires: new Date(0)
-          }
-          res.cookies.set({ name, value: '', ...normalizedOptions })
-        },
+        set: (name, value, options) => res.cookies.set({ name, value, ...normalize(options) }),
+        remove: (name, options) => res.cookies.set({ name, value: '', expires: new Date(0), ...normalize(options) }),
       },
     }
   )
 
   const { data: { session } } = await supabase.auth.getSession()
 
+  // Redirect authenticated users away from signin page
+  if (session && req.nextUrl.pathname === '/auth/signin') {
+    const to = req.nextUrl.searchParams.get('next') || '/briefly/app/dashboard'
+    return NextResponse.redirect(new URL(to, req.url), { headers: res.headers })
+  }
+
+  // Redirect unauthenticated users to signin
   if (!session && req.nextUrl.pathname.startsWith('/briefly/app')) {
     const url = req.nextUrl.clone()
     url.pathname = '/auth/signin'
@@ -52,9 +42,6 @@ export async function middleware(req: NextRequest) {
   return res
 }
 
-export const config = { 
-  matcher: [
-    '/briefly/app/:path*',
-    '/((?!auth/callback|api/storage/.*/callback|api/billing/webhook|_next/static|_next/image|favicon.ico).*)'
-  ]
+export const config = {
+  matcher: ['/briefly/app/:path*', '/auth/signin']
 }

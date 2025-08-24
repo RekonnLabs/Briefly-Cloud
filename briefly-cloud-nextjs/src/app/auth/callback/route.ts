@@ -22,45 +22,27 @@ export async function GET(req: NextRequest) {
 
   try {
     const cookieStore = cookies()
+    
+    // Cookie normalizer to strip domain and set safe defaults
+    const normalize = (o?: any) => {
+      const { domain, ...rest } = o || {}  // strip Domain
+      return { httpOnly: true, secure: true, sameSite: 'none' as const, path: '/', ...rest }
+    }
+    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get: (name) => cookieStore.get(name)?.value,
-          set: (name, value, options) => {
-            // Normalize cookie options for Vercel deployment
-            const normalizedOptions = {
-              ...options,
-              httpOnly: true,
-              secure: true,
-              sameSite: 'lax' as const,
-              path: '/',
-              // Remove domain to let browser set it automatically
-              domain: undefined
-            }
-            cookieStore.set({ name, value, ...normalizedOptions })
-          },
-          remove: (name, options) => {
-            const normalizedOptions = {
-              ...options,
-              httpOnly: true,
-              secure: true,
-              sameSite: 'lax' as const,
-              path: '/',
-              domain: undefined,
-              expires: new Date(0)
-            }
-            cookieStore.set({ name, value: '', ...normalizedOptions })
-          },
+          set: (name, value, options) => cookieStore.set({ name, value, ...normalize(options) }),
+          remove: (name, options) => cookieStore.set({ name, value: '', expires: new Date(0), ...normalize(options) }),
         },
       }
     )
 
-    const { error } = await supabase.auth.exchangeCodeForSession({
-      authCode: code,
-      redirectTo: `${url.origin}/auth/callback`
-    })
+    // Use string form for compatibility with older SDK
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
       console.error('[auth/callback] exchange error:', error)
       return NextResponse.redirect(new URL('/auth/error?error=callback_exchange_failed', url.origin))

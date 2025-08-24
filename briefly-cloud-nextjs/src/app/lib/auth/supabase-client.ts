@@ -22,6 +22,13 @@ export function createSupabaseBrowserClient() {
         headers: {
           'X-Client-Info': 'briefly-cloud-browser'
         }
+      },
+      cookies: {
+        name: 'sb-auth',
+        lifetime: 60 * 60 * 24 * 7,
+        sameSite: 'none',
+        secure: true,
+        // omit domain so it binds to briefly-cloud.vercel.app
       }
     }
   )
