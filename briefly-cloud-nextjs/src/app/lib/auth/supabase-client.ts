@@ -9,11 +9,13 @@
  * and avoids SSR issues during build time.
  */
 
-import { createBrowserClient } from '@supabase/ssr'
+// Using dynamic import to avoid SSR issues
 
 // Create browser client for client-side operations
 export function createSupabaseBrowserClient() {
-  return createBrowserClient(
+  // Use simple client for MVP to avoid SSR issues
+  const { createClient } = require('@supabase/supabase-js')
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { 
@@ -22,13 +24,6 @@ export function createSupabaseBrowserClient() {
         headers: {
           'X-Client-Info': 'briefly-cloud-browser'
         }
-      },
-      cookies: {
-        name: 'sb-auth',
-        lifetime: 60 * 60 * 24 * 7,
-        sameSite: 'none',
-        secure: true,
-        // omit domain so it binds to briefly-cloud.vercel.app
       }
     }
   )

@@ -6,12 +6,20 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from './supabase-admin'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Client for browser/client-side operations
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Simple client for browser/client-side operations (fallback to basic client for build compatibility)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  db: { schema: 'app' },
+  global: {
+    headers: {
+      'X-Client-Info': 'briefly-cloud-browser'
+    }
+  }
+})
 
 // Database types (to be expanded based on actual schema)
 export interface User {

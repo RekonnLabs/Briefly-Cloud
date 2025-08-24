@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getSecurityMonitor, type AnomalyDetectionResult } from './security-monitor'
-import { getAuditLogger } from '@/app/lib/audit/audit-logger'
+import { getAuditLogger } from '@/app/lib/stubs/audit/audit-logger'
 import { logger } from '@/app/lib/logger'
 import type { AuthContext } from '@/app/lib/auth/auth-middleware'
 

@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/app/lib/auth/auth-middleware'
 import { withApiControls } from '@/app/lib/usage/usage-middleware'
 import { getSecureStorage } from '@/app/lib/storage/secure-storage'
-import { getAuditLogger } from '@/app/lib/audit/audit-logger'
+import { getAuditLogger } from '@/app/lib/stubs/audit/audit-logger'
 import { logger } from '@/app/lib/logger'
 
 interface RouteParams {

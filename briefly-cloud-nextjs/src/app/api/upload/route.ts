@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logApiUsage } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
-import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/performance'
+import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
 
 // Supported file types and their MIME types
 const SUPPORTED_FILE_TYPES = {

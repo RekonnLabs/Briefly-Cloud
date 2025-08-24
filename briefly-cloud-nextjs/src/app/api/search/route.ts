@@ -5,7 +5,7 @@ import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { z } from 'zod'
 import { searchDocuments } from '@/app/lib/vector/document-processor'
 import { cacheManager, CACHE_KEYS, withCache } from '@/app/lib/cache'
-import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/performance'
+import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
 
 const searchSchema = z.object({
   query: z.string().min(1).max(500),

@@ -8,7 +8,7 @@
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
-import { getAuditLogger, type AuditAction, type AuditSeverity } from '@/app/lib/audit/audit-logger'
+import { getAuditLogger, type AuditAction, type AuditSeverity } from '@/app/lib/stubs/audit/audit-logger'
 
 export interface SecurityThreat {
   id: string

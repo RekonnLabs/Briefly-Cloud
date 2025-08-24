@@ -7,7 +7,7 @@ import { searchDocumentContext } from '@/app/lib/vector-storage'
 import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '@/app/lib/openai'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
-import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/performance'
+import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
 
 // Briefly Voice v1 imports
 import { buildMessages, buildDeveloper, type ContextSnippet } from '@/lib/prompt/promptBuilder'
