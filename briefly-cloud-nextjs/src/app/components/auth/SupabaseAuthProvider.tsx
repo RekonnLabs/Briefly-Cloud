@@ -139,22 +139,15 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
     }
   }, [supabase.auth])
 
-  // Sign in with OAuth provider
+  // Sign in with OAuth provider - navigate to server-side route
   const signIn = async (provider: 'google' | 'microsoft') => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: provider === 'microsoft' ? 'azure' : provider,
-        options: {
-          redirectTo: `${siteUrl}/auth/callback`,
-          scopes: provider === 'google' 
-            ? 'openid email profile'
-            : 'openid email profile'
-        }
-      })
+      const next = encodeURIComponent('/briefly/app/dashboard')
+      const authProvider = provider === 'microsoft' ? 'azure' : provider
+      const startUrl = `/auth/start?provider=${authProvider}&next=${next}`
       
-      if (error) {
-        throw error
-      }
+      // Navigate to server-side OAuth start route
+      window.location.href = startUrl
     } catch (error) {
       console.error('Sign in error:', error)
       throw error
