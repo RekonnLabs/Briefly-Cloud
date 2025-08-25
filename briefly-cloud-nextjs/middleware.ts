@@ -23,6 +23,7 @@ if (RATE_LIMIT_ENABLED && process.env.UPSTASH_REDIS_REST_URL && process.env.UPST
 
 const EXCLUDED = [
   "/auth/callback",
+  "/auth/start",
   "/api/storage/google/callback",
   "/api/storage/microsoft/callback",
   "/api/billing/webhook"

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const next = url.searchParams.get('next') || '/briefly/app/dashboard'
   if (!code) return NextResponse.redirect(new URL('/auth/signin', url.origin))
 
-  const jar = cookies()
+  const jar = await cookies()
   const normalize = (o?: any) => {
     const { domain, ...rest } = o || {}
     return { httpOnly: true, secure: true, sameSite: 'none' as const, path: '/', ...rest }
@@ -60,9 +60,19 @@ export async function GET(req: NextRequest) {
         console.warn('[audit] insert failed:', e) 
       }
 
-      const res = NextResponse.redirect(new URL(next, url.origin), { status: 307 })
-      res.headers.set('x-auth-exchanged', '1')
-      return res
+      // Use response proxy pattern to forward cookies
+      const tempRes = NextResponse.next()
+      const redirect = NextResponse.redirect(new URL(next, url.origin), { status: 307 })
+      redirect.headers.set('x-auth-exchanged', '1')
+      
+      // Forward any cookies that might have been set
+      tempRes.headers.forEach((val, key) => {
+        if (key.toLowerCase().startsWith('set-cookie')) {
+          redirect.headers.set(key, val)
+        }
+      })
+      
+      return redirect
     }
     // If it complains about missing verifier, we'll fall through to REST
     console.log('[auth/callback] SDK exchange (string) error:', error)
@@ -146,9 +156,19 @@ export async function GET(req: NextRequest) {
       console.warn('[audit] insert failed:', e) 
     }
 
-    const res = NextResponse.redirect(new URL(next, url.origin), { status: 307 })
-    res.headers.set('x-auth-exchanged', '1')
-    return res
+    // Use response proxy pattern to forward session cookies
+    const tempRes = NextResponse.next()
+    const redirect = NextResponse.redirect(new URL(next, url.origin), { status: 307 })
+    redirect.headers.set('x-auth-exchanged', '1')
+    
+    // Forward any session cookies that were set by setSession
+    tempRes.headers.forEach((val, key) => {
+      if (key.toLowerCase().startsWith('set-cookie')) {
+        redirect.headers.set(key, val)
+      }
+    })
+    
+    return redirect
   } catch (e) {
     console.error('[auth/callback] REST exchange exception:', e)
     return NextResponse.redirect(

@@ -9,7 +9,6 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getSupabaseBrowserClient } from '@/app/lib/auth/supabase-browser'
 import { useAuth } from '@/app/components/auth/SupabaseAuthProvider'
 import { AuthLoadingScreen } from '@/app/components/auth/AuthLoadingScreen'
 
@@ -24,67 +23,21 @@ function SignInContent() {
   const searchParams = useSearchParams()
   const { user, loading } = useAuth()
   
-  const callbackUrl = searchParams.get('next') || '/briefly/app/dashboard'
-  const supabase = getSupabaseBrowserClient()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+  // Server-side OAuth initiation URLs
+  const next = encodeURIComponent(searchParams.get('next') || '/briefly/app/dashboard')
+  const startGoogle = `/auth/start?provider=google&next=${next}`
+  const startMicrosoft = `/auth/start?provider=azure&next=${next}`
 
-  // Let middleware handle redirecting authenticated users
-  // Removed client-side redirect to prevent flicker
-
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setIsLoading(true)
     setError('')
-    
-    try {
-      const origin = window.location.origin
-      const next = '/briefly/app/dashboard'
-      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { 
-          redirectTo,
-          // Do NOT disable PKCE; let SDK set the code_verifier cookie
-        }
-      })
-      
-      if (error) {
-        throw error
-      }
-      // Don't set loading to false here - let the redirect happen
-    } catch (err: any) {
-      console.error('Google sign in error:', err)
-      setError('Failed to sign in with Google. Please try again.')
-      setIsLoading(false)
-    }
+    router.push(startGoogle)
   }
 
-  const handleMicrosoftSignIn = async () => {
+  const handleMicrosoftSignIn = () => {
     setIsLoading(true)
     setError('')
-    
-    try {
-      const origin = window.location.origin
-      const next = '/briefly/app/dashboard'
-      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: { 
-          redirectTo,
-          // Do NOT disable PKCE; let SDK set the code_verifier cookie
-        }
-      })
-      
-      if (error) {
-        throw error
-      }
-      // Don't set loading to false here - let the redirect happen
-    } catch (err: any) {
-      console.error('Microsoft sign in error:', err)
-      setError('Failed to sign in with Microsoft. Please try again.')
-      setIsLoading(false)
-    }
+    router.push(startMicrosoft)
   }
 
   // Show loading state while checking authentication
@@ -136,7 +89,6 @@ function SignInContent() {
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
                 data-provider="google"
-                data-redirect-uri={`${siteUrl}/auth/callback`}
                 className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
@@ -153,7 +105,6 @@ function SignInContent() {
                 onClick={handleMicrosoftSignIn}
                 disabled={isLoading}
                 data-provider="azure-ad"
-                data-redirect-uri={`${siteUrl}/auth/callback`}
                 className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
