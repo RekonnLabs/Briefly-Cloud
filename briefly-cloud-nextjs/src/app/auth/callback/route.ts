@@ -41,10 +41,36 @@ export async function GET(req: NextRequest) {
       }
     )
 
-    // Use string form for compatibility with older SDK
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    // Try common PKCE cookie names that the browser flow may set
+    const codeVerifier =
+      cookieStore.get('sb-code-verifier')?.value ||
+      cookieStore.get('sb-auth-code-verifier')?.value ||
+      cookieStore.get('code_verifier')?.value ||
+      cookieStore.get('sb-briefly-auth-code-verifier')?.value ||
+      undefined
+
+    console.log('[auth/callback] PKCE debug:', { 
+      hasCode: !!code, 
+      hasCodeVerifier: !!codeVerifier,
+      codeVerifierLength: codeVerifier?.length || 0
+    })
+
+    // Use the API signature your SDK supports; include codeVerifier when available
+    const { error } = codeVerifier
+      ? await supabase.auth.exchangeCodeForSession({ 
+          authCode: code, 
+          codeVerifier, 
+          redirectTo: `${url.origin}/auth/callback` 
+        } as any)
+      : await supabase.auth.exchangeCodeForSession(code)
+
     if (error) {
       console.error('[auth/callback] exchange error:', error)
+      console.error('[auth/callback] PKCE context:', { 
+        hasCodeVerifier: !!codeVerifier,
+        errorCode: error.code,
+        errorMessage: error.message 
+      })
       return NextResponse.redirect(new URL('/auth/error?error=callback_exchange_failed', url.origin))
     }
 

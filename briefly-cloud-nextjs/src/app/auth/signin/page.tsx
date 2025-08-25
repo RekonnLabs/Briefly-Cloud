@@ -36,13 +36,16 @@ function SignInContent() {
     setError('')
     
     try {
+      const origin = window.location.origin
       const next = '/briefly/app/dashboard'
-      const redirectTo = new URL('/auth/callback', window.location.origin)
-      redirectTo.searchParams.set('next', next)
+      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: redirectTo.toString() }
+        options: { 
+          redirectTo,
+          // Do NOT disable PKCE; let SDK set the code_verifier cookie
+        }
       })
       
       if (error) {
@@ -61,13 +64,16 @@ function SignInContent() {
     setError('')
     
     try {
+      const origin = window.location.origin
       const next = '/briefly/app/dashboard'
-      const redirectTo = new URL('/auth/callback', window.location.origin)
-      redirectTo.searchParams.set('next', next)
+      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
-        options: { redirectTo: redirectTo.toString() }
+        options: { 
+          redirectTo,
+          // Do NOT disable PKCE; let SDK set the code_verifier cookie
+        }
       })
       
       if (error) {
