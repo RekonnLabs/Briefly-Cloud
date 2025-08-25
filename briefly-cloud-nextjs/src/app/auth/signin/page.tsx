@@ -9,7 +9,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/app/lib/auth/supabase-client'
+import { getSupabaseBrowserClient } from '@/app/lib/auth/supabase-browser'
 import { useAuth } from '@/app/components/auth/SupabaseAuthProvider'
 import { AuthLoadingScreen } from '@/app/components/auth/AuthLoadingScreen'
 
@@ -25,7 +25,7 @@ function SignInContent() {
   const { user, loading } = useAuth()
   
   const callbackUrl = searchParams.get('next') || '/briefly/app/dashboard'
-  const supabase = createSupabaseBrowserClient()
+  const supabase = getSupabaseBrowserClient()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
   // Let middleware handle redirecting authenticated users

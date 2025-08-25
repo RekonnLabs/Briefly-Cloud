@@ -8,7 +8,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { createSupabaseBrowserClient } from '@/app/lib/auth/supabase-client'
+import { getSupabaseBrowserClient } from '@/app/lib/auth/supabase-browser'
 import type { User, Session } from '@supabase/supabase-js'
 
 // Define AuthUser type here since it's client-side
@@ -49,7 +49,7 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createSupabaseBrowserClient()
+  const supabase = getSupabaseBrowserClient()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
 
 // Create auth user from Supabase user data

@@ -4,29 +4,19 @@
  * This module provides client-side authentication utilities for Supabase Auth.
  * Use this in client components and browser-side code.
  * 
- * Note: For production cookie configuration with explicit SameSite settings,
- * see cookie-config.ts. The default configuration here works well for most cases
- * and avoids SSR issues during build time.
+ * @deprecated Use getSupabaseBrowserClient() from '@/app/lib/auth/supabase-browser' instead
+ * This ensures a single client instance per browser tab.
  */
 
-// Using dynamic import to avoid SSR issues
+import { getSupabaseBrowserClient } from '@/app/lib/auth/supabase-browser'
 
 // Create browser client for client-side operations
+/**
+ * @deprecated Use getSupabaseBrowserClient() from '@/app/lib/auth/supabase-browser' instead
+ */
 export function createSupabaseBrowserClient() {
-  // Use simple client for MVP to avoid SSR issues
-  const { createClient } = require('@supabase/supabase-js')
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { 
-      db: { schema: 'app' },
-      global: {
-        headers: {
-          'X-Client-Info': 'briefly-cloud-browser'
-        }
-      }
-    }
-  )
+  console.warn('createSupabaseBrowserClient is deprecated. Use getSupabaseBrowserClient() instead.')
+  return getSupabaseBrowserClient()
 }
 
 // Sign in with OAuth provider
@@ -34,7 +24,7 @@ export async function signInWithProvider(
   provider: 'google' | 'azure',
   redirectTo?: string
 ) {
-  const supabase = createSupabaseBrowserClient()
+  const supabase = getSupabaseBrowserClient()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
   
   return await supabase.auth.signInWithOAuth({
@@ -48,18 +38,18 @@ export async function signInWithProvider(
 
 // Sign out
 export async function signOut() {
-  const supabase = createSupabaseBrowserClient()
+  const supabase = getSupabaseBrowserClient()
   return await supabase.auth.signOut()
 }
 
 // Get current session (client-side)
 export async function getSession() {
-  const supabase = createSupabaseBrowserClient()
+  const supabase = getSupabaseBrowserClient()
   return await supabase.auth.getSession()
 }
 
 // Get current user (client-side)
 export async function getUser() {
-  const supabase = createSupabaseBrowserClient()
+  const supabase = getSupabaseBrowserClient()
   return await supabase.auth.getUser()
 }
