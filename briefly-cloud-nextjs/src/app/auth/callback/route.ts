@@ -48,13 +48,16 @@ export async function GET(req: Request) {
     jar.get("code_verifier")?.value ||
     undefined;
 
+  console.info("[auth/callback] verifier", { projectRef, hasVerifier: !!codeVerifier, len: codeVerifier?.length });
+
   // 1) Modern SDK path first (object signature)
   try {
     if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(
+      const { error: sdkErr } = await supabase.auth.exchangeCodeForSession(
         codeVerifier ? { authCode: code, codeVerifier } : (code as any)
       );
-      if (!error) {
+      console.info("[auth/callback] sdk_result", { ok: !sdkErr, usedObjectSig: !!codeVerifier, codePresent: !!code });
+      if (!sdkErr) {
         return NextResponse.redirect(new URL(next, url), { status: 307 });
       }
     }
@@ -65,6 +68,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/auth/error?error=callback_exchange_failed", url), { status: 307 });
   }
 
+  console.info("[auth/callback] rest_fallback", { posting: true });
   const r = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL!}/auth/v1/token?grant_type=pkce`, {
     method: "POST",
     headers: {
