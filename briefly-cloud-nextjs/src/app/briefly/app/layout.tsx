@@ -3,8 +3,9 @@ import { createServerClientReadOnly } from '@/app/lib/auth/supabase-server-reado
 
 export const dynamic = 'force-dynamic'
 
-export default async function Home() {
+export default async function BrieflyAppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createServerClientReadOnly()
   const { data: { user } } = await supabase.auth.getUser()
-  redirect(user ? '/briefly/app/dashboard' : '/auth/signin')
+  if (!user) redirect('/auth/signin')
+  return <>{children}</>
 }
