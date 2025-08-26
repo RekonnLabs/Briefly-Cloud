@@ -18,7 +18,32 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/auth/signin", url.origin), { status: 307 });
   }
 
-  const jar = await cookies();
+function extractProjectRef(url: string) {
+  try {
+    return new URL(url).host.split(".")[0]; // aeeumarw...
+  } catch {
+    return "";
+  }
+}
+
+function decodeVerifier(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  if (raw.startsWith("base64-")) {
+    try {
+      const b64 = raw.slice(7);
+      const decoded = Buffer.from(b64, "base64").toString("utf8");
+      // Supabase often stores the string JSON-encoded (e.g. "\"a9W...\"")
+      return decoded.startsWith('"') ? JSON.parse(decoded) : decoded;
+    } catch {
+      return undefined;
+    }
+  }
+  return raw;
+}
+
+  const projectRef = extractProjectRef(process.env.NEXT_PUBLIC_SUPABASE_URL!);
+  const jar = cookies();
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -31,49 +56,49 @@ export async function GET(req: Request) {
     }
   );
 
-  // get project ref from NEXT_PUBLIC_SUPABASE_URL
-  const projectRef = (() => {
-    try {
-      const h = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).host; // aeeumarw...supabase.co
-      return h.split(".")[0]; // aeeumarw...
-    } catch { return ""; }
-  })();
-
-  // 🔧 NEW: include the modern cookie name first
-  const codeVerifier =
-    jar.get(`sb-${projectRef}-auth-token-code-verifier`)?.value || // modern
-    jar.get(`sb-${projectRef}-auth-code-verifier`)?.value ||       // older
+  // 🔧 modern name FIRST, then fallbacks
+  const rawVerifier =
+    jar.get(`sb-${projectRef}-auth-token-code-verifier`)?.value ||
+    jar.get(`sb-${projectRef}-auth-code-verifier`)?.value ||
     jar.get("sb-auth-code-verifier")?.value ||
     jar.get("sb-code-verifier")?.value ||
-    jar.get("code_verifier")?.value ||
-    undefined;
+    jar.get("code_verifier")?.value;
 
-  console.info("[auth/callback] verifier", { projectRef, hasVerifier: !!codeVerifier, len: codeVerifier?.length });
+  const codeVerifier = decodeVerifier(rawVerifier);
 
-  // 1) Modern SDK path first (object signature)
+  // optional debug (remove after verifying):
+  console.info("[auth/callback] verifier", {
+    projectRef,
+    hasVerifier: !!codeVerifier,
+    len: codeVerifier?.length,
+  });
+
   try {
     if (code) {
-      const { error: sdkErr } = await supabase.auth.exchangeCodeForSession(
+      const { error } = await supabase.auth.exchangeCodeForSession(
         codeVerifier ? { authCode: code, codeVerifier } : (code as any)
       );
-      console.info("[auth/callback] sdk_result", { ok: !sdkErr, usedObjectSig: !!codeVerifier, codePresent: !!code });
-      if (!sdkErr) {
+      console.info("[auth/callback] sdk_result", { ok: !error, usedObjectSig: !!codeVerifier });
+      if (!error) {
         return NextResponse.redirect(new URL(next, url), { status: 307 });
       }
     }
-  } catch { /* fall through */ }
+  } catch {}
 
-  // 2) REST fallback if SDK path didn't work
   if (!codeVerifier) {
     return NextResponse.redirect(new URL("/auth/error?error=callback_exchange_failed", url), { status: 307 });
   }
 
   console.info("[auth/callback] rest_fallback", { posting: true });
-  const r = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL!}/auth/v1/token?grant_type=pkce`, {
+
+  const tokenUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/auth/v1/token?grant_type=pkce`;
+  const resp = await fetch(tokenUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
+      accept: "application/json",
       apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
     },
     body: JSON.stringify({
       auth_code: code,
@@ -82,15 +107,17 @@ export async function GET(req: Request) {
     }),
   });
 
-  if (!r.ok) {
+  if (!resp.ok) {
+    const t = await resp.text();
+    console.error("[auth/callback] rest_failed", { status: resp.status, body: t?.slice(0, 300) });
     return NextResponse.redirect(new URL("/auth/error?error=callback_exchange_failed", url), { status: 307 });
   }
-  
-  const payload = await r.json();
+
+  const payload = await resp.json();
   await supabase.auth.setSession({
     access_token: payload.access_token,
     refresh_token: payload.refresh_token,
   });
-  
+
   return NextResponse.redirect(new URL(next, url), { status: 307 });
 }
