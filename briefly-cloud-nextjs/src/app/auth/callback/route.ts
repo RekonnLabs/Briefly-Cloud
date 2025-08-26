@@ -31,41 +31,45 @@ export async function GET(req: Request) {
     }
   );
 
-  // Read PKCE verifier from multiple possible cookie names
-  const codeVerifier = 
-    jar.get("sb-code-verifier")?.value ||
+  // get project ref from NEXT_PUBLIC_SUPABASE_URL
+  const projectRef = (() => {
+    try {
+      const h = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).host; // aeeumarw...supabase.co
+      return h.split(".")[0]; // aeeumarw...
+    } catch { return ""; }
+  })();
+
+  // 🔧 NEW: include the modern cookie name first
+  const codeVerifier =
+    jar.get(`sb-${projectRef}-auth-token-code-verifier`)?.value || // modern
+    jar.get(`sb-${projectRef}-auth-code-verifier`)?.value ||       // older
     jar.get("sb-auth-code-verifier")?.value ||
+    jar.get("sb-code-verifier")?.value ||
     jar.get("code_verifier")?.value ||
-    jar.get(`sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split("//")[1]?.split(".")[0]}-auth-code-verifier`)?.value ||
     undefined;
 
-  if (!codeVerifier) {
-    return NextResponse.redirect(new URL("/auth/error?error=callback_exchange_failed", url.origin), { status: 307 });
-  }
-
-  // Try modern SDK call first
+  // 1) Modern SDK path first (object signature)
   try {
-    const { error } = await supabase.auth.exchangeCodeForSession({ 
-      authCode: code, 
-      codeVerifier 
-    });
-    if (!error) {
-      return NextResponse.redirect(new URL(next, url.origin), { status: 307 });
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(
+        codeVerifier ? { authCode: code, codeVerifier } : (code as any)
+      );
+      if (!error) {
+        return NextResponse.redirect(new URL(next, url), { status: 307 });
+      }
     }
-  } catch (e) {
-    console.warn("[auth/callback] SDK exchange failed, trying REST:", e);
+  } catch { /* fall through */ }
+
+  // 2) REST fallback if SDK path didn't work
+  if (!codeVerifier) {
+    return NextResponse.redirect(new URL("/auth/error?error=callback_exchange_failed", url), { status: 307 });
   }
 
-  // REST fallback - POST to GoTrue's PKCE endpoint
-  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  const r = await fetch(`${supaUrl}/auth/v1/token?grant_type=pkce`, {
+  const r = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL!}/auth/v1/token?grant_type=pkce`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "apikey": anon,
-      "authorization": `Bearer ${anon}`,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
     body: JSON.stringify({
       auth_code: code,
@@ -75,19 +79,14 @@ export async function GET(req: Request) {
   });
 
   if (!r.ok) {
-    return NextResponse.redirect(new URL("/auth/error?error=callback_exchange_failed", url.origin), { status: 307 });
+    return NextResponse.redirect(new URL("/auth/error?error=callback_exchange_failed", url), { status: 307 });
   }
-
+  
   const payload = await r.json();
-  const { error: setErr } = await supabase.auth.setSession({
+  await supabase.auth.setSession({
     access_token: payload.access_token,
     refresh_token: payload.refresh_token,
   });
-
-  if (setErr) {
-    return NextResponse.redirect(new URL("/auth/error?error=callback_exchange_failed", url.origin), { status: 307 });
-  }
-
-  // Return 307 redirect to sanitized next value; no "response proxy" needed
-  return NextResponse.redirect(new URL(next, url.origin), { status: 307 });
+  
+  return NextResponse.redirect(new URL(next, url), { status: 307 });
 }

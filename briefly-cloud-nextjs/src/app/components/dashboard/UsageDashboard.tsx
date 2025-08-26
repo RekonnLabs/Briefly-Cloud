@@ -13,12 +13,12 @@ import { Progress } from '@/app/components/ui/progress'
 import { Badge } from '@/app/components/ui/badge'
 import { Button } from '@/app/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert'
-import { 
-  MessageSquare, 
-  Upload, 
-  Search, 
-  Database, 
-  TrendingUp, 
+import {
+  MessageSquare,
+  Upload,
+  Search,
+  Database,
+  TrendingUp,
   TrendingDown,
   AlertTriangle,
   CheckCircle,
@@ -81,11 +81,11 @@ export function UsageDashboard() {
       setLoading(true)
       const response = await fetch(`/api/usage/analytics?period=${selectedPeriod}`)
       const result = await response.json()
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Failed to fetch usage data')
       }
-      
+
       setUsageData(result.data)
       setError(null)
     } catch (err) {
@@ -154,8 +154,8 @@ export function UsageDashboard() {
           <Badge className={getTierColor(usageData.subscription.tier)}>
             {usageData.subscription.tier.toUpperCase()} Plan
           </Badge>
-          <select 
-            value={selectedPeriod} 
+          <select
+            value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
             className="px-3 py-1 border rounded-md"
           >
@@ -188,9 +188,9 @@ export function UsageDashboard() {
               {usageData.subscription.limits.chatMessages.current}
               <span className="text-sm text-gray-500">/{usageData.subscription.limits.chatMessages.limit === Infinity ? '∞' : usageData.subscription.limits.chatMessages.limit}</span>
             </div>
-            <Progress 
-              value={usageData.subscription.limits.chatMessages.percentUsed} 
-              className="mt-2" 
+            <Progress
+              value={usageData.subscription.limits.chatMessages.percentUsed}
+              className="mt-2"
             />
             <p className={`text-xs mt-1 ${getUsageColor(usageData.subscription.limits.chatMessages.percentUsed)}`}>
               {usageData.subscription.limits.chatMessages.percentUsed.toFixed(1)}% used
@@ -208,9 +208,9 @@ export function UsageDashboard() {
               {usageData.subscription.limits.documents.current}
               <span className="text-sm text-gray-500">/{usageData.subscription.limits.documents.limit === Infinity ? '∞' : usageData.subscription.limits.documents.limit}</span>
             </div>
-            <Progress 
-              value={usageData.subscription.limits.documents.percentUsed} 
-              className="mt-2" 
+            <Progress
+              value={usageData.subscription.limits.documents.percentUsed}
+              className="mt-2"
             />
             <p className={`text-xs mt-1 ${getUsageColor(usageData.subscription.limits.documents.percentUsed)}`}>
               {usageData.subscription.limits.documents.percentUsed.toFixed(1)}% used
@@ -228,9 +228,9 @@ export function UsageDashboard() {
               {usageData.subscription.limits.apiCalls.current}
               <span className="text-sm text-gray-500">/{usageData.subscription.limits.apiCalls.limit === Infinity ? '∞' : usageData.subscription.limits.apiCalls.limit}</span>
             </div>
-            <Progress 
-              value={usageData.subscription.limits.apiCalls.percentUsed} 
-              className="mt-2" 
+            <Progress
+              value={usageData.subscription.limits.apiCalls.percentUsed}
+              className="mt-2"
             />
             <p className={`text-xs mt-1 ${getUsageColor(usageData.subscription.limits.apiCalls.percentUsed)}`}>
               {usageData.subscription.limits.apiCalls.percentUsed.toFixed(1)}% used
@@ -247,9 +247,9 @@ export function UsageDashboard() {
             <div className="text-2xl font-bold">
               {formatBytes(usageData.subscription.limits.storage.current)}
             </div>
-            <Progress 
-              value={usageData.subscription.limits.storage.percentUsed} 
-              className="mt-2" 
+            <Progress
+              value={usageData.subscription.limits.storage.percentUsed}
+              className="mt-2"
             />
             <p className={`text-xs mt-1 ${getUsageColor(usageData.subscription.limits.storage.percentUsed)}`}>
               {usageData.subscription.limits.storage.percentUsed.toFixed(1)}% used
