@@ -1,15 +1,21 @@
-import { getUserSession } from '@/app/lib/auth/supabase-auth'
-import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { createServerClientReadOnly } from '@/app/lib/auth/supabase-server-readonly'
 
-// Force dynamic rendering for authenticated pages
 export const dynamic = 'force-dynamic'
 
 export default async function BillingPage() {
-  const user = await getUserSession()
-  
-  if (!user) {
-    redirect('/auth/signin?next=' + encodeURIComponent('/briefly/app/billing'))
+  const h = await headers()
+  const authed = h.get('x-sb-session') === '1'
+
+  // Optionally hydrate user if you need it
+  let user = null as any
+  if (authed) {
+    const supabase = createServerClientReadOnly()
+    const { data: { user: u } } = await supabase.auth.getUser()
+    user = u ?? null
   }
+
+  // Render; no redirects here
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">

@@ -1,19 +1,23 @@
-import { getUserSession } from '@/app/lib/auth/supabase-auth'
-import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { createServerClientReadOnly } from '@/app/lib/auth/supabase-server-readonly'
 import DashboardClient from './DashboardClient'
 
-// Force dynamic rendering for authenticated pages
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic' // no static caching for authed pages
 
-export default async function DashboardPage({ searchParams }: { searchParams: { next?: string } }) {
-  const user = await getUserSession()
-  
-  if (!user) {
-    // Use the standardized 'next' parameter from the query string
-    const callbackUrl = searchParams.next ? decodeURIComponent(searchParams.next) : '/briefly/app/dashboard'
-    redirect(`/auth/signin?next=${encodeURIComponent(callbackUrl)}`)
+export default async function DashboardPage() {
+  // Optional: cheap check if middleware authenticated this request
+  const h = await headers()
+  const hasSession = h.get('x-sb-session') === '1'
+
+  // Only hit Supabase if you actually need the user object
+  let user = null as any
+  if (hasSession) {
+    const supabase = createServerClientReadOnly()
+    const { data: { user: u } } = await supabase.auth.getUser()
+    user = u ?? null
   }
 
+  // Do NOT redirect here. Middleware already enforced access.
   return <DashboardClient user={user} />
 }
 

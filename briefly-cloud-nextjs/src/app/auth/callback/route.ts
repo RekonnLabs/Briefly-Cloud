@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-
-function safeNext(next?: string) {
-  try {
-    const u = new URL(next || "/briefly/app/dashboard", "https://example.local");
-    return u.pathname.startsWith("/") ? u.pathname + (u.search || "") : "/briefly/app/dashboard";
-  } catch { return "/briefly/app/dashboard"; }
-}
+import { clampNext } from "@/app/lib/auth/utils";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code") || "";
-  const next = safeNext(url.searchParams.get("next"));
+  const next = clampNext(url.searchParams.get("next") || undefined);
   
   if (!code) {
     return NextResponse.redirect(new URL("/auth/signin", url.origin), { status: 307 });

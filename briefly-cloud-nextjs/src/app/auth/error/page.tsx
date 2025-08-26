@@ -68,7 +68,7 @@ function ErrorContent() {
         </div>
 
         <div className="space-y-3">
-          <Link href="/auth/signin">
+          <Link href="/auth/signin" prefetch={false}>
             <Button className="w-full">
               Try Again
             </Button>

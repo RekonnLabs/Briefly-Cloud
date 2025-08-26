@@ -11,6 +11,7 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/components/auth/SupabaseAuthProvider'
 import { AuthLoadingScreen } from '@/app/components/auth/AuthLoadingScreen'
+import { clampNext } from '@/app/lib/auth/utils'
 
 // Force dynamic rendering for pages with search params
 export const dynamic = 'force-dynamic'
@@ -20,8 +21,9 @@ function SignInContent() {
   const searchParams = useSearchParams()
   const { user, loading } = useAuth()
   
-  // Server-side OAuth initiation URLs
-  const next = encodeURIComponent(searchParams.get('next') || '/briefly/app/dashboard')
+  // Server-side OAuth initiation URLs with clamped next parameter
+  const nextParam = clampNext(searchParams.get('next') || undefined)
+  const next = encodeURIComponent(nextParam)
   const startGoogle = `/auth/start?provider=google&next=${next}`
   const startMicrosoft = `/auth/start?provider=azure&next=${next}`
 

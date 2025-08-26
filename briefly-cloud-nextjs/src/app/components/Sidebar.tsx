@@ -19,8 +19,8 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
   const handleSignOut = () => {
-    // Use server-side logout route
-    window.location.href = '/api/auth/logout'
+    // Use server-side signout route
+    window.location.href = '/api/auth/signout'
   }
   const [showUserMenu, setShowUserMenu] = useState(false);
 
