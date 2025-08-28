@@ -38,6 +38,9 @@ build/
 *.bak
 .vscode/
 
+# Kiro AI assistant files (local development only)
+.kiro/
+
 # Supabase
 .supabase/
 

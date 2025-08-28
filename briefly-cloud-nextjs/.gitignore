@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Kiro AI assistant files (local development only)
+.kiro/
+
 # Next.js
 # Vercel
 # TypeScript
