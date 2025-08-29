@@ -4,6 +4,20 @@ import { createSupabaseServerClient } from '@/app/lib/auth/supabase-auth'
 
 export async function GET(req: NextRequest) {
   try {
+    // Guard: Check required environment variables first
+    const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID
+    const redirectUri = process.env.GOOGLE_DRIVE_REDIRECT_URI
+    const scopes = process.env.GOOGLE_DRIVE_SCOPES
+    
+    if (!clientId || !redirectUri || !scopes) {
+      // Fail fast with a clear message so we don't hit Google with redirect_uri=undefined
+      return NextResponse.redirect(new URL(
+        '/briefly/app/dashboard?link=google&error=' +
+        encodeURIComponent('missing_env: GOOGLE_DRIVE_CLIENT_ID/REDIRECT_URI/SCOPES'),
+        req.url
+      ))
+    }
+
     // Check if user is authenticated via Supabase Auth
     const supabase = createSupabaseServerClient()
     const { data: { user }, error } = await supabase.auth.getUser()
@@ -24,10 +38,10 @@ export async function GET(req: NextRequest) {
     })
     
     const params = new URLSearchParams({
-      client_id: process.env.GOOGLE_DRIVE_CLIENT_ID!,
-      redirect_uri: process.env.GOOGLE_DRIVE_REDIRECT_URI!,
+      client_id: clientId,
+      redirect_uri: redirectUri,
       response_type: 'code',
-      scope: process.env.GOOGLE_DRIVE_SCOPES!, // includes drive.file
+      scope: scopes, // includes drive.file
       access_type: 'offline',
       include_granted_scopes: 'true',
       // OAuth Consent Policy:

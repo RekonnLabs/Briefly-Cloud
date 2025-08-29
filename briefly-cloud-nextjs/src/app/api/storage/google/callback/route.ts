@@ -5,6 +5,19 @@ import { cookies } from 'next/headers'
 
 export async function GET(req: NextRequest) {
   try {
+    // Guard: Check required environment variables first
+    const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET
+    const redirectUri = process.env.GOOGLE_DRIVE_REDIRECT_URI
+    
+    if (!clientId || !clientSecret || !redirectUri) {
+      return NextResponse.redirect(new URL(
+        '/briefly/app/dashboard?link=google&error=' +
+        encodeURIComponent('missing_env: GOOGLE_DRIVE_CLIENT_ID/SECRET/REDIRECT_URI'),
+        req.url
+      ))
+    }
+
     const { searchParams } = new URL(req.url)
     const code = searchParams.get('code')
     const error = searchParams.get('error')
@@ -40,9 +53,9 @@ export async function GET(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: process.env.GOOGLE_DRIVE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET!,
-        redirect_uri: process.env.GOOGLE_DRIVE_REDIRECT_URI!,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
         code,
         grant_type: 'authorization_code',
       }),
