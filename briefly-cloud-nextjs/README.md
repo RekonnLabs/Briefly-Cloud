@@ -117,8 +117,8 @@ Key environment variables (see `.env.example` for complete list):
 
 - `NEXTAUTH_URL` - Your application URL (legacy variable name)
 - `NEXTAUTH_SECRET` - Authentication secret key (legacy variable name)
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - Google OAuth
-- `AZURE_AD_CLIENT_ID` / `AZURE_AD_CLIENT_SECRET` - Microsoft OAuth
+- `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET` - Google Drive storage integration
+- `MS_DRIVE_CLIENT_ID` / `MS_DRIVE_CLIENT_SECRET` / `MS_DRIVE_TENANT_ID` - Microsoft Drive storage integration
 - `OPENAI_API_KEY` - OpenAI API key
 - `SUPABASE_*` - Supabase configuration
 

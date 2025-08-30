@@ -323,17 +323,19 @@ export function createSecurityMiddleware() {
 // Environment validation
 export function validateEnvironment(): void {
   const requiredEnvVars = [
-    'NEXTAUTH_URL',
-    'NEXTAUTH_SECRET',
-    'GOOGLE_CLIENT_ID',
-    'GOOGLE_CLIENT_SECRET',
-    'AZURE_AD_CLIENT_ID',
-    'AZURE_AD_CLIENT_SECRET',
-    'AZURE_AD_TENANT_ID',
-    'OPENAI_API_KEY',
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     'SUPABASE_SERVICE_ROLE_KEY',
+    'ENCRYPTION_KEY',
+    'JWT_SECRET'
+  ]
+
+  const optionalEnvVars = [
+    'GOOGLE_DRIVE_CLIENT_ID',
+    'GOOGLE_DRIVE_CLIENT_SECRET',
+    'MS_DRIVE_CLIENT_ID',
+    'MS_DRIVE_CLIENT_SECRET',
+    'OPENAI_API_KEY',
     'STRIPE_SECRET_KEY',
     'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
     'STRIPE_WEBHOOK_SECRET'
@@ -346,7 +348,7 @@ export function validateEnvironment(): void {
   }
 
   // Validate URLs
-  const urlVars = ['NEXTAUTH_URL', 'NEXT_PUBLIC_SUPABASE_URL']
+  const urlVars = ['NEXT_PUBLIC_SUPABASE_URL']
   for (const varName of urlVars) {
     try {
       new URL(process.env[varName]!)

@@ -401,10 +401,11 @@ class FinalValidator {
     }
     
     const requiredEnvVars = [
-      'GOOGLE_CLIENT_ID',
-      'GOOGLE_CLIENT_SECRET',
-      'MICROSOFT_CLIENT_ID',
-      'MICROSOFT_CLIENT_SECRET'
+      // Storage OAuth credentials (optional)
+      'GOOGLE_DRIVE_CLIENT_ID',
+      'GOOGLE_DRIVE_CLIENT_SECRET',
+      'MS_DRIVE_CLIENT_ID',
+      'MS_DRIVE_CLIENT_SECRET'
     ];
     
     for (const varName of requiredEnvVars) {
@@ -583,7 +584,7 @@ class FinalValidator {
     await new Promise(resolve => setTimeout(resolve, 180));
     
     return {
-      status: process.env.GOOGLE_CLIENT_ID ? 'PASSED' : 'WARNING',
+      status: process.env.GOOGLE_DRIVE_CLIENT_ID ? 'PASSED' : 'WARNING',
       responseTime: Date.now() - startTime,
       details: 'Google APIs configuration checked'
     };
@@ -596,7 +597,7 @@ class FinalValidator {
     await new Promise(resolve => setTimeout(resolve, 160));
     
     return {
-      status: process.env.MICROSOFT_CLIENT_ID ? 'PASSED' : 'WARNING',
+      status: process.env.MS_DRIVE_CLIENT_ID ? 'PASSED' : 'WARNING',
       responseTime: Date.now() - startTime,
       details: 'Microsoft Graph configuration checked'
     };

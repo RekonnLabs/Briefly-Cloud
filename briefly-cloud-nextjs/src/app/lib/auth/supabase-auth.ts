@@ -424,13 +424,15 @@ export async function validateSession(): Promise<{ valid: boolean; user?: AuthUs
  */
 export function getOAuthConfig() {
   return {
-    google: {
-      enabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-      scopes: 'openid email profile'
+    // Note: OAuth providers are now configured in Supabase dashboard
+    // These are for storage integrations only
+    googleDrive: {
+      enabled: !!(process.env.GOOGLE_DRIVE_CLIENT_ID && process.env.GOOGLE_DRIVE_CLIENT_SECRET),
+      scopes: 'https://www.googleapis.com/auth/drive.readonly'
     },
-    microsoft: {
-      enabled: !!(process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET),
-      scopes: 'openid email profile'
+    microsoftDrive: {
+      enabled: !!(process.env.MS_DRIVE_CLIENT_ID && process.env.MS_DRIVE_CLIENT_SECRET),
+      scopes: 'https://graph.microsoft.com/Files.Read.All offline_access'
     }
   }
 }

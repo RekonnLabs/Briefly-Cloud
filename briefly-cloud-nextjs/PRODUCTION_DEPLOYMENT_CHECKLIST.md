@@ -75,11 +75,12 @@ Configure the following in Vercel dashboard:
 #### AI Services
 - [ ] `OPENAI_API_KEY` - Production OpenAI API key
 
-#### OAuth Providers
-- [ ] `GOOGLE_CLIENT_ID` - Production Google OAuth client ID
-- [ ] `GOOGLE_CLIENT_SECRET` - Production Google OAuth client secret
-- [ ] `MICROSOFT_CLIENT_ID` - Production Microsoft OAuth client ID
-- [ ] `MICROSOFT_CLIENT_SECRET` - Production Microsoft OAuth client secret
+#### Storage OAuth Providers (Optional)
+- [ ] `GOOGLE_DRIVE_CLIENT_ID` - Production Google Drive client ID
+- [ ] `GOOGLE_DRIVE_CLIENT_SECRET` - Production Google Drive client secret
+- [ ] `MS_DRIVE_CLIENT_ID` - Production Microsoft Drive client ID
+- [ ] `MS_DRIVE_CLIENT_SECRET` - Production Microsoft Drive client secret
+- [ ] `MS_DRIVE_TENANT_ID` - Production Microsoft tenant ID
 
 #### Payments
 - [ ] `STRIPE_SECRET_KEY` - Live Stripe secret key

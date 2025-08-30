@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.MS_DRIVE_CLIENT_ID
     const clientSecret = process.env.MS_DRIVE_CLIENT_SECRET
     const redirectUri = process.env.MS_DRIVE_REDIRECT_URI
-    const tenant = process.env.MS_DRIVE_TENANT || 'common'
+    const tenant = process.env.MS_DRIVE_TENANT_ID || 'common'
     
     if (!clientId || !clientSecret || !redirectUri) {
       return NextResponse.redirect(new URL(

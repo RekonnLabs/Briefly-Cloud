@@ -62,15 +62,21 @@ const ENV_SCHEMA = {
   SUPABASE_ANON_KEY: { required: true, type: 'string', minLength: 100 },
   SUPABASE_SERVICE_ROLE_KEY: { required: true, type: 'string', minLength: 100 },
   
-  // Authentication (legacy NextAuth variables kept for compatibility)
-  NEXTAUTH_SECRET: { required: true, type: 'string', minLength: 32 },
-  NEXTAUTH_URL: { required: true, type: 'url' },
+  // Authentication
+  // Note: OAuth login is handled by Supabase Auth, not app environment variables
   
-  // OAuth providers
-  GOOGLE_CLIENT_ID: { required: false, type: 'string' },
-  GOOGLE_CLIENT_SECRET: { required: false, type: 'string' },
-  MICROSOFT_CLIENT_ID: { required: false, type: 'string' },
-  MICROSOFT_CLIENT_SECRET: { required: false, type: 'string' },
+  // OAuth providers (Drive storage integration)
+  // Note: Login OAuth is handled by Supabase Auth, not app environment variables
+  GOOGLE_DRIVE_CLIENT_ID: { required: false, type: 'string' },
+  GOOGLE_DRIVE_CLIENT_SECRET: { required: false, type: 'string' },
+  GOOGLE_DRIVE_REDIRECT_URI: { required: false, type: 'url' },
+  GOOGLE_DRIVE_SCOPES: { required: false, type: 'string' },
+  
+  MS_DRIVE_CLIENT_ID: { required: false, type: 'string' },
+  MS_DRIVE_CLIENT_SECRET: { required: false, type: 'string' },
+  MS_DRIVE_REDIRECT_URI: { required: false, type: 'url' },
+  MS_DRIVE_SCOPES: { required: false, type: 'string' },
+  MS_DRIVE_TENANT: { required: false, type: 'string' },
   
   // OpenAI
   OPENAI_API_KEY: { required: false, type: 'string', pattern: /^sk-/ },
@@ -148,10 +154,6 @@ export function validateEnvironment(): {
   
   if (environment === 'production') {
     // Production-specific validations
-    if (!process.env.NEXTAUTH_SECRET || process.env.NEXTAUTH_SECRET.length < 32) {
-      errors.push('NEXTAUTH_SECRET (auth secret) must be at least 32 characters in production')
-    }
-    
     if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 32) {
       errors.push('ENCRYPTION_KEY must be at least 32 characters in production')
     }
@@ -369,9 +371,8 @@ export function getSecurityConfig(): SecurityConfig {
 export function sanitizeEnvForLogging(): Record<string, string> {
   const sensitiveKeys = [
     'SUPABASE_SERVICE_ROLE_KEY',
-    'NEXTAUTH_SECRET',
-    'GOOGLE_CLIENT_SECRET',
-    'MICROSOFT_CLIENT_SECRET',
+    'GOOGLE_DRIVE_CLIENT_SECRET',
+    'MS_DRIVE_CLIENT_SECRET',
     'OPENAI_API_KEY',
     'ENCRYPTION_KEY',
     'JWT_SECRET',

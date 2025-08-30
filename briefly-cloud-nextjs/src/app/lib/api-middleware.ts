@@ -7,12 +7,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, type AuthUser } from './auth/supabase-auth'
 import { formatErrorResponse } from './api-errors'
 import { logger } from './logger'
-import { 
-  createSecurityMiddleware, 
-  RateLimiter, 
-  InputSanitizer, 
+import {
+  createSecurityMiddleware,
+  RateLimiter,
+  InputSanitizer,
   securitySchemas,
-  validateEnvironment 
+  validateEnvironment
 } from './security'
 
 export interface ApiContext {
@@ -44,14 +44,14 @@ export function createProtectedApiHandler(
   return async (request: NextRequest): Promise<NextResponse> => {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
-    
+
     try {
       // Initialize security validation
       validateEnvironment()
-      
+
       // Create security middleware
       const securityMiddleware = createSecurityMiddleware()
-      
+
       // Get user for authentication
       let user: AuthUser | null = null
       if (config.requireAuth) {
@@ -64,19 +64,19 @@ export function createProtectedApiHandler(
           )
         }
       }
-      
+
       // Rate limiting
       if (config.rateLimit) {
         const identifier = user?.id || request.ip || 'anonymous'
         if (RateLimiter.isRateLimited(identifier)) {
           return NextResponse.json(
-            { 
-              success: false, 
-              error: 'RATE_LIMIT_EXCEEDED', 
+            {
+              success: false,
+              error: 'RATE_LIMIT_EXCEEDED',
               message: 'Too many requests. Please try again later.',
               retryAfter: Math.ceil(config.rateLimit.windowMs / 1000)
             },
-            { 
+            {
               status: 429,
               headers: {
                 'Retry-After': Math.ceil(config.rateLimit.windowMs / 1000).toString(),
@@ -87,13 +87,13 @@ export function createProtectedApiHandler(
           )
         }
       }
-      
+
       // Input validation and sanitization
       if (config.validation?.schema) {
         try {
           const body = await request.json().catch(() => ({}))
           const validatedData = config.validation.schema.parse(body)
-          
+
           // Sanitize input if enabled
           if (config.validation.sanitize) {
             Object.keys(validatedData).forEach(key => {
@@ -102,31 +102,31 @@ export function createProtectedApiHandler(
               }
             })
           }
-          
+
           // Replace request body with validated data
           const newRequest = new NextRequest(request.url, {
             method: request.method,
             headers: request.headers,
             body: JSON.stringify(validatedData)
           })
-          
+
           // Create context
           const context: ApiContext = {
             user,
             requestId
           }
-          
+
           // Call handler with validated data
           const response = await handler(newRequest, context)
-          
+
           // Apply security headers
           return securityMiddleware(request, response)
-          
+
         } catch (validationError) {
           return NextResponse.json(
-            { 
-              success: false, 
-              error: 'VALIDATION_ERROR', 
+            {
+              success: false,
+              error: 'VALIDATION_ERROR',
               message: 'Invalid input data',
               details: validationError instanceof Error ? validationError.message : 'Validation failed'
             },
@@ -139,18 +139,18 @@ export function createProtectedApiHandler(
           user,
           requestId
         }
-        
+
         // Call handler
         const response = await handler(request, context)
-        
+
         // Apply security headers
         return securityMiddleware(request, response)
       }
-      
+
     } catch (error) {
       // Enhanced error handling with retry logic for transient failures
       const { retryApiCall } = await import('./retry')
-      
+
       // Check if this is a retryable error
       if (error instanceof Error && isRetryableApiError(error)) {
         try {
@@ -159,7 +159,7 @@ export function createProtectedApiHandler(
           return formatErrorResponse(retryError as Error)
         }
       }
-      
+
       return formatErrorResponse(error as Error)
     } finally {
       // Log request details
@@ -170,7 +170,7 @@ export function createProtectedApiHandler(
           url: request.url,
           duration,
           requestId,
-          userId: session?.user?.id,
+          userId: user?.id,
           userAgent: request.headers.get('user-agent'),
           ip: request.ip || request.headers.get('x-forwarded-for')
         })
@@ -192,8 +192,8 @@ function isRetryableApiError(error: Error): boolean {
     'ENOTFOUND',
     'ETIMEDOUT'
   ]
-  
-  return retryablePatterns.some(pattern => 
+
+  return retryablePatterns.some(pattern =>
     error.message.toLowerCase().includes(pattern.toLowerCase())
   )
 }
@@ -214,14 +214,14 @@ export function createFileUploadHandler(
   return async (request: NextRequest): Promise<NextResponse> => {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
-    
+
     try {
       // Initialize security validation
       validateEnvironment()
-      
+
       // Create security middleware
       const securityMiddleware = createSecurityMiddleware()
-      
+
       // Get user for authentication
       let user: AuthUser | null = null
       if (config.requireAuth) {
@@ -234,15 +234,15 @@ export function createFileUploadHandler(
           )
         }
       }
-      
+
       // Rate limiting for file uploads (stricter limits)
       if (config.rateLimit) {
         const identifier = user?.id || request.ip || 'anonymous'
         if (RateLimiter.isRateLimited(identifier)) {
           return NextResponse.json(
-            { 
-              success: false, 
-              error: 'RATE_LIMIT_EXCEEDED', 
+            {
+              success: false,
+              error: 'RATE_LIMIT_EXCEEDED',
               message: 'Too many upload requests. Please try again later.',
               retryAfter: Math.ceil(config.rateLimit.windowMs / 1000)
             },
@@ -250,19 +250,19 @@ export function createFileUploadHandler(
           )
         }
       }
-      
+
       // Create context
       const context: ApiContext = {
         user,
         requestId
       }
-      
+
       // Call handler
       const response = await handler(request, context)
-      
+
       // Apply security headers
       return securityMiddleware(request, response)
-      
+
     } catch (error) {
       return formatErrorResponse(error as Error)
     } finally {
@@ -274,7 +274,7 @@ export function createFileUploadHandler(
           url: request.url,
           duration,
           requestId,
-          userId: session?.user?.id,
+          userId: user?.id,
           contentType: request.headers.get('content-type'),
           contentLength: request.headers.get('content-length')
         })
@@ -291,7 +291,7 @@ export function createWebhookHandler(
   return async (request: NextRequest): Promise<NextResponse> => {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
-    
+
     try {
       // Verify webhook signature if secret is provided
       if (config.webhookSecret) {
@@ -302,23 +302,23 @@ export function createWebhookHandler(
             { status: 400 }
           )
         }
-        
+
         // Note: In a real implementation, you would verify the signature here
         // using the webhook secret and the request body
       }
-      
+
       // Create context
       const context: ApiContext = {
         requestId
       }
-      
+
       // Call handler
       const response = await handler(request, context)
-      
+
       // Apply security headers
       const securityMiddleware = createSecurityMiddleware()
       return securityMiddleware(request, response)
-      
+
     } catch (error) {
       return formatErrorResponse(error as Error)
     } finally {

@@ -98,13 +98,16 @@ CHROMA_PORT=8000
 CHROMA_TENANT_ID=your_chroma_tenant_id
 
 # OAuth Providers
-GOOGLE_CLIENT_ID=your_google_oauth_client_id
-GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:3001/api/storage/google/callback
+GOOGLE_DRIVE_CLIENT_ID=your_google_drive_client_id
+GOOGLE_DRIVE_CLIENT_SECRET=your_google_drive_client_secret
+GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3001/api/storage/google/callback
+GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly
 
-MICROSOFT_CLIENT_ID=your_microsoft_oauth_client_id
-MICROSOFT_CLIENT_SECRET=your_microsoft_oauth_client_secret
-MICROSOFT_REDIRECT_URI=http://localhost:3001/api/storage/microsoft/callback
+MS_DRIVE_CLIENT_ID=your_microsoft_drive_client_id
+MS_DRIVE_CLIENT_SECRET=your_microsoft_drive_client_secret
+MS_DRIVE_TENANT_ID=your_microsoft_tenant_id
+MS_DRIVE_REDIRECT_URI=http://localhost:3001/api/storage/microsoft/callback
+MS_DRIVE_SCOPES=https://graph.microsoft.com/Files.Read.All offline_access
 
 # Server Configuration
 PORT=3001

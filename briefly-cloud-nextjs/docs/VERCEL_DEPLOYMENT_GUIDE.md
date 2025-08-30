@@ -74,10 +74,16 @@ OPENAI_API_KEY=sk-your-openai-api-key
 
 #### OAuth Providers
 ```env
-GOOGLE_CLIENT_ID=your-google-oauth-client-id
-GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
-MICROSOFT_CLIENT_ID=your-microsoft-oauth-client-id
-MICROSOFT_CLIENT_SECRET=your-microsoft-oauth-client-secret
+GOOGLE_DRIVE_CLIENT_ID=your-google-drive-client-id
+GOOGLE_DRIVE_CLIENT_SECRET=your-google-drive-client-secret
+GOOGLE_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/google/callback
+GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly
+
+MS_DRIVE_CLIENT_ID=your-microsoft-drive-client-id
+MS_DRIVE_CLIENT_SECRET=your-microsoft-drive-client-secret
+MS_DRIVE_TENANT_ID=your-microsoft-tenant-id
+MS_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/microsoft/callback
+MS_DRIVE_SCOPES=https://graph.microsoft.com/Files.Read.All offline_access
 ```
 
 #### Payments
@@ -128,11 +134,17 @@ SUPABASE_SERVICE_ROLE_KEY=
 # AI Services
 OPENAI_API_KEY=
 
-# OAuth
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-MICROSOFT_CLIENT_ID=
-MICROSOFT_CLIENT_SECRET=
+# Storage OAuth (Optional)
+GOOGLE_DRIVE_CLIENT_ID=
+GOOGLE_DRIVE_CLIENT_SECRET=
+GOOGLE_DRIVE_REDIRECT_URI=
+GOOGLE_DRIVE_SCOPES=
+
+MS_DRIVE_CLIENT_ID=
+MS_DRIVE_CLIENT_SECRET=
+MS_DRIVE_TENANT_ID=
+MS_DRIVE_REDIRECT_URI=
+MS_DRIVE_SCOPES=
 
 # Payments
 STRIPE_SECRET_KEY=

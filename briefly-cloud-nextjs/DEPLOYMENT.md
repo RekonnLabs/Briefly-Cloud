@@ -81,12 +81,17 @@ Add the following environment variables in Vercel:
 NEXTAUTH_URL=https://rekonnlabs.com/briefly/app
 NEXTAUTH_SECRET=your-generated-secret
 
-# OAuth Providers
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-AZURE_AD_CLIENT_ID=your-azure-client-id
-AZURE_AD_CLIENT_SECRET=your-azure-client-secret
-AZURE_AD_TENANT_ID=your-azure-tenant-id
+# Storage OAuth Providers (Optional)
+GOOGLE_DRIVE_CLIENT_ID=your-google-drive-client-id
+GOOGLE_DRIVE_CLIENT_SECRET=your-google-drive-client-secret
+GOOGLE_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/google/callback
+GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly
+
+MS_DRIVE_CLIENT_ID=your-microsoft-drive-client-id
+MS_DRIVE_CLIENT_SECRET=your-microsoft-drive-client-secret
+MS_DRIVE_TENANT_ID=your-microsoft-tenant-id
+MS_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/microsoft/callback
+MS_DRIVE_SCOPES=https://graph.microsoft.com/Files.Read.All offline_access
 
 # OpenAI Configuration
 OPENAI_API_KEY=your-openai-api-key

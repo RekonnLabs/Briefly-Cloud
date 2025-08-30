@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.MS_DRIVE_CLIENT_ID
     const redirectUri = process.env.MS_DRIVE_REDIRECT_URI
     const scopes = process.env.MS_DRIVE_SCOPES
-    const tenant = process.env.MS_DRIVE_TENANT || 'common'
+    const tenant = process.env.MS_DRIVE_TENANT_ID || 'common'
     
     if (!clientId || !redirectUri || !scopes) {
       // Fail fast with a clear message so we don't hit Microsoft with undefined params

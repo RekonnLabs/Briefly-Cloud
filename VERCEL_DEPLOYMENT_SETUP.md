@@ -51,10 +51,16 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 OPENAI_API_KEY=your-openai-api-key
 
 # OAuth Providers
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-MICROSOFT_CLIENT_ID=your-microsoft-client-id
-MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
+GOOGLE_DRIVE_CLIENT_ID=your-google-drive-client-id
+GOOGLE_DRIVE_CLIENT_SECRET=your-google-drive-client-secret
+GOOGLE_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/google/callback
+GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly
+
+MS_DRIVE_CLIENT_ID=your-microsoft-drive-client-id
+MS_DRIVE_CLIENT_SECRET=your-microsoft-drive-client-secret
+MS_DRIVE_TENANT_ID=your-microsoft-tenant-id
+MS_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/microsoft/callback
+MS_DRIVE_SCOPES=https://graph.microsoft.com/Files.Read.All offline_access
 
 # Stripe Configuration
 STRIPE_SECRET_KEY=your-stripe-secret-key

@@ -138,11 +138,17 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 # OpenAI
 OPENAI_API_KEY=your-openai-api-key
 
-# OAuth Providers
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-MICROSOFT_CLIENT_ID=your-microsoft-client-id
-MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
+# Storage OAuth Providers (Optional)
+GOOGLE_DRIVE_CLIENT_ID=your-google-drive-client-id
+GOOGLE_DRIVE_CLIENT_SECRET=your-google-drive-client-secret
+GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/api/storage/google/callback
+GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly
+
+MS_DRIVE_CLIENT_ID=your-microsoft-drive-client-id
+MS_DRIVE_CLIENT_SECRET=your-microsoft-drive-client-secret
+MS_DRIVE_TENANT_ID=your-microsoft-tenant-id
+MS_DRIVE_REDIRECT_URI=http://localhost:3000/api/storage/microsoft/callback
+MS_DRIVE_SCOPES=https://graph.microsoft.com/Files.Read.All offline_access
 
 # Stripe (for subscriptions)
 STRIPE_SECRET_KEY=your-stripe-secret-key
@@ -290,8 +296,8 @@ Configure these in your Vercel dashboard:
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
 - `OPENAI_API_KEY` - OpenAI API key
-- `GOOGLE_CLIENT_ID` & `GOOGLE_CLIENT_SECRET` - Google OAuth
-- `MICROSOFT_CLIENT_ID` & `MICROSOFT_CLIENT_SECRET` - Microsoft OAuth
+- `GOOGLE_DRIVE_CLIENT_ID` & `GOOGLE_DRIVE_CLIENT_SECRET` - Google Drive storage integration
+- `MS_DRIVE_CLIENT_ID` & `MS_DRIVE_CLIENT_SECRET` & `MS_DRIVE_TENANT_ID` - Microsoft Drive storage integration
 - `STRIPE_SECRET_KEY` & `STRIPE_WEBHOOK_SECRET` - Stripe integration
 
 ### Custom Domain

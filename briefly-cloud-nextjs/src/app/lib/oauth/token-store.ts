@@ -194,8 +194,8 @@ export async function refreshGoogleToken(userId: string): Promise<OAuthToken | n
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        client_id: process.env.GOOGLE_DRIVE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET!,
         refresh_token: existingToken.refreshToken,
         grant_type: 'refresh_token',
       }),
@@ -242,13 +242,13 @@ export async function refreshMicrosoftToken(userId: string): Promise<OAuthToken 
       return null
     }
 
-    const tenant = process.env.AZURE_AD_TENANT_ID || 'common'
+    const tenant = process.env.MS_DRIVE_TENANT_ID || 'common'
     const response = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: process.env.AZURE_AD_CLIENT_ID!,
-        client_secret: process.env.AZURE_AD_CLIENT_SECRET!,
+        client_id: process.env.MS_DRIVE_CLIENT_ID!,
+        client_secret: process.env.MS_DRIVE_CLIENT_SECRET!,
         refresh_token: existingToken.refreshToken,
         grant_type: 'refresh_token',
       }),

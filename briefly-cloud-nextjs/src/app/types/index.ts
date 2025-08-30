@@ -164,10 +164,13 @@ export interface EnvironmentConfig {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string
   SUPABASE_SERVICE_ROLE_KEY: string
   OPENAI_API_KEY: string
-  GOOGLE_CLIENT_ID: string
-  GOOGLE_CLIENT_SECRET: string
-  MICROSOFT_CLIENT_ID?: string
-  MICROSOFT_CLIENT_SECRET?: string
+  // Google Drive OAuth (for storage integration)
+  GOOGLE_DRIVE_CLIENT_ID?: string
+  GOOGLE_DRIVE_CLIENT_SECRET?: string
+  // Microsoft Drive OAuth (for storage integration)
+  MS_DRIVE_CLIENT_ID?: string
+  MS_DRIVE_CLIENT_SECRET?: string
+  MS_DRIVE_TENANT_ID?: string
   CHROMA_API_KEY?: string
   CHROMA_TENANT_ID?: string
   CHROMA_DB_NAME?: string

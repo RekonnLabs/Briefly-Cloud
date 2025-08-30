@@ -34,10 +34,11 @@ class EnvironmentValidator {
       'OPENAI_API_KEY',
       'STRIPE_SECRET_KEY',
       'STRIPE_WEBHOOK_SECRET',
-      'GOOGLE_CLIENT_ID',
-      'GOOGLE_CLIENT_SECRET',
-      'MICROSOFT_CLIENT_ID',
-      'MICROSOFT_CLIENT_SECRET'
+      // Storage OAuth credentials (optional)
+      'GOOGLE_DRIVE_CLIENT_ID',
+      'GOOGLE_DRIVE_CLIENT_SECRET',
+      'MS_DRIVE_CLIENT_ID',
+      'MS_DRIVE_CLIENT_SECRET'
     ];
     
     this.securityPatterns = {

@@ -50,10 +50,16 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # OAuth Configuration
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-MICROSOFT_CLIENT_ID=your_microsoft_client_id
-MICROSOFT_CLIENT_SECRET=your_microsoft_client_secret
+GOOGLE_DRIVE_CLIENT_ID=your_google_drive_client_id
+GOOGLE_DRIVE_CLIENT_SECRET=your_google_drive_client_secret
+GOOGLE_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/google/callback
+GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly
+
+MS_DRIVE_CLIENT_ID=your_microsoft_drive_client_id
+MS_DRIVE_CLIENT_SECRET=your_microsoft_drive_client_secret
+MS_DRIVE_TENANT_ID=your_microsoft_tenant_id
+MS_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/microsoft/callback
+MS_DRIVE_SCOPES=https://graph.microsoft.com/Files.Read.All offline_access
 
 # OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key

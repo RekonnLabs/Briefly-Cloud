@@ -14,13 +14,18 @@ const envSchema = z.object({
   RATE_LIMIT_MAX_REQUESTS: z.string().transform(Number).default('100'),
   
   // Authentication
-  NEXTAUTH_URL: z.string().url(),
-  NEXTAUTH_SECRET: z.string().min(32, 'Secret must be at least 32 characters'),
-  GOOGLE_CLIENT_ID: z.string(),
-  GOOGLE_CLIENT_SECRET: z.string(),
-  AZURE_AD_CLIENT_ID: z.string(),
-  AZURE_AD_CLIENT_SECRET: z.string(),
-  AZURE_AD_TENANT_ID: z.string(),
+  // Legacy OAuth variables - no longer used (Supabase handles auth)
+  NEXTAUTH_URL: z.string().url().optional(),
+  NEXTAUTH_SECRET: z.string().min(32, 'Secret must be at least 32 characters').optional(),
+  
+  // Google Drive OAuth (for storage integration)
+  GOOGLE_DRIVE_CLIENT_ID: z.string().optional(),
+  GOOGLE_DRIVE_CLIENT_SECRET: z.string().optional(),
+  
+  // Microsoft Drive OAuth (for storage integration)
+  MS_DRIVE_CLIENT_ID: z.string().optional(),
+  MS_DRIVE_CLIENT_SECRET: z.string().optional(),
+  MS_DRIVE_TENANT_ID: z.string().optional(),
   
   // AI/LLM
   OPENAI_API_KEY: z.string(),
@@ -170,15 +175,16 @@ export const config = {
   // Authentication
   auth: {
     nextAuthUrl: env.NEXTAUTH_URL,
+    // Legacy OAuth config - no longer used
     nextAuthSecret: env.NEXTAUTH_SECRET,
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
+    googleDrive: {
+      clientId: env.GOOGLE_DRIVE_CLIENT_ID,
+      clientSecret: env.GOOGLE_DRIVE_CLIENT_SECRET,
     },
-    azure: {
-      clientId: env.AZURE_AD_CLIENT_ID,
-      clientSecret: env.AZURE_AD_CLIENT_SECRET,
-      tenantId: env.AZURE_AD_TENANT_ID,
+    microsoftDrive: {
+      clientId: env.MS_DRIVE_CLIENT_ID,
+      clientSecret: env.MS_DRIVE_CLIENT_SECRET,
+      tenantId: env.MS_DRIVE_TENANT_ID,
     },
   },
   

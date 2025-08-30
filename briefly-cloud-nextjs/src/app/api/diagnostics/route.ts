@@ -33,8 +33,8 @@ async function diagnosticsHandler(_request: Request, _context: ApiContext): Prom
       openai_api_key: process.env.OPENAI_API_KEY ? 'Set' : 'Not set',
       nextauth_secret: process.env.NEXTAUTH_SECRET ? 'Set' : 'Not set',
       nextauth_url: process.env.NEXTAUTH_URL || 'Not set',
-      google_client_id: process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set',
-      microsoft_client_id: process.env.MICROSOFT_CLIENT_ID ? 'Set' : 'Not set',
+      google_drive_client_id: process.env.GOOGLE_DRIVE_CLIENT_ID ? 'Set' : 'Not set',
+      ms_drive_client_id: process.env.MS_DRIVE_CLIENT_ID ? 'Set' : 'Not set',
       stripe_secret_key: process.env.STRIPE_SECRET_KEY ? 'Set' : 'Not set',
       chroma_api_key: process.env.CHROMA_API_KEY ? 'Set' : 'Not set',
     },
@@ -42,8 +42,8 @@ async function diagnosticsHandler(_request: Request, _context: ApiContext): Prom
     // Feature availability
     features: {
       authentication: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
-      oauth_google: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-      oauth_microsoft: !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET),
+      google_drive_storage: !!(process.env.GOOGLE_DRIVE_CLIENT_ID && process.env.GOOGLE_DRIVE_CLIENT_SECRET),
+      microsoft_drive_storage: !!(process.env.MS_DRIVE_CLIENT_ID && process.env.MS_DRIVE_CLIENT_SECRET),
       openai_integration: !!process.env.OPENAI_API_KEY,
       stripe_payments: !!process.env.STRIPE_SECRET_KEY,
       vector_search: !!process.env.CHROMA_API_KEY,
