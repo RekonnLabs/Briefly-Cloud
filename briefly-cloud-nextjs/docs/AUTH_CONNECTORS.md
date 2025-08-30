@@ -46,6 +46,13 @@ GOOGLE_DRIVE_CLIENT_ID=your-google-drive-client-id
 GOOGLE_DRIVE_CLIENT_SECRET=your-google-drive-client-secret
 GOOGLE_DRIVE_REDIRECT_URI=https://briefly.rekonnlabs.com/api/storage/google/callback
 GOOGLE_DRIVE_SCOPES="openid email profile https://www.googleapis.com/auth/drive.file"
+
+# Client B (OneDrive) - Storage Integration
+MS_DRIVE_CLIENT_ID=your-microsoft-drive-client-id
+MS_DRIVE_CLIENT_SECRET=your-microsoft-drive-client-secret
+MS_DRIVE_REDIRECT_URI=https://briefly.rekonnlabs.com/api/storage/microsoft/callback
+MS_DRIVE_SCOPES="openid email profile https://graph.microsoft.com/Files.ReadWrite"
+MS_DRIVE_TENANT=common
 ```
 
 ## Google Cloud Console Setup
@@ -77,12 +84,40 @@ GOOGLE_DRIVE_SCOPES="openid email profile https://www.googleapis.com/auth/drive.
 - **Subsequent Links**: Omit `prompt=consent` to avoid re-prompting users unnecessarily
 - The storage route handles this automatically based on user's connection status
 
+## Microsoft Azure Setup
+
+### Client A (Login) Configuration
+1. **Create App Registration** in Azure Portal
+2. **Supported Account Types**: Accounts in any organizational directory and personal Microsoft accounts
+3. **Redirect URIs**: Web platform
+   - `https://your-project.supabase.co/auth/v1/callback`
+4. **Configure in Supabase**: Dashboard → Authentication → Providers → Azure
+
+### Client B (OneDrive) Configuration
+1. **Create separate App Registration** in Azure Portal
+2. **Supported Account Types**: Accounts in any organizational directory and personal Microsoft accounts
+3. **Redirect URIs**: Web platform
+   - `http://localhost:3000/api/storage/microsoft/callback` (development)
+   - `https://briefly.rekonnlabs.com/api/storage/microsoft/callback` (production)
+4. **API Permissions**: Microsoft Graph
+   - `Files.ReadWrite` (Delegated)
+   - `openid`, `email`, `profile` (Delegated)
+5. **Client Secret**: Generate and store securely
+6. **Tenant**: Use `common` for multi-tenant or specific tenant ID
+
+### Microsoft Graph API
+- **Base URL**: `https://graph.microsoft.com/v1.0`
+- **Files Endpoint**: `/me/drive/items`
+- **Upload Endpoint**: `/me/drive/items/{parent-id}:/{filename}:/content`
+- **Scopes**: `https://graph.microsoft.com/Files.ReadWrite`
+
 ## Security Considerations
 
 ### Principle of Least Privilege
-- **Client A**: Only requests basic profile information needed for authentication
-- **Client B**: Only requests `drive.file` scope (access to files created by the app)
-- **No Broad Access**: Neither client requests full Drive access or sensitive scopes
+- **Client A (Google/Microsoft)**: Only requests basic profile information needed for authentication
+- **Client B (Google Drive)**: Only requests `drive.file` scope (access to files created by the app)
+- **Client B (OneDrive)**: Only requests `Files.ReadWrite` scope (access to user's files)
+- **No Broad Access**: No client requests admin or organization-wide permissions
 
 ### CSRF Protection
 - Both flows use state parameters for CSRF protection
