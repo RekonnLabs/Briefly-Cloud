@@ -11,7 +11,7 @@ import { createError } from '@/app/lib/api-errors'
 
 export interface OAuthToken {
   userId: string
-  provider: 'google_drive' | 'microsoft_drive'
+  provider: 'google' | 'microsoft'
   accessToken: string
   refreshToken?: string
   scope?: string

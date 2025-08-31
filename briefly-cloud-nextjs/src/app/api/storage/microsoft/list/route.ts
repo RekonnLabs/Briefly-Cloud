@@ -2,36 +2,52 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { getDecryptedToken } from '@/app/lib/oauth/token-store'
 
-async function listOneDriveFilesHandler(_request: Request, context: ApiContext): Promise<NextResponse> {
+async function listOneDriveFilesHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
 
-  const { data: token } = await supabaseAdmin
-    .from('oauth_tokens')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('provider', 'microsoft')
-    .single()
+  const token = await getDecryptedToken(user.id, 'microsoft')
+  if (!token?.accessToken) return ApiResponse.badRequest('Microsoft account not connected')
 
-  if (!token?.access_token) return ApiResponse.badRequest('Microsoft account not connected')
+  // B) Add folder support + pagination
+  const { searchParams } = new URL(request.url)
+  const folderId = searchParams.get('folderId') || 'root'
+  
+  let url = `https://graph.microsoft.com/v1.0/me/drive/items/${folderId}/children`
+  const allItems: any[] = []
 
-  const resp = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {
-    headers: { Authorization: `Bearer ${token.access_token}` },
-  })
-  if (!resp.ok) return ApiResponse.internalError('Failed to list OneDrive files')
-  const data = await resp.json()
+  do {
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${token.accessToken}` },
+    })
+    if (!resp.ok) return ApiResponse.internalError('Failed to list OneDrive files')
+    const data = await resp.json()
+    
+    allItems.push(...(data.value || []))
+    url = data['@odata.nextLink'] // Pagination
+  } while (url)
 
-  const files = (data.value || []).map((f: any) => ({
-    id: f.id,
-    name: f.name,
-    size: f.size,
-    mimeType: f.file?.mimeType,
-    webUrl: f.webUrl,
-  }))
+  const files = allItems
+    .filter(f => f.file) // Only files, not folders
+    .map((f: any) => ({
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      mimeType: f.file?.mimeType,
+      webUrl: f.webUrl,
+    }))
 
-  return ApiResponse.success({ files })
+  const folders = allItems
+    .filter(f => f.folder) // Only folders
+    .map((f: any) => ({
+      id: f.id,
+      name: f.name,
+      childCount: f.folder?.childCount || 0,
+    }))
+
+  return ApiResponse.success({ files, folders })
 }
 
 export const GET = createProtectedApiHandler(listOneDriveFilesHandler, {
