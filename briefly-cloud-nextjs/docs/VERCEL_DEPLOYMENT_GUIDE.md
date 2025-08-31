@@ -77,7 +77,7 @@ OPENAI_API_KEY=sk-your-openai-api-key
 GOOGLE_DRIVE_CLIENT_ID=your-google-drive-client-id
 GOOGLE_DRIVE_CLIENT_SECRET=your-google-drive-client-secret
 GOOGLE_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/google/callback
-GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly
+# Note: Scope is hardcoded to 'https://www.googleapis.com/auth/drive.file' for security
 
 MS_DRIVE_CLIENT_ID=your-microsoft-drive-client-id
 MS_DRIVE_CLIENT_SECRET=your-microsoft-drive-client-secret
@@ -138,7 +138,7 @@ OPENAI_API_KEY=
 GOOGLE_DRIVE_CLIENT_ID=
 GOOGLE_DRIVE_CLIENT_SECRET=
 GOOGLE_DRIVE_REDIRECT_URI=
-GOOGLE_DRIVE_SCOPES=
+# Scope is hardcoded for security
 
 MS_DRIVE_CLIENT_ID=
 MS_DRIVE_CLIENT_SECRET=

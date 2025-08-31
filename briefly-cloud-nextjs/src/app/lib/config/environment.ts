@@ -70,7 +70,7 @@ const ENV_SCHEMA = {
   GOOGLE_DRIVE_CLIENT_ID: { required: false, type: 'string' },
   GOOGLE_DRIVE_CLIENT_SECRET: { required: false, type: 'string' },
   GOOGLE_DRIVE_REDIRECT_URI: { required: false, type: 'url' },
-  GOOGLE_DRIVE_SCOPES: { required: false, type: 'string' },
+  // GOOGLE_DRIVE_SCOPES: Removed - scope is hardcoded for security
   
   MS_DRIVE_CLIENT_ID: { required: false, type: 'string' },
   MS_DRIVE_CLIENT_SECRET: { required: false, type: 'string' },

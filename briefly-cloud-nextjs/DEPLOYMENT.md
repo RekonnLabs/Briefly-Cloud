@@ -85,7 +85,7 @@ NEXTAUTH_SECRET=your-generated-secret
 GOOGLE_DRIVE_CLIENT_ID=your-google-drive-client-id
 GOOGLE_DRIVE_CLIENT_SECRET=your-google-drive-client-secret
 GOOGLE_DRIVE_REDIRECT_URI=https://your-domain.com/api/storage/google/callback
-GOOGLE_DRIVE_SCOPES=https://www.googleapis.com/auth/drive.readonly
+# Note: Scope is hardcoded to 'https://www.googleapis.com/auth/drive.file' for security
 
 MS_DRIVE_CLIENT_ID=your-microsoft-drive-client-id
 MS_DRIVE_CLIENT_SECRET=your-microsoft-drive-client-secret
