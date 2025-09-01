@@ -17,6 +17,10 @@ export const rateLimitConfigs = {
   api: {
     windowMs: 60 * 1000, // 1 minute
     max: 100, // 100 requests per minute
+  },
+  embedding: {
+    windowMs: 60 * 1000, // 1 minute
+    max: 20, // 20 embedding requests per minute
   }
 } as const;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
 import { logger } from '@/app/lib/logger'
-import { formatErrorResponse } from '@/app/lib/api-errors'
+import { ApiResponse } from '@/app/lib/api-response'
 import { withRateLimit } from '@/app/lib/rate-limit'
 import { z } from 'zod'
 
@@ -27,14 +27,14 @@ const GetFeedbackSchema = z.object({
 export async function POST(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const session = await getServerSession(authOptions)
+      const user = await getAuthenticatedUser()
       const body = await request.json()
       const feedbackData = FeedbackSchema.parse(body)
 
       // Create feedback record
       const feedback = {
         id: crypto.randomUUID(),
-        user_id: session?.user?.id || null,
+        user_id: user?.id || null,
         type: feedbackData.type,
         rating: feedbackData.rating,
         title: feedbackData.title,
@@ -66,17 +66,13 @@ export async function POST(request: NextRequest) {
         await sendBugReportNotification(feedback)
       }
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          feedback_id: feedback.id,
-          message: 'Feedback submitted successfully'
-        }
-      })
+      return ApiResponse.created({
+        feedback_id: feedback.id
+      }, 'Feedback submitted successfully')
 
     } catch (error) {
       logger.error('Failed to submit feedback', { error })
-      return formatErrorResponse('Failed to submit feedback', 500)
+      return ApiResponse.serverError('Failed to submit feedback')
     }
   })
 }
@@ -84,15 +80,13 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const session = await getServerSession(authOptions)
-      if (!session?.user) {
-        return formatErrorResponse('Unauthorized', 401)
+      const user = await getAuthenticatedUser()
+      if (!user) {
+        return ApiResponse.unauthorized()
       }
 
       // Check admin privileges for viewing all feedback
-      const { data: user } = await fetch(`${process.env.NEXTAUTH_URL}/api/user/profile`, {
-        headers: { Authorization: `Bearer ${session.accessToken}` }
-      }).then(res => res.json())
+      // Note: This would need to be implemented based on your user role system
 
       const { searchParams } = new URL(request.url)
       const query = {
@@ -106,19 +100,16 @@ export async function GET(request: NextRequest) {
 
       // Get feedback from database
       // This would be implemented with your database
-      const feedback = await getFeedback(session.user.id, validatedQuery, user?.is_admin)
+      const feedback = await getFeedback(user.id, validatedQuery, false)
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          feedback,
-          count: feedback.length,
-        }
+      return ApiResponse.ok({
+        feedback,
+        count: feedback.length,
       })
 
     } catch (error) {
       logger.error('Failed to get feedback', { error })
-      return formatErrorResponse('Failed to get feedback', 500)
+      return ApiResponse.serverError('Failed to get feedback')
     }
   })
 }

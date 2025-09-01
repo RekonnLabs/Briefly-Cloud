@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
-import { ApiResponse } from '@/app/lib/api-utils'
+import { ApiResponse } from '@/app/lib/api-response'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
@@ -10,10 +10,10 @@ import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
 
 // Briefly Voice v1 imports
-import { buildMessages, buildDeveloper, type ContextSnippet } from '@/lib/prompt/promptBuilder'
-import { BUDGETS } from '@/lib/prompt/budgets'
-import { enforce as lintResponse } from '@/lib/prompt/responseLinter'
-import { routeModel, analyzeQuery, getModelConfig, type UserTier } from '@/lib/prompt/modelRouter'
+import { buildMessages, buildDeveloper, type ContextSnippet } from '@/app/lib/prompt/promptBuilder'
+import { BUDGETS, getBudgetForTier, type ChatBudget } from '@/app/lib/prompt/budgets'
+import { enforce as lintResponse } from '@/app/lib/prompt/responseLinter'
+import { routeModel, analyzeQuery, getModelConfig, type UserTier } from '@/app/lib/prompt/modelRouter'
 
 const chatSchema = z.object({
   message: z.string().min(1).max(2000),
@@ -53,21 +53,60 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       .insert({ conversation_id: convoId, role: 'user', content: message })
   }
 
-  // Retrieve context via new vector search with performance monitoring
-  const { searchDocuments } = await import('@/app/lib/vector/document-processor')
-  const contextResults = await withApiPerformanceMonitoring(() =>
-    searchDocuments(user.id, message, {
-      limit: BUDGETS.TOP_K, // Use budget-aware limit
-      threshold: 0.7,
-    })
+  // Get budget based on user tier
+  const tier = (user.subscription_tier || 'free') as UserTier
+  const budgetType = getBudgetForTier(tier)
+  const budget = BUDGETS[budgetType]
+
+  // Enhanced context retrieval with guardrails
+  const { getContextWithFallback, generateNeedMoreInfoResponse } = await import('@/app/lib/prompt/context-retrieval')
+  const contextResult = await withApiPerformanceMonitoring(() =>
+    getContextWithFallback(user.id, message, budget)
   )
 
-  // Convert context to Briefly Voice format
-  const contextSnippets: ContextSnippet[] = contextResults.map(r => ({
-    content: r.content,
-    source: `${r.fileName} #${r.chunkIndex}`,
-    relevance: r.similarity
-  }))
+  const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
+
+  // If we should use "need more info" response, return early
+  if (shouldUseNeedMoreInfo) {
+    const needMoreInfoResponse = generateNeedMoreInfoResponse(message)
+    
+    // Save user message
+    if (convoId) {
+      await supabase
+        .from('chat_messages')
+        .insert({ 
+          conversation_id: convoId, 
+          role: 'assistant', 
+          content: needMoreInfoResponse,
+          sources: [],
+          metadata: {
+            needMoreInfo: true,
+            retrievalStats,
+            modelRoute: 'need-more-info'
+          }
+        })
+    }
+
+    return ApiResponse.success({
+      conversation_id: convoId,
+      response: needMoreInfoResponse,
+      sources: [],
+      modelRoute: 'need-more-info',
+      routing: {
+        model: 'need-more-info',
+        reason: 'insufficient context',
+        estimatedCost: 0
+      },
+      telemetry: {
+        inputTokens: 0,
+        outputTokens: Math.ceil(needMoreInfoResponse.length / 4),
+        latency: Date.now() - startTime,
+        contextCount: 0,
+        needMoreInfo: true,
+        retrievalStats
+      }
+    })
+  }
 
   // Get conversation history summary (simplified for now)
   let historySummary: string | undefined
@@ -86,9 +125,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
         .join(' | ')
     }
   }
-
+  
   // Analyze query for routing signals
-  const tier = (user.subscription_tier || 'free') as UserTier
   const routingSignals = analyzeQuery(message, contextSnippets, [])
   
   // Route to appropriate model
@@ -148,7 +186,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     linterApplied: lintResult.rewritten,
     boost,
     tier,
-    userId: user.id
+    userId: user.id,
+    retrievalStats
   })
 
   // Save assistant response
@@ -159,18 +198,18 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
         conversation_id: convoId, 
         role: 'assistant', 
         content: finalResponse, 
-        sources: contextResults.map(r => ({ 
-          file_id: r.fileId, 
-          file_name: r.fileName, 
-          chunk_index: r.chunkIndex, 
-          relevance_score: r.relevanceScore 
+        sources: contextSnippets.map(snippet => ({ 
+          source: snippet.source,
+          content: snippet.content.substring(0, 200), // Truncate for storage
+          relevance_score: snippet.relevance 
         })),
         metadata: {
           modelRoute: routing.model,
           inputTokens,
           outputTokens,
           latency,
-          linterApplied: lintResult.rewritten
+          linterApplied: lintResult.rewritten,
+          retrievalStats
         }
       })
   }
@@ -197,7 +236,11 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   return ApiResponse.success({
     conversation_id: convoId,
     response: finalResponse,
-    sources: contextResults,
+    sources: contextSnippets.map(snippet => ({
+      content: snippet.content,
+      source: snippet.source,
+      relevance_score: snippet.relevance
+    })),
     modelRoute: routing.model,
     routing: {
       model: routing.model,
@@ -209,7 +252,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       outputTokens,
       latency,
       contextCount: contextSnippets.length,
-      linterApplied: lintResult.rewritten
+      linterApplied: lintResult.rewritten,
+      retrievalStats
     }
   })
 }

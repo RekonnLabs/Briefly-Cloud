@@ -2,52 +2,37 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { getDecryptedToken } from '@/app/lib/oauth/token-store'
+import { OneDriveProvider } from '@/app/lib/cloud-storage'
 
 async function listOneDriveFilesHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
 
-  const token = await getDecryptedToken(user.id, 'microsoft')
-  if (!token?.accessToken) return ApiResponse.badRequest('Microsoft account not connected')
+  try {
+    const { searchParams } = new URL(request.url)
+    const folderId = searchParams.get('folderId') || 'root'
+    const pageSize = Math.min(1000, Math.max(1, parseInt(searchParams.get('pageSize') || '100')))
 
-  // B) Add folder support + pagination
-  const { searchParams } = new URL(request.url)
-  const folderId = searchParams.get('folderId') || 'root'
-  
-  let url = `https://graph.microsoft.com/v1.0/me/drive/items/${folderId}/children`
-  const allItems: any[] = []
+    const provider = new OneDriveProvider()
+    const result = await provider.listFiles(user.id, folderId, undefined, pageSize)
 
-  do {
-    const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${token.accessToken}` },
+    return ApiResponse.success({
+      files: result.files,
+      folders: result.folders,
+      pagination: {
+        nextPageToken: result.nextPageToken,
+        hasMore: result.hasMore
+      }
     })
-    if (!resp.ok) return ApiResponse.internalError('Failed to list OneDrive files')
-    const data = await resp.json()
-    
-    allItems.push(...(data.value || []))
-    url = data['@odata.nextLink'] // Pagination
-  } while (url)
-
-  const files = allItems
-    .filter(f => f.file) // Only files, not folders
-    .map((f: any) => ({
-      id: f.id,
-      name: f.name,
-      size: f.size,
-      mimeType: f.file?.mimeType,
-      webUrl: f.webUrl,
-    }))
-
-  const folders = allItems
-    .filter(f => f.folder) // Only folders
-    .map((f: any) => ({
-      id: f.id,
-      name: f.name,
-      childCount: f.folder?.childCount || 0,
-    }))
-
-  return ApiResponse.success({ files, folders })
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('unauthorized')) {
+      return ApiResponse.unauthorized('OneDrive access token is invalid or expired')
+    }
+    if (error instanceof Error && error.message.includes('OneDrive')) {
+      return ApiResponse.serverError('OneDrive API error', 'ONEDRIVE_ERROR')
+    }
+    return ApiResponse.serverError('Failed to list OneDrive files')
+  }
 }
 
 export const GET = createProtectedApiHandler(listOneDriveFilesHandler, {

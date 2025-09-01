@@ -4,48 +4,52 @@
  */
 
 import { NextResponse } from 'next/server'
-import { formatSuccessResponse, formatErrorResponse, createError } from './api-errors'
+import { ApiResponse as StandardApiResponse } from './api-response'
 
 // Response helpers (legacy exports for compatibility)
 export const createApiResponse = (data?: any, message?: string, status = 200) => 
-  formatSuccessResponse(data, message, status)
+  StandardApiResponse.ok(data, message)
 
 export const createErrorResponse = (error: any) => 
-  formatErrorResponse(error)
+  StandardApiResponse.serverError(error)
 
+// Re-export the standardized ApiResponse for backward compatibility
 export const ApiResponse = {
   success: (data?: any, message?: string, status = 200) => 
-    formatSuccessResponse(data, message, status),
+    StandardApiResponse.ok(data, message),
     
   created: (data?: any, message = 'Resource created successfully') => 
-    formatSuccessResponse(data, message, 201),
+    StandardApiResponse.created(data, message),
     
   noContent: (message = 'Operation completed successfully') => 
-    formatSuccessResponse(undefined, message, 204),
+    StandardApiResponse.ok(undefined, message),
     
   badRequest: (message: string, details?: any) => 
-    formatErrorResponse(createError.validation(message, details)),
+    StandardApiResponse.badRequest(message, undefined, details),
     
   unauthorized: (message = 'Unauthorized access') => 
-    formatErrorResponse(createError.unauthorized(message)),
+    StandardApiResponse.unauthorized(message),
     
   forbidden: (message = 'Access forbidden') => 
-    formatErrorResponse(createError.forbidden(message)),
+    StandardApiResponse.forbidden(message),
     
   notFound: (resource = 'Resource') => 
-    formatErrorResponse(createError.notFound(resource)),
+    StandardApiResponse.notFound(`${resource} not found`),
     
   conflict: (message: string) => 
-    formatErrorResponse(createError.conflict(message)),
+    StandardApiResponse.conflict(message),
     
   tooManyRequests: (message = 'Rate limit exceeded') => 
-    formatErrorResponse(createError.rateLimitExceeded(message)),
+    StandardApiResponse.rateLimitExceeded(message),
     
   internalError: (message = 'Internal server error') => 
-    formatErrorResponse(createError.internal(message)),
+    StandardApiResponse.serverError(message),
+    
+  serverError: (message = 'Internal server error', code?: string, correlationId?: string) => 
+    StandardApiResponse.serverError(message, undefined, undefined, correlationId),
     
   serviceUnavailable: (service = 'Service') => 
-    formatErrorResponse(createError.serviceUnavailable(service)),
+    StandardApiResponse.serviceUnavailable(service),
 }
 
 // Pagination helpers

@@ -7,17 +7,31 @@ export function pickModel(opts?: RouteOpts): string {
   return process.env.OPENAI_MODEL || (opts?.budget === 'fast' ? 'gpt-4o-mini' : 'gpt-4o')
 }
 
-export function routeModel(query: string, tier?: UserTier): string {
-  // Simple routing based on tier
-  if (tier === 'free') return 'gpt-4o-mini'
-  return 'gpt-4o'
+export function routeModel(tier: UserTier, boost: boolean, routingSignals: any): { model: string; reason: string; estimatedCost: number } {
+  let model = 'gpt-4o'
+  let reason = 'default'
+  
+  if (tier === 'free') {
+    model = 'gpt-4o-mini'
+    reason = 'free tier'
+  } else if (boost) {
+    model = 'gpt-4o'
+    reason = 'boost requested'
+  }
+  
+  return {
+    model,
+    reason,
+    estimatedCost: model.includes('mini') ? 0.001 : 0.01
+  }
 }
 
-export function analyzeQuery(query: string): { complexity: 'simple' | 'complex'; budget: 'fast' | 'balanced' | 'quality' } {
+export function analyzeQuery(query: string, contextSnippets: any[], history: any[]): any {
   const isComplex = query.length > 200 || query.includes('analyze') || query.includes('explain')
   return {
     complexity: isComplex ? 'complex' : 'simple',
-    budget: isComplex ? 'quality' : 'balanced'
+    budget: isComplex ? 'quality' : 'balanced',
+    contextRelevance: contextSnippets.length > 0 ? 'high' : 'low'
   }
 }
 

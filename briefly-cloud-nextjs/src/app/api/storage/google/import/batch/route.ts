@@ -1,109 +1,270 @@
+/**
+ * Google Drive Batch Import API
+ * 
+ * Creates and manages batch import jobs for Google Drive folders
+ * Supports folder-specific imports with server-side file listing
+ * Returns job ID for progress tracking and status polling
+ */
+
+import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { google } from 'googleapis'
-import { getDecryptedToken } from '@/app/lib/oauth/token-store'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
+import { logger } from '@/app/lib/logger'
 
-async function batchImportHandler(req: Request, ctx: ApiContext) {
-  const { user } = ctx
-  const { folderId = 'root' } = await req.json()
-
-  const token = await getDecryptedToken(user.id, 'google')
-  if (!token?.accessToken) return ApiResponse.badRequest('Google not connected')
-
-  const auth = new google.auth.OAuth2()
-  auth.setCredentials({ 
-    access_token: token.accessToken,
-    refresh_token: token.refreshToken ?? undefined,
-  })
-  const drive = google.drive({ version: 'v3', auth })
-
-  // 1) List all files in folder (with pagination)
-  let pageToken: string | undefined
-  const files: any[] = []
-
-  do {
-    const res = await drive.files.list({
-      q: `'${folderId}' in parents and mimeType != 'application/vnd.google-apps.folder'`,
-      fields: 'nextPageToken, files(id,name,mimeType,size)',
-      pageToken,
-      pageSize: 1000,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-    })
-    files.push(...(res.data.files ?? []))
-    pageToken = res.data.nextPageToken ?? undefined
-  } while (pageToken)
-
-  let processed = 0
-  const total = files.length
-
-  // 2) Process each file
-  for (const file of files) {
-    try {
-      // Check if file already exists
-      const { data: existing } = await supabaseAdmin
-        .from('file_metadata')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('external_id', file.id)
-        .eq('source', 'google_drive')
-        .single()
-
-      if (existing) {
-        processed++
-        continue // Skip if already imported
-      }
-
-      // Download file content
-      const fileRes = await drive.files.get({
-        fileId: file.id,
-        alt: 'media',
-      })
-
-      if (!fileRes.data) continue
-
-      // Convert buffer to text (basic implementation)
-      const content = Buffer.isBuffer(fileRes.data) 
-        ? fileRes.data.toString('utf-8')
-        : String(fileRes.data)
-
-      // Insert file metadata
-      const { data: fileRecord, error } = await supabaseAdmin
-        .from('file_metadata')
-        .insert({
-          user_id: user.id,
-          name: file.name,
-          size: file.size ? parseInt(file.size) : 0,
-          mime_type: file.mimeType,
-          source: 'google_drive',
-          external_id: file.id,
-          status: 'processing',
-        })
-        .select()
-        .single()
-
-      if (error || !fileRecord) continue
-
-      // TODO: Call processDocument(user.id, fileRecord.id, file.name, content, metadata)
-      // For now, just mark as completed
-      await supabaseAdmin
-        .from('file_metadata')
-        .update({ status: 'completed' })
-        .eq('id', fileRecord.id)
-
-      processed++
-    } catch (error) {
-      console.error(`Failed to import file ${file.name}:`, error)
-      // Continue with next file
-    }
-  }
-
-  return ApiResponse.success({ total, processed })
+interface BatchImportRequest {
+  folderId?: string
+  batchSize?: number
+  maxRetries?: number
 }
 
-export const POST = createProtectedApiHandler(batchImportHandler, {
-  rateLimit: { points: 1, duration: 60 }, // 1 per minute for batch operations
-  logging: { enabled: true, includeBody: false },
+async function createGoogleBatchImportHandler(
+  request: Request, 
+  context: ApiContext
+): Promise<NextResponse> {
+  const { user } = context
+  if (!user) {
+    return ApiResponse.unauthorized('User not authenticated')
+  }
+
+  try {
+    const body = await request.json().catch(() => ({})) as BatchImportRequest
+    const folderId = body.folderId || 'root'
+    const batchSize = body.batchSize || 5
+    const maxRetries = body.maxRetries || 3
+
+    // Validate batch size limits (server-side can handle larger batches)
+    if (batchSize < 1 || batchSize > 20) {
+      return ApiResponse.badRequest('Batch size must be between 1 and 20')
+    }
+
+    if (maxRetries < 1 || maxRetries > 5) {
+      return ApiResponse.badRequest('Max retries must be between 1 and 5')
+    }
+
+    logger.info('Creating Google Drive batch import job', {
+      userId: user.id,
+      folderId,
+      batchSize,
+      maxRetries
+    })
+
+    // Create and process the server-side batch import job
+    const job = await ImportJobManager.createAndProcessBatchImport(
+      user.id,
+      'google_drive',
+      folderId,
+      {
+        batchSize: Math.min(batchSize, 10), // Server-side can handle larger batches
+        maxRetries,
+        processImmediately: true
+      }
+    )
+
+    return ApiResponse.success({
+      jobId: job.id,
+      status: job.status,
+      provider: 'google_drive',
+      folderId,
+      createdAt: job.createdAt,
+      progress: job.progress
+    }, 'Batch import job created successfully')
+
+  } catch (error) {
+    logger.error('Error creating Google Drive batch import', {
+      userId: user.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+
+    return ApiResponse.serverError(
+      'Failed to create batch import job',
+      'BATCH_IMPORT_ERROR'
+    )
+  }
+}
+
+async function getGoogleBatchImportStatusHandler(
+  request: Request,
+  context: ApiContext
+): Promise<NextResponse> {
+  const { user } = context
+  if (!user) {
+    return ApiResponse.unauthorized('User not authenticated')
+  }
+
+  try {
+    const url = new URL(request.url)
+    const jobId = url.searchParams.get('jobId')
+
+    if (!jobId) {
+      return ApiResponse.badRequest('jobId parameter is required')
+    }
+
+    // Get comprehensive batch import status
+    const statusData = await ImportJobManager.getBatchImportStatus(jobId)
+    
+    // Verify job belongs to user
+    if (statusData.job.userId !== user.id) {
+      return ApiResponse.forbidden('Access denied to this job')
+    }
+
+    return ApiResponse.success({
+      jobId: statusData.job.id,
+      status: statusData.job.status,
+      provider: statusData.job.provider,
+      folderId: statusData.job.folderId,
+      progress: statusData.job.progress,
+      summary: statusData.summary,
+      recentFiles: statusData.recentFiles,
+      createdAt: statusData.job.createdAt,
+      startedAt: statusData.job.startedAt,
+      completedAt: statusData.job.completedAt,
+      estimatedCompletion: statusData.job.estimatedCompletion,
+      outputData: statusData.job.outputData,
+      errorMessage: statusData.job.errorMessage
+    })
+
+  } catch (error) {
+    logger.error('Error getting Google Drive batch import status', {
+      userId: user.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+
+    return ApiResponse.serverError(
+      'Failed to get batch import status',
+      'BATCH_STATUS_ERROR'
+    )
+  }
+}
+
+async function listGoogleBatchImportsHandler(
+  request: Request,
+  context: ApiContext
+): Promise<NextResponse> {
+  const { user } = context
+  if (!user) {
+    return ApiResponse.unauthorized('User not authenticated')
+  }
+
+  try {
+    const url = new URL(request.url)
+    const status = url.searchParams.get('status') || undefined
+    const limit = parseInt(url.searchParams.get('limit') || '50')
+
+    if (limit < 1 || limit > 100) {
+      return ApiResponse.badRequest('Limit must be between 1 and 100')
+    }
+
+    const jobs = await ImportJobManager.getUserJobs(user.id, status, limit)
+
+    // Filter to only Google Drive jobs
+    const googleJobs = jobs.filter(job => job.provider === 'google_drive')
+
+    return ApiResponse.success({
+      jobs: googleJobs.map(job => ({
+        jobId: job.id,
+        status: job.status,
+        provider: job.provider,
+        folderId: job.folderId,
+        progress: job.progress,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        outputData: job.outputData,
+        errorMessage: job.errorMessage
+      })),
+      total: googleJobs.length
+    })
+
+  } catch (error) {
+    logger.error('Error listing Google Drive batch imports', {
+      userId: user.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+
+    return ApiResponse.serverError(
+      'Failed to list batch imports',
+      'BATCH_LIST_ERROR'
+    )
+  }
+}
+
+async function cancelGoogleBatchImportHandler(
+  request: Request,
+  context: ApiContext
+): Promise<NextResponse> {
+  const { user } = context
+  if (!user) {
+    return ApiResponse.unauthorized('User not authenticated')
+  }
+
+  try {
+    const body = await request.json().catch(() => ({})) as { jobId?: string }
+    
+    if (!body.jobId) {
+      return ApiResponse.badRequest('jobId is required')
+    }
+
+    const job = await ImportJobManager.getJob(body.jobId)
+    if (!job) {
+      return ApiResponse.notFound('Job not found')
+    }
+
+    // Verify job belongs to user
+    if (job.userId !== user.id) {
+      return ApiResponse.forbidden('Access denied to this job')
+    }
+
+    // Only allow cancellation of pending or processing jobs
+    if (!['pending', 'processing'].includes(job.status)) {
+      return ApiResponse.badRequest(`Cannot cancel job with status: ${job.status}`)
+    }
+
+    await ImportJobManager.cancelJob(body.jobId)
+
+    logger.info('Google Drive batch import cancelled', {
+      userId: user.id,
+      jobId: body.jobId
+    })
+
+    return ApiResponse.success({
+      jobId: body.jobId,
+      status: 'cancelled',
+      message: 'Job cancelled successfully'
+    })
+
+  } catch (error) {
+    logger.error('Error cancelling Google Drive batch import', {
+      userId: user.id,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+
+    return ApiResponse.serverError(
+      'Failed to cancel batch import',
+      'BATCH_CANCEL_ERROR'
+    )
+  }
+}
+
+// Export handlers for different HTTP methods
+export const POST = createProtectedApiHandler(createGoogleBatchImportHandler, {
+  rateLimit: rateLimitConfigs.embedding,
+  logging: { enabled: true, includeBody: true }
+})
+
+export const GET = createProtectedApiHandler(getGoogleBatchImportStatusHandler, {
+  rateLimit: rateLimitConfigs.api,
+  logging: { enabled: true, includeBody: false }
+})
+
+export const DELETE = createProtectedApiHandler(cancelGoogleBatchImportHandler, {
+  rateLimit: rateLimitConfigs.api,
+  logging: { enabled: true, includeBody: true }
+})
+
+// Also support listing via GET with different query params
+export const PUT = createProtectedApiHandler(listGoogleBatchImportsHandler, {
+  rateLimit: rateLimitConfigs.api,
+  logging: { enabled: true, includeBody: false }
 })

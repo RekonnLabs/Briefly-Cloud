@@ -49,7 +49,7 @@ const TIER_LIMITS = {
 
 // POST /api/upload - Handle file upload
 async function uploadHandler(request: Request, context: ApiContext): Promise<NextResponse> {
-  const { user } = context
+  const { user, correlationId } = context
   
   if (!user) {
     return ApiResponse.unauthorized('User not authenticated')
@@ -81,18 +81,13 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       )
       
       if (profileError) {
-        console.error('Profile fetch error:', profileError)
-        return ApiResponse.internalError('Failed to fetch user profile')
+        console.error('Profile fetch error:', profileError, { correlationId, userId: user.id })
+        return ApiResponse.serverError('Failed to fetch user profile', 'PROFILE_FETCH_ERROR', correlationId)
       }
       
       userProfile = data
       // Cache user profile for 5 minutes
       cacheManager.set(userProfileKey, userProfile, 1000 * 60 * 5)
-    }
-    
-    if (profileError) {
-      console.error('Profile fetch error:', profileError)
-      return ApiResponse.internalError('Failed to fetch user profile')
     }
     
     const tier = userProfile.subscription_tier || 'free'
@@ -160,8 +155,8 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       })
     
     if (uploadError) {
-      console.error('File upload error:', uploadError)
-      return ApiResponse.internalError('Failed to upload file to storage')
+      console.error('File upload error:', uploadError, { correlationId, userId: user.id, fileName: file.name })
+      return ApiResponse.serverError('Failed to upload file to storage', 'STORAGE_UPLOAD_ERROR', correlationId)
     }
     
     // Get the public URL
@@ -199,12 +194,12 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       .single()
     
     if (metadataError) {
-      console.error('Metadata insert error:', metadataError)
+      console.error('Metadata insert error:', metadataError, { correlationId, userId: user.id, fileName: file.name })
       
       // Clean up uploaded file if metadata insertion fails
       await supabase.storage.from('documents').remove([fileName])
       
-      return ApiResponse.internalError('Failed to save file metadata')
+      return ApiResponse.serverError('Failed to save file metadata', 'METADATA_INSERT_ERROR', correlationId)
     }
 
     // Automatic indexing with new pgvector pipeline
@@ -225,11 +220,11 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       })
         
     } catch (processingError) {
-      console.error('File processing error:', processingError)
+      console.error('File processing error:', processingError, { correlationId, userId: user.id, fileId, fileName: file.name })
       
       // Mark as failed but don't fail the upload
       await supabaseAdmin
-        .from('files')
+        .from('file_metadata')
         .update({ processed: false, processing_status: 'failed' })
         .eq('id', fileId)
         .eq('user_id', user.id)
@@ -237,6 +232,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       // Log the processing error but continue with upload success
       logApiUsage(user.id, '/api/upload', 'processing_failed', {
         file_name: file.name,
+        correlation_id: correlationId,
         error: processingError instanceof Error ? processingError.message : 'Unknown error'
       })
     }
@@ -254,7 +250,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     )
     
     if (usageError) {
-      console.error('Usage update error:', usageError)
+      console.error('Usage update error:', usageError, { correlationId, userId: user.id })
       // Don't fail the upload for this, just log it
     }
     
@@ -267,6 +263,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       file_size: file.size,
       file_type: file.type,
       tier,
+      correlation_id: correlationId,
     })
     
     // Return success response
@@ -291,20 +288,20 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     }, 'File uploaded successfully')
     
   } catch (error) {
-    console.error('Upload handler error:', error)
+    console.error('Upload handler error:', error, { correlationId, userId: user?.id })
     
     // Re-throw known errors
     if (error instanceof Error && error.name === 'AppError') {
       throw error
     }
     
-    return ApiResponse.internalError('Failed to process file upload')
+    return ApiResponse.serverError('Failed to process file upload', 'UPLOAD_PROCESSING_ERROR', correlationId)
   }
 }
 
 // GET /api/upload - Get upload status and limits
 async function getUploadInfoHandler(request: Request, context: ApiContext): Promise<NextResponse> {
-  const { user } = context
+  const { user, correlationId } = context
   
   if (!user) {
     return ApiResponse.unauthorized('User not authenticated')
@@ -321,8 +318,8 @@ async function getUploadInfoHandler(request: Request, context: ApiContext): Prom
       .single()
     
     if (profileError) {
-      console.error('Profile fetch error:', profileError)
-      return ApiResponse.internalError('Failed to fetch user profile')
+      console.error('Profile fetch error:', profileError, { correlationId, userId: user.id })
+      return ApiResponse.serverError('Failed to fetch user profile', 'PROFILE_FETCH_ERROR', correlationId)
     }
     
     const tier = userProfile.subscription_tier || 'free'
@@ -352,8 +349,8 @@ async function getUploadInfoHandler(request: Request, context: ApiContext): Prom
     return ApiResponse.success(uploadInfo)
     
   } catch (error) {
-    console.error('Upload info handler error:', error)
-    return ApiResponse.internalError('Failed to get upload information')
+    console.error('Upload info handler error:', error, { correlationId, userId: user?.id })
+    return ApiResponse.serverError('Failed to get upload information', 'UPLOAD_INFO_ERROR', correlationId)
   }
 }
 

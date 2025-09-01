@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { ApiResponse } from '@/app/lib/api-response'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   try {
     event = stripe.webhooks.constructEvent(body, sig!, secret)
   } catch (err) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    return ApiResponse.badRequest('Invalid webhook signature')
   }
 
   const supabase = supabaseAdmin
@@ -44,9 +45,9 @@ export async function POST(request: Request) {
       default:
         break
     }
-    return NextResponse.json({ received: true })
+    return ApiResponse.ok({ received: true })
   } catch (e) {
-    return NextResponse.json({ error: 'Webhook error' }, { status: 400 })
+    return ApiResponse.serverError('Webhook processing failed')
   }
 }
 

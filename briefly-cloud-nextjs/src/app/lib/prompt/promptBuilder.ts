@@ -5,9 +5,27 @@ export function buildPrompt(messages: ChatMsg[], system?: string): ChatMsg[] {
   return system ? [{ role: 'system', content: system }, ...messages] : messages
 }
 
-export function buildMessages(userMessage: string, context?: ContextSnippet[]): ChatMsg[] {
-  const contextText = context?.map(c => c.content).join('\n\n') || ''
-  const systemPrompt = contextText ? `Context:\n${contextText}\n\nAnswer based on the provided context.` : ''
+export function buildMessages(params: {
+  developerTask: string
+  developerShape: string
+  contextSnippets: ContextSnippet[]
+  historySummary?: string
+  userMessage: string
+}): ChatMsg[] {
+  const { developerTask, developerShape, contextSnippets, historySummary, userMessage } = params
+  
+  const contextText = contextSnippets?.map(c => c.content).join('\n\n') || ''
+  
+  let systemPrompt = `${developerTask}\n\n${developerShape}`
+  
+  if (contextText) {
+    systemPrompt += `\n\nContext:\n${contextText}`
+  }
+  
+  if (historySummary) {
+    systemPrompt += `\n\nConversation History:\n${historySummary}`
+  }
+  
   return buildPrompt([{ role: 'user', content: userMessage }], systemPrompt)
 }
 

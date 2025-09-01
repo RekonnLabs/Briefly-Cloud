@@ -1,12 +1,14 @@
 /**
- * API middleware composer for Next.js API routes
- * Combines error handling, rate limiting, logging, and validation
+ * Enhanced API middleware for Next.js API routes
+ * Provides authentication, rate limiting, logging, validation, and performance monitoring
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, type AuthUser } from './auth/supabase-auth'
-import { formatErrorResponse } from './api-errors'
+import { ApiResponse, ApiErrorCode } from './api-response'
 import { logger } from './logger'
+import { ErrorHandler } from './error-handler'
+import { auditApiAccess, auditSystemError } from './audit/comprehensive-audit-logger'
 import {
   createSecurityMiddleware,
   RateLimiter,
@@ -16,34 +18,63 @@ import {
 } from './security'
 
 export interface ApiContext {
-  user?: AuthUser
-  requestId: string
+  user: AuthUser | null
+  correlationId: string
+  startTime: number
+  metadata: Record<string, unknown>
+}
+
+export interface RateLimitConfig {
+  windowMs: number
+  maxRequests: number
+  skipSuccessfulRequests?: boolean
+  skipFailedRequests?: boolean
+}
+
+export interface LoggingConfig {
+  enabled: boolean
+  includeBody?: boolean
+  includeHeaders?: boolean
+  logLevel?: 'debug' | 'info' | 'warn' | 'error'
+}
+
+export interface ValidationConfig {
+  schema?: any
+  sanitize?: boolean
+  allowUnknown?: boolean
 }
 
 export interface MiddlewareConfig {
   requireAuth?: boolean
-  rateLimit?: {
-    windowMs: number
-    maxRequests: number
-  }
-  logging?: {
-    enabled: boolean
-    includeBody?: boolean
-  }
-  validation?: {
-    schema?: any
-    sanitize?: boolean
+  rateLimit?: RateLimitConfig
+  logging?: LoggingConfig
+  validation?: ValidationConfig
+  performanceMonitoring?: boolean
+  cors?: {
+    origin?: string | string[]
+    methods?: string[]
+    allowedHeaders?: string[]
   }
 }
 
-// Enhanced API handler with security middleware
+/**
+ * Generate correlation ID for request tracking
+ */
+function generateCorrelationId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+/**
+ * Enhanced API handler with comprehensive middleware
+ */
 export function createProtectedApiHandler(
   handler: (request: NextRequest, context: ApiContext) => Promise<NextResponse>,
   config: MiddlewareConfig = {}
-) {
+): (request: NextRequest) => Promise<NextResponse> {
   return async (request: NextRequest): Promise<NextResponse> => {
     const startTime = Date.now()
-    const requestId = crypto.randomUUID()
+    const correlationId = generateCorrelationId()
+    let user: AuthUser | null = null
 
     try {
       // Initialize security validation
@@ -52,245 +83,342 @@ export function createProtectedApiHandler(
       // Create security middleware
       const securityMiddleware = createSecurityMiddleware()
 
-      // Get user for authentication
-      let user: AuthUser | null = null
-      if (config.requireAuth) {
+      // Authentication handling
+      if (config.requireAuth !== false) { // Default to requiring auth
         try {
           user = await getAuthenticatedUser()
+          if (!user) {
+            return NextResponse.json(
+              { 
+                success: false, 
+                error: { 
+                  code: 'UNAUTHORIZED', 
+                  message: 'Authentication required' 
+                },
+                correlationId,
+                timestamp: new Date().toISOString()
+              },
+              { 
+                status: 401,
+                headers: {
+                  'X-Correlation-ID': correlationId
+                }
+              }
+            )
+          }
         } catch (error) {
+          console.error('Authentication error:', error, { correlationId })
           return NextResponse.json(
-            { success: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
-            { status: 401 }
-          )
-        }
-      }
-
-      // Rate limiting
-      if (config.rateLimit) {
-        const identifier = user?.id || request.ip || 'anonymous'
-        if (RateLimiter.isRateLimited(identifier)) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: 'RATE_LIMIT_EXCEEDED',
-              message: 'Too many requests. Please try again later.',
-              retryAfter: Math.ceil(config.rateLimit.windowMs / 1000)
+            { 
+              success: false, 
+              error: { 
+                code: 'AUTH_ERROR', 
+                message: 'Authentication failed' 
+              },
+              correlationId,
+              timestamp: new Date().toISOString()
             },
-            {
-              status: 429,
+            { 
+              status: 401,
               headers: {
-                'Retry-After': Math.ceil(config.rateLimit.windowMs / 1000).toString(),
-                'X-RateLimit-Limit': config.rateLimit.maxRequests.toString(),
-                'X-RateLimit-Remaining': RateLimiter.getRemainingRequests(identifier).toString()
+                'X-Correlation-ID': correlationId
               }
             }
           )
         }
       }
 
-      // Input validation and sanitization
-      if (config.validation?.schema) {
-        try {
-          const body = await request.json().catch(() => ({}))
-          const validatedData = config.validation.schema.parse(body)
-
-          // Sanitize input if enabled
-          if (config.validation.sanitize) {
-            Object.keys(validatedData).forEach(key => {
-              if (typeof validatedData[key] === 'string') {
-                validatedData[key] = InputSanitizer.sanitizeString(validatedData[key])
+      // Rate limiting
+      if (config.rateLimit) {
+        const identifier = user?.id || request.headers.get('x-forwarded-for') || 'anonymous'
+        if (RateLimiter.isRateLimited(identifier)) {
+          const remaining = RateLimiter.getRemainingRequests(identifier)
+          const retryAfter = Math.ceil(config.rateLimit.windowMs / 1000)
+          
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: 'RATE_LIMIT_EXCEEDED',
+                message: 'Too many requests. Please try again later.',
+                retryAfter
+              },
+              correlationId,
+              timestamp: new Date().toISOString()
+            },
+            {
+              status: 429,
+              headers: {
+                'Retry-After': retryAfter.toString(),
+                'X-RateLimit-Limit': config.rateLimit.maxRequests.toString(),
+                'X-RateLimit-Remaining': remaining.toString(),
+                'X-Correlation-ID': correlationId
               }
+            }
+          )
+        }
+      }
+
+      // CORS handling
+      if (config.cors) {
+        const origin = request.headers.get('origin')
+        const allowedOrigins = Array.isArray(config.cors.origin) 
+          ? config.cors.origin 
+          : config.cors.origin ? [config.cors.origin] : ['*']
+        
+        if (origin && !allowedOrigins.includes('*') && !allowedOrigins.includes(origin)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: 'CORS_ERROR',
+                message: 'Origin not allowed'
+              },
+              correlationId,
+              timestamp: new Date().toISOString()
+            },
+            { 
+              status: 403,
+              headers: {
+                'X-Correlation-ID': correlationId
+              }
+            }
+          )
+        }
+      }
+
+      // Create enhanced context
+      const context: ApiContext = {
+        user,
+        correlationId,
+        startTime,
+        metadata: {
+          method: request.method,
+          url: request.url,
+          userAgent: request.headers.get('user-agent') || undefined,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+          contentType: request.headers.get('content-type')
+        }
+      }
+
+      // Input validation and sanitization
+      let processedRequest = request
+      if (config.validation?.schema && request.method !== 'GET') {
+        try {
+          const contentType = request.headers.get('content-type')
+          
+          // Only validate JSON requests
+          if (contentType?.includes('application/json')) {
+            const body = await request.json().catch(() => ({}))
+            const validatedData = config.validation.schema.parse(body)
+
+            // Sanitize input if enabled
+            if (config.validation.sanitize) {
+              Object.keys(validatedData).forEach(key => {
+                if (typeof validatedData[key] === 'string') {
+                  validatedData[key] = InputSanitizer.sanitizeString(validatedData[key])
+                }
+              })
+            }
+
+            // Create new request with validated data
+            processedRequest = new NextRequest(request.url, {
+              method: request.method,
+              headers: request.headers,
+              body: JSON.stringify(validatedData)
             })
           }
-
-          // Replace request body with validated data
-          const newRequest = new NextRequest(request.url, {
-            method: request.method,
-            headers: request.headers,
-            body: JSON.stringify(validatedData)
-          })
-
-          // Create context
-          const context: ApiContext = {
-            user,
-            requestId
-          }
-
-          // Call handler with validated data
-          const response = await handler(newRequest, context)
-
-          // Apply security headers
-          return securityMiddleware(request, response)
-
         } catch (validationError) {
           return NextResponse.json(
             {
               success: false,
-              error: 'VALIDATION_ERROR',
-              message: 'Invalid input data',
-              details: validationError instanceof Error ? validationError.message : 'Validation failed'
+              error: {
+                code: 'VALIDATION_ERROR',
+                message: 'Invalid input data',
+                details: validationError instanceof Error ? validationError.message : 'Validation failed'
+              },
+              correlationId,
+              timestamp: new Date().toISOString()
             },
-            { status: 400 }
+            { 
+              status: 400,
+              headers: {
+                'X-Correlation-ID': correlationId
+              }
+            }
           )
         }
-      } else {
-        // Create context
-        const context: ApiContext = {
-          user,
-          requestId
-        }
-
-        // Call handler
-        const response = await handler(request, context)
-
-        // Apply security headers
-        return securityMiddleware(request, response)
       }
+
+      // Call the handler
+      const response = await handler(processedRequest, context)
+
+      // Add correlation ID to response headers
+      response.headers.set('X-Correlation-ID', correlationId)
+
+      // Apply security headers
+      const securedResponse = securityMiddleware(request, response)
+
+      // Performance monitoring and audit logging
+      const duration = Date.now() - startTime
+      const success = response.status < 400
+
+      // Audit API access
+      await auditApiAccess(
+        new URL(request.url).pathname,
+        user?.id,
+        success,
+        correlationId,
+        duration,
+        request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        request.headers.get('user-agent') || undefined
+      ).catch(error => {
+        logger.error('Failed to audit API access', {
+          correlationId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
+      })
+
+      if (config.performanceMonitoring !== false) {
+        if (duration > 1000) { // Log slow requests
+          logger.warn('Slow API request detected', {
+            correlationId,
+            method: request.method,
+            url: request.url,
+            duration,
+            userId: user?.id
+          })
+        }
+      }
+
+      return securedResponse
 
     } catch (error) {
-      // Enhanced error handling with retry logic for transient failures
-      const { retryApiCall } = await import('./retry')
-
-      // Check if this is a retryable error
-      if (error instanceof Error && isRetryableApiError(error)) {
-        try {
-          return await retryApiCall(() => handler(request, { user, requestId }))
-        } catch (retryError) {
-          return formatErrorResponse(retryError as Error)
+      // Use centralized error handler
+      const context: ApiContext = {
+        user,
+        correlationId,
+        startTime,
+        metadata: {
+          method: request.method,
+          url: request.url,
+          userAgent: request.headers.get('user-agent') || undefined,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+          contentType: request.headers.get('content-type')
         }
       }
 
-      return formatErrorResponse(error as Error)
+      // Audit system error
+      const duration = Date.now() - startTime
+      const errorClass = error instanceof Error ? error.constructor.name : 'UnknownError'
+      
+      await auditSystemError(
+        errorClass,
+        correlationId,
+        duration,
+        user?.id,
+        new URL(request.url).pathname,
+        {
+          method: request.method,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      ).catch(auditError => {
+        logger.error('Failed to audit system error', {
+          correlationId,
+          error: auditError instanceof Error ? auditError.message : 'Unknown audit error'
+        })
+      })
+
+      // Enhanced error handling with retry logic for transient failures
+      if (ErrorHandler.isRetryableError(error)) {
+        try {
+          const { retryApiCall } = await import('./retry')
+          return await retryApiCall(() => handler(request, context))
+        } catch (retryError) {
+          return ErrorHandler.handleError(retryError, context)
+        }
+      }
+
+      return ErrorHandler.handleError(error, context)
     } finally {
-      // Log request details
-      if (config.logging?.enabled) {
+      // Comprehensive logging
+      if (config.logging?.enabled !== false) {
         const duration = Date.now() - startTime
-        logger.info('API Request', {
+        const logData = {
           method: request.method,
           url: request.url,
           duration,
-          requestId,
+          correlationId,
           userId: user?.id,
-          userAgent: request.headers.get('user-agent'),
-          ip: request.ip || request.headers.get('x-forwarded-for')
-        })
+          userAgent: request.headers.get('user-agent') || undefined,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+          timestamp: new Date().toISOString()
+        }
+
+        // Include headers if configured
+        if (config.logging?.includeHeaders) {
+          (logData as any).headers = Object.fromEntries(request.headers.entries())
+        }
+
+        // Log at appropriate level
+        const logLevel = config.logging?.logLevel || 'info'
+        logger[logLevel]('API Request', logData)
       }
     }
   }
 }
 
-// Helper function to determine if an API error is retryable
-function isRetryableApiError(error: Error): boolean {
-  const retryablePatterns = [
-    'timeout',
-    'network',
-    'connection',
-    'rate limit',
-    'temporary',
-    'service unavailable',
-    'ECONNRESET',
-    'ENOTFOUND',
-    'ETIMEDOUT'
-  ]
+// Note: Error retry logic moved to ErrorHandler.isRetryableError()
 
-  return retryablePatterns.some(pattern =>
-    error.message.toLowerCase().includes(pattern.toLowerCase())
-  )
-}
-
-// Public API handler (no authentication required)
+/**
+ * Public API handler (no authentication required)
+ */
 export function createPublicApiHandler(
   handler: (request: NextRequest, context: ApiContext) => Promise<NextResponse>,
   config: MiddlewareConfig = {}
-) {
+): (request: NextRequest) => Promise<NextResponse> {
   return createProtectedApiHandler(handler, { ...config, requireAuth: false })
 }
 
-// File upload handler with enhanced security
+/**
+ * File upload handler with enhanced security and monitoring
+ */
 export function createFileUploadHandler(
   handler: (request: NextRequest, context: ApiContext) => Promise<NextResponse>,
   config: MiddlewareConfig = {}
-) {
-  return async (request: NextRequest): Promise<NextResponse> => {
-    const startTime = Date.now()
-    const requestId = crypto.randomUUID()
-
-    try {
-      // Initialize security validation
-      validateEnvironment()
-
-      // Create security middleware
-      const securityMiddleware = createSecurityMiddleware()
-
-      // Get user for authentication
-      let user: AuthUser | null = null
-      if (config.requireAuth) {
-        try {
-          user = await getAuthenticatedUser()
-        } catch (error) {
-          return NextResponse.json(
-            { success: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
-            { status: 401 }
-          )
-        }
-      }
-
-      // Rate limiting for file uploads (stricter limits)
-      if (config.rateLimit) {
-        const identifier = user?.id || request.ip || 'anonymous'
-        if (RateLimiter.isRateLimited(identifier)) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: 'RATE_LIMIT_EXCEEDED',
-              message: 'Too many upload requests. Please try again later.',
-              retryAfter: Math.ceil(config.rateLimit.windowMs / 1000)
-            },
-            { status: 429 }
-          )
-        }
-      }
-
-      // Create context
-      const context: ApiContext = {
-        user,
-        requestId
-      }
-
-      // Call handler
-      const response = await handler(request, context)
-
-      // Apply security headers
-      return securityMiddleware(request, response)
-
-    } catch (error) {
-      return formatErrorResponse(error as Error)
-    } finally {
-      // Log upload request details
-      if (config.logging?.enabled) {
-        const duration = Date.now() - startTime
-        logger.info('File Upload Request', {
-          method: request.method,
-          url: request.url,
-          duration,
-          requestId,
-          userId: user?.id,
-          contentType: request.headers.get('content-type'),
-          contentLength: request.headers.get('content-length')
-        })
-      }
+): (request: NextRequest) => Promise<NextResponse> {
+  // Use the enhanced protected handler with file upload specific config
+  const uploadConfig: MiddlewareConfig = {
+    ...config,
+    requireAuth: config.requireAuth !== false, // Default to requiring auth for uploads
+    performanceMonitoring: true,
+    logging: {
+      enabled: true,
+      includeHeaders: false, // Don't log file content headers
+      logLevel: 'info',
+      ...config.logging
+    },
+    // Stricter rate limiting for uploads if not specified
+    rateLimit: config.rateLimit || {
+      windowMs: 60 * 1000, // 1 minute
+      maxRequests: 10, // 10 uploads per minute
+      skipSuccessfulRequests: false
     }
   }
+
+  return createProtectedApiHandler(handler, uploadConfig)
 }
 
-// Webhook handler with signature verification
+/**
+ * Webhook handler with signature verification
+ */
 export function createWebhookHandler(
   handler: (request: NextRequest, context: ApiContext) => Promise<NextResponse>,
   config: MiddlewareConfig & { webhookSecret?: string } = {}
-) {
+): (request: NextRequest) => Promise<NextResponse> {
   return async (request: NextRequest): Promise<NextResponse> => {
     const startTime = Date.now()
-    const requestId = crypto.randomUUID()
+    const correlationId = generateCorrelationId()
 
     try {
       // Verify webhook signature if secret is provided
@@ -298,8 +426,21 @@ export function createWebhookHandler(
         const signature = request.headers.get('stripe-signature')
         if (!signature) {
           return NextResponse.json(
-            { success: false, error: 'MISSING_SIGNATURE', message: 'Webhook signature required' },
-            { status: 400 }
+            { 
+              success: false, 
+              error: { 
+                code: 'MISSING_SIGNATURE', 
+                message: 'Webhook signature required' 
+              },
+              correlationId,
+              timestamp: new Date().toISOString()
+            },
+            { 
+              status: 400,
+              headers: {
+                'X-Correlation-ID': correlationId
+              }
+            }
           )
         }
 
@@ -307,31 +448,45 @@ export function createWebhookHandler(
         // using the webhook secret and the request body
       }
 
-      // Create context
+      // Create context for webhooks (no user authentication)
       const context: ApiContext = {
-        requestId
+        user: null,
+        correlationId,
+        startTime,
+        metadata: {
+          method: request.method,
+          url: request.url,
+          userAgent: request.headers.get('user-agent') || undefined,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+          contentType: request.headers.get('content-type')
+        }
       }
 
       // Call handler
       const response = await handler(request, context)
+
+      // Add correlation ID to response
+      response.headers.set('X-Correlation-ID', correlationId)
 
       // Apply security headers
       const securityMiddleware = createSecurityMiddleware()
       return securityMiddleware(request, response)
 
     } catch (error) {
-      return formatErrorResponse(error as Error)
+      // Use centralized error handler for webhooks
+      return ErrorHandler.handleError(error, context)
     } finally {
       // Log webhook request details
-      if (config.logging?.enabled) {
+      if (config.logging?.enabled !== false) {
         const duration = Date.now() - startTime
         logger.info('Webhook Request', {
           method: request.method,
           url: request.url,
           duration,
-          requestId,
-          userAgent: request.headers.get('user-agent'),
-          ip: request.ip || request.headers.get('x-forwarded-for')
+          correlationId,
+          userAgent: request.headers.get('user-agent') || undefined,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+          timestamp: new Date().toISOString()
         })
       }
     }

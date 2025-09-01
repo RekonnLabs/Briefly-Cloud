@@ -1,44 +1,69 @@
-import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
-import { ApiResponse } from '@/app/lib/api-utils'
-import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { deleteToken, getDecryptedToken } from '@/app/lib/oauth/token-store'
+/**
+ * Microsoft OneDrive Disconnect API
+ * 
+ * POST /api/storage/microsoft/disconnect - Disconnect from Microsoft OneDrive
+ */
 
-async function disconnectMicrosoftHandler(_request: Request, context: ApiContext) {
-  const { user } = context
-  if (!user) return ApiResponse.unauthorized('User not authenticated')
+import { NextRequest } from 'next/server'
+import { createProtectedApiHandler } from '@/app/lib/api-middleware'
+import { ApiResponse } from '@/app/lib/api-response'
+import { ConnectionManager } from '@/app/lib/cloud-storage/connection-manager'
+import { logger } from '@/app/lib/logger'
 
+interface DisconnectRequestBody {
+  revokeAtProvider?: boolean
+  cancelRunningJobs?: boolean
+}
+
+async function disconnectMicrosoft(request: NextRequest, context: any) {
   try {
-    // Get token for revocation
-    const token = await getDecryptedToken(user.id, 'microsoft')
+    const userId = context.user.id
     
-    // Attempt to revoke token with Microsoft (optional but responsible)
-    if (token?.accessToken) {
-      try {
-        const tenant = process.env.MS_DRIVE_TENANT_ID || 'common'
-        await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/logout`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Bearer ${token.accessToken}`,
-          },
-        })
-      } catch (error) {
-        console.warn('Failed to revoke Microsoft token:', error)
-        // Continue with local deletion even if revocation fails
+    // Parse request body for options
+    let options: DisconnectRequestBody = {}
+    try {
+      const body = await request.json()
+      options = {
+        revokeAtProvider: body.revokeAtProvider ?? true, // Default to true
+        cancelRunningJobs: body.cancelRunningJobs ?? true // Default to true
+      }
+    } catch {
+      // Use defaults if no body or invalid JSON
+      options = {
+        revokeAtProvider: true,
+        cancelRunningJobs: true
       }
     }
 
-    // Delete local token
-    await deleteToken(user.id, 'microsoft')
+    logger.info('Microsoft OneDrive disconnect requested', { userId, options })
 
-    return ApiResponse.success({ message: 'Microsoft Drive disconnected successfully' })
+    // Disconnect using ConnectionManager
+    await ConnectionManager.disconnectMicrosoft(userId, options)
+
+    logger.info('Microsoft OneDrive disconnected successfully', { userId })
+
+    return ApiResponse.ok(
+      { 
+        provider: 'microsoft',
+        disconnected: true,
+        revokedAtProvider: options.revokeAtProvider,
+        cancelledJobs: options.cancelRunningJobs
+      },
+      'Microsoft OneDrive disconnected successfully'
+    )
+
   } catch (error) {
-    console.error('Error disconnecting Microsoft Drive:', error)
-    return ApiResponse.internalError('Failed to disconnect Microsoft Drive')
+    logger.error('Error disconnecting Microsoft OneDrive', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+    
+    return ApiResponse.serverError(
+      'Failed to disconnect Microsoft OneDrive',
+      'MICROSOFT_DISCONNECT_ERROR'
+    )
   }
 }
 
-export const POST = createProtectedApiHandler(disconnectMicrosoftHandler, {
-  rateLimit: rateLimitConfigs.general,
-  logging: { enabled: true, includeBody: false },
+export const POST = createProtectedApiHandler(disconnectMicrosoft, {
+  requireAuth: true
 })

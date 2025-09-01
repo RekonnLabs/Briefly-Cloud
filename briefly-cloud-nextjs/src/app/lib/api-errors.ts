@@ -113,33 +113,53 @@ export const createError = {
 }
 
 // Error response formatter
-export async function formatErrorResponse(error: AppError | Error): Promise<NextResponse> {
+export async function formatErrorResponse(error: AppError | Error, correlationId?: string): Promise<NextResponse> {
+  const id = correlationId || crypto.randomUUID()
+  
   if (error instanceof AppError) {
     const response = {
       success: false,
-      error: error.code,
-      message: error.message,
-      ...(error.details && { details: error.details })
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(error.details && { details: error.details })
+      },
+      correlationId: id,
+      timestamp: new Date().toISOString()
     }
     
     // Enhanced error logging with monitoring
     const { captureApiError } = await import('./error-monitoring')
-    captureApiError(error, 'api-error', undefined, crypto.randomUUID())
+    captureApiError(error, 'api-error', undefined, id)
     
-    return NextResponse.json(response, { status: error.statusCode })
+    return NextResponse.json(response, { 
+      status: error.statusCode,
+      headers: {
+        'X-Correlation-ID': id
+      }
+    })
   }
   
   // Handle unexpected errors
   const { captureApiError } = await import('./error-monitoring')
-  captureApiError(error, 'api-error', undefined, crypto.randomUUID())
+  captureApiError(error, 'api-error', undefined, id)
   
   return NextResponse.json(
     {
       success: false,
-      error: ErrorCode.INTERNAL_ERROR,
-      message: 'An unexpected error occurred'
+      error: {
+        code: ErrorCode.INTERNAL_ERROR,
+        message: 'An unexpected error occurred'
+      },
+      correlationId: id,
+      timestamp: new Date().toISOString()
     },
-    { status: 500 }
+    { 
+      status: 500,
+      headers: {
+        'X-Correlation-ID': id
+      }
+    }
   )
 }
 
@@ -159,6 +179,8 @@ export function withErrorHandler(
   handler: (request: Request, context?: any) => Promise<NextResponse>
 ) {
   return async (request: Request, context?: any): Promise<NextResponse> => {
+    const correlationId = context?.correlationId || crypto.randomUUID()
+    
     try {
       return await handler(request, context)
     } catch (error) {
@@ -170,11 +192,11 @@ export function withErrorHandler(
         try {
           return await retryApiCall(() => handler(request, context))
         } catch (retryError) {
-          return formatErrorResponse(retryError as Error)
+          return formatErrorResponse(retryError as Error, correlationId)
         }
       }
       
-      return formatErrorResponse(error as Error)
+      return formatErrorResponse(error as Error, correlationId)
     }
   }
 }

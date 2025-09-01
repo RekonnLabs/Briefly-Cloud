@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/app/lib/auth/supabase-auth'
-import { storeEncryptedToken } from '@/app/lib/oauth/token-store'
+import { TokenStore } from '@/app/lib/oauth/token-store'
 import { cookies } from 'next/headers'
 
 export async function GET(req: NextRequest) {
@@ -83,15 +83,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(new URL('/briefly/app/dashboard?link=microsoft&error=token_failed', req.url))
     }
 
-    // Store encrypted tokens using secure token store
-    await storeEncryptedToken({
-      userId: user.id,
-      provider: 'microsoft_drive',
+    // Store tokens using secure RPC function
+    await TokenStore.saveToken(user.id, 'microsoft', {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       scope: tokens.scope,
-      tokenType: tokens.token_type,
-      expiresAt: new Date(Date.now() + (tokens.expires_in || 3600) * 1000),
+      expiresAt: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
+    })
+
+    console.log('Microsoft OAuth token saved successfully via RPC', {
+      userId: user.id,
+      hasRefreshToken: !!tokens.refresh_token,
+      scope: tokens.scope
     })
 
     return NextResponse.redirect(new URL('/briefly/app/dashboard?link=microsoft=ok', req.url))

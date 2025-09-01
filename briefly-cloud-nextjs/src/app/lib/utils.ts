@@ -34,16 +34,24 @@ export function handleAPIError(error: unknown): Response {
   console.error('API Error:', error)
   
   if (error instanceof Error) {
-    return Response.json(
-      createErrorResponse(error.message),
-      { status: 500 }
-    )
+    return new Response(JSON.stringify({
+      success: false,
+      error: { message: error.message, code: 'INTERNAL_ERROR' },
+      timestamp: new Date().toISOString()
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
   
-  return Response.json(
-    createErrorResponse('An unexpected error occurred'),
-    { status: 500 }
-  )
+  return new Response(JSON.stringify({
+    success: false,
+    error: { message: 'An unexpected error occurred', code: 'INTERNAL_ERROR' },
+    timestamp: new Date().toISOString()
+  }), { 
+    status: 500,
+    headers: { 'Content-Type': 'application/json' }
+  })
 }
 
 // File size formatting

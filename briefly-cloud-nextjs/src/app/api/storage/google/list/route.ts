@@ -2,62 +2,38 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { google } from 'googleapis'
-import { getDecryptedToken } from '@/app/lib/oauth/token-store'
+import { GoogleDriveProvider } from '@/app/lib/cloud-storage'
 
 async function listGoogleFilesHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
 
-  const token = await getDecryptedToken(user.id, 'google')
-  if (!token?.accessToken) return ApiResponse.badRequest('Google account not connected')
+  try {
+    const { searchParams } = new URL(request.url)
+    const folderId = searchParams.get('folderId') || 'root'
+    const pageToken = searchParams.get('pageToken') || undefined
+    const pageSize = Math.min(1000, Math.max(1, parseInt(searchParams.get('pageSize') || '100')))
 
-  const oauth2Client = new google.auth.OAuth2()
-  oauth2Client.setCredentials({
-    access_token: token.accessToken,
-    refresh_token: token.refreshToken ?? undefined,
-  })
+    const provider = new GoogleDriveProvider()
+    const result = await provider.listFiles(user.id, folderId, pageToken, pageSize)
 
-  // B) Add folder support + pagination
-  const { searchParams } = new URL(request.url)
-  const folderId = searchParams.get('folderId') || 'root'
-  
-  const drive = google.drive({ version: 'v3', auth: oauth2Client })
-  let pageToken: string | undefined
-  const files: any[] = []
-
-  do {
-    const res = await drive.files.list({
-      q: `'${folderId}' in parents`,
-      fields: 'nextPageToken, files(id,name,mimeType,size,webViewLink)',
-      pageToken,
-      pageSize: 1000,
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
+    return ApiResponse.success({
+      files: result.files,
+      folders: result.folders,
+      pagination: {
+        nextPageToken: result.nextPageToken,
+        hasMore: result.hasMore
+      }
     })
-    files.push(...(res.data.files ?? []))
-    pageToken = res.data.nextPageToken ?? undefined
-  } while (pageToken)
-
-  const mapped = files
-    .filter(f => f.mimeType !== 'application/vnd.google-apps.folder')
-    .map(file => ({
-      id: file.id,
-      name: file.name,
-      mimeType: file.mimeType,
-      size: file.size ? parseInt(file.size) : 0,
-      webViewLink: file.webViewLink,
-    }))
-
-  const folders = files
-    .filter(f => f.mimeType === 'application/vnd.google-apps.folder')
-    .map(folder => ({
-      id: folder.id,
-      name: folder.name,
-      mimeType: folder.mimeType,
-    }))
-
-  return ApiResponse.success({ files: mapped, folders })
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('unauthorized')) {
+      return ApiResponse.unauthorized('Google Drive access token is invalid or expired')
+    }
+    if (error instanceof Error && error.message.includes('Google Drive')) {
+      return ApiResponse.serverError('Google Drive API error', 'GOOGLE_DRIVE_ERROR')
+    }
+    return ApiResponse.serverError('Failed to list Google Drive files')
+  }
 }
 
 export const GET = createProtectedApiHandler(listGoogleFilesHandler, {
