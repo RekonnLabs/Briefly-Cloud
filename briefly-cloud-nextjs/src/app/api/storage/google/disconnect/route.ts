@@ -1,69 +1,102 @@
 /**
- * Google Drive Disconnect API
- * 
- * POST /api/storage/google/disconnect - Disconnect from Google Drive
+ * Google Drive Disconnect Route
+ * Handles disconnection of Google Drive integration
  */
 
 import { NextRequest } from 'next/server'
 import { createProtectedApiHandler } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-response'
-import { ConnectionManager } from '@/app/lib/cloud-storage/connection-manager'
+import { TokenStore } from '@/app/lib/oauth/token-store'
 import { logger } from '@/app/lib/logger'
 
-interface DisconnectRequestBody {
-  revokeAtProvider?: boolean
-  cancelRunningJobs?: boolean
-}
-
-async function disconnectGoogle(request: NextRequest, context: any) {
+export const POST = createProtectedApiHandler(async (request: NextRequest, context) => {
   try {
-    const userId = context.user.id
+    const { user, correlationId } = context
+
+    logger.info('Disconnecting Google Drive', {
+      userId: user.id,
+      correlationId
+    })
+
+    // Get current token for revocation
+    const token = await TokenStore.getToken(user.id, 'google_drive')
     
-    // Parse request body for options
-    let options: DisconnectRequestBody = {}
-    try {
-      const body = await request.json()
-      options = {
-        revokeAtProvider: body.revokeAtProvider ?? true, // Default to true
-        cancelRunningJobs: body.cancelRunningJobs ?? true // Default to true
-      }
-    } catch {
-      // Use defaults if no body or invalid JSON
-      options = {
-        revokeAtProvider: true,
-        cancelRunningJobs: true
+    // Revoke token with Google if available
+    if (token?.accessToken) {
+      try {
+        const revokeResponse = await fetch(`https://oauth2.googleapis.com/revoke?token=${token.accessToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        })
+
+        if (revokeResponse.ok) {
+          logger.info('Google token revoked successfully', {
+            userId: user.id,
+            correlationId
+          })
+        } else {
+          logger.warn('Failed to revoke Google token', {
+            userId: user.id,
+            status: revokeResponse.status,
+            correlationId
+          })
+        }
+      } catch (revokeError) {
+        logger.warn('Error revoking Google token', {
+          userId: user.id,
+          error: revokeError instanceof Error ? revokeError.message : 'Unknown error',
+          correlationId
+        })
+        // Continue with local deletion even if revocation fails
       }
     }
 
-    logger.info('Google Drive disconnect requested', { userId, options })
+    // Delete token from our database
+    await TokenStore.deleteToken(user.id, 'google_drive')
 
-    // Disconnect using ConnectionManager
-    await ConnectionManager.disconnectGoogle(userId, options)
+    logger.info('Google Drive disconnected successfully', {
+      userId: user.id,
+      correlationId
+    })
 
-    logger.info('Google Drive disconnected successfully', { userId })
-
-    return ApiResponse.ok(
-      { 
-        provider: 'google_drive',
-        disconnected: true,
-        revokedAtProvider: options.revokeAtProvider,
-        cancelledJobs: options.cancelRunningJobs
-      },
-      'Google Drive disconnected successfully'
-    )
+    return ApiResponse.ok({
+      message: 'Google Drive disconnected successfully',
+      provider: 'google_drive'
+    }, 'Google Drive has been disconnected from your account', correlationId)
 
   } catch (error) {
-    logger.error('Error disconnecting Google Drive', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('Failed to disconnect Google Drive', {
+      userId: context.user?.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      correlationId: context.correlationId
     })
-    
+
+    if (error instanceof Error && error.message.includes('token')) {
+      return ApiResponse.badRequest(
+        'Failed to disconnect Google Drive',
+        'DISCONNECT_ERROR',
+        { provider: 'google_drive' },
+        context.correlationId
+      )
+    }
+
     return ApiResponse.serverError(
-      'Failed to disconnect Google Drive',
-      'GOOGLE_DISCONNECT_ERROR'
+      'Internal server error during disconnect',
+      'INTERNAL_ERROR',
+      { provider: 'google_drive' },
+      context.correlationId
     )
   }
-}
+})
 
-export const POST = createProtectedApiHandler(disconnectGoogle, {
-  requireAuth: true
+export const OPTIONS = createProtectedApiHandler(async (request: NextRequest, context) => {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Allow': 'POST, OPTIONS',
+      'X-Correlation-ID': context.correlationId
+    }
+  })
 })

@@ -222,32 +222,60 @@ export class TokenStore {
         throw new Error('No refresh token available for Google Drive')
       }
 
+      if (!process.env.GOOGLE_DRIVE_CLIENT_ID || !process.env.GOOGLE_DRIVE_CLIENT_SECRET) {
+        throw new Error('Google Drive OAuth credentials not configured')
+      }
+
+      logger.info('Refreshing Google Drive token', { userId })
+
       const response = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token: currentToken.refreshToken,
-          client_id: process.env.GOOGLE_DRIVE_CLIENT_ID!,
-          client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET!
+          client_id: process.env.GOOGLE_DRIVE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET
         })
       })
 
       if (!response.ok) {
+        const errorText = await response.text()
+        logger.error('Google token refresh API error', {
+          userId,
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        })
+        
+        // If refresh token is invalid, we need to re-authenticate
+        if (response.status === 400 || response.status === 401) {
+          await this.deleteToken(userId, 'google_drive')
+          throw new Error('Refresh token invalid, re-authentication required')
+        }
+        
         throw new Error(`Google token refresh failed: ${response.statusText}`)
       }
 
       const data = await response.json()
+      
+      if (!data.access_token) {
+        throw new Error('No access token in refresh response')
+      }
+
       const newToken: OAuthTokenData = {
         accessToken: data.access_token,
-        refreshToken: data.refresh_token || currentToken.refreshToken,
-        expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString(),
+        refreshToken: data.refresh_token || currentToken.refreshToken, // Google may not return new refresh token
+        expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString(),
         scope: currentToken.scope
       }
 
       await this.saveToken(userId, 'google_drive', newToken)
       
-      logger.info('Google token refreshed successfully', { userId })
+      logger.info('Google token refreshed successfully', { 
+        userId,
+        expiresAt: newToken.expiresAt
+      })
       return newToken
     } catch (error) {
       logger.error('Failed to refresh Google token', {
@@ -270,6 +298,12 @@ export class TokenStore {
         throw new Error('No refresh token available for Microsoft')
       }
 
+      if (!process.env.MS_DRIVE_CLIENT_ID || !process.env.MS_DRIVE_CLIENT_SECRET) {
+        throw new Error('Microsoft OAuth credentials not configured')
+      }
+
+      logger.info('Refreshing Microsoft token', { userId })
+
       const tenantId = process.env.MS_DRIVE_TENANT_ID || 'common'
       const response = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
         method: 'POST',
@@ -277,27 +311,49 @@ export class TokenStore {
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token: currentToken.refreshToken,
-          client_id: process.env.MS_DRIVE_CLIENT_ID!,
-          client_secret: process.env.MS_DRIVE_CLIENT_SECRET!,
+          client_id: process.env.MS_DRIVE_CLIENT_ID,
+          client_secret: process.env.MS_DRIVE_CLIENT_SECRET,
           scope: currentToken.scope || 'https://graph.microsoft.com/Files.Read.All offline_access'
         })
       })
 
       if (!response.ok) {
+        const errorText = await response.text()
+        logger.error('Microsoft token refresh API error', {
+          userId,
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        })
+        
+        // If refresh token is invalid, we need to re-authenticate
+        if (response.status === 400 || response.status === 401) {
+          await this.deleteToken(userId, 'microsoft')
+          throw new Error('Refresh token invalid, re-authentication required')
+        }
+        
         throw new Error(`Microsoft token refresh failed: ${response.statusText}`)
       }
 
       const data = await response.json()
+      
+      if (!data.access_token) {
+        throw new Error('No access token in refresh response')
+      }
+
       const newToken: OAuthTokenData = {
         accessToken: data.access_token,
-        refreshToken: data.refresh_token || currentToken.refreshToken,
-        expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString(),
-        scope: currentToken.scope
+        refreshToken: data.refresh_token || currentToken.refreshToken, // Microsoft may not return new refresh token
+        expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString(),
+        scope: data.scope || currentToken.scope
       }
 
       await this.saveToken(userId, 'microsoft', newToken)
       
-      logger.info('Microsoft token refreshed successfully', { userId })
+      logger.info('Microsoft token refreshed successfully', { 
+        userId,
+        expiresAt: newToken.expiresAt
+      })
       return newToken
     } catch (error) {
       logger.error('Failed to refresh Microsoft token', {

@@ -358,11 +358,16 @@ export class ImportJobManager {
         }
       })
 
+      // Update job progress after batch completion
+      const currentProgress = await this.calculateProgress(job.id)
+      await this.updateJobProgress(job.id, currentProgress)
+
       logger.debug('Batch processed', {
         jobId: job.id,
         batchSize: batch.length,
         successful: results.filter(r => r.status === 'fulfilled').length,
-        failed: results.filter(r => r.status === 'rejected').length
+        failed: results.filter(r => r.status === 'rejected').length,
+        totalProgress: `${currentProgress.processed + currentProgress.failed + currentProgress.skipped}/${currentProgress.total}`
       })
 
     } catch (error) {
