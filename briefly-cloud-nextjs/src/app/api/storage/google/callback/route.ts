@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
       scope: tokens.scope
     })
 
-    return NextResponse.redirect(new URL('/briefly/app/dashboard?link=google=ok', req.url))
+    return NextResponse.redirect(new URL('/briefly/app/dashboard?tab=storage', req.url))
 
   } catch (error) {
     console.error('Google Drive OAuth callback error:', error)
