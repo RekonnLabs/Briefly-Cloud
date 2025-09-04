@@ -3,18 +3,38 @@
 // Simple production check without importing environment module
 const isProduction = () => process.env.NODE_ENV === 'production'
 
-// Basic security configuration for build time
-const getBasicSecurityConfig = () => ({
-  headers: {
-    hsts: {
-      maxAge: isProduction() ? 31536000 : 0,
-      includeSubDomains: isProduction(),
-      preload: isProduction()
+// Production security headers configuration
+// Note: These complement the middleware security headers
+const getProductionSecurityHeaders = () => {
+  if (!isProduction()) return []
+  
+  return [
+    {
+      key: 'Strict-Transport-Security',
+      value: 'max-age=31536000; includeSubDomains; preload'
+    },
+    {
+      key: 'X-Content-Type-Options',
+      value: 'nosniff'
+    },
+    {
+      key: 'X-Frame-Options',
+      value: 'DENY'
+    },
+    {
+      key: 'Referrer-Policy',
+      value: 'strict-origin-when-cross-origin'
+    },
+    {
+      key: 'X-XSS-Protection',
+      value: '1; mode=block'
+    },
+    {
+      key: 'Permissions-Policy',
+      value: 'camera=(), microphone=(), geolocation=(), payment=()'
     }
-  }
-})
-
-const securityConfig = getBasicSecurityConfig()
+  ]
+}
 
 const nextConfig = {
   // Basic configuration
@@ -41,28 +61,16 @@ const nextConfig = {
   
   // Security headers (additional to middleware)
   async headers() {
-    const securityHeaders = [
+    const baseHeaders = [
       {
         key: 'X-DNS-Prefetch-Control',
         value: 'on'
-      },
-      {
-        key: 'X-Content-Type-Options',
-        value: 'nosniff'
-      },
-      {
-        key: 'Referrer-Policy',
-        value: 'strict-origin-when-cross-origin'
       }
     ]
-
-    // Add HSTS in production
-    if (isProduction() && securityConfig.headers.hsts.maxAge > 0) {
-      securityHeaders.push({
-        key: 'Strict-Transport-Security',
-        value: `max-age=${securityConfig.headers.hsts.maxAge}; includeSubDomains; preload`
-      })
-    }
+    
+    // Add production security headers
+    const productionHeaders = getProductionSecurityHeaders()
+    const securityHeaders = [...baseHeaders, ...productionHeaders]
 
     return [
       {
@@ -76,6 +84,24 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'no-store, no-cache, must-revalidate, proxy-revalidate'
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache'
+          },
+          {
+            key: 'Expires',
+            value: '0'
+          }
+        ],
+      },
+      {
+        source: '/api/storage/:provider/start',
+        headers: [
+          ...securityHeaders,
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate'
           },
           {
             key: 'Pragma',

@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server'
 import { logger } from './logger'
 
 // Generate correlation ID for request tracking
-function generateCorrelationId(): string {
+export function generateCorrelationId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
@@ -152,6 +152,23 @@ export const ApiResponse = {
     return NextResponse.json(response, { 
       status: 202,
       headers
+    })
+  },
+
+  // OAuth-specific helper for consistent URL responses
+  oauthUrl: (url: string, correlationId?: string): NextResponse => {
+    const id = correlationId || generateCorrelationId()
+    const response: StandardApiResponse = {
+      success: true,
+      data: { url },
+      message: 'OAuth URL generated',
+      timestamp: new Date().toISOString(),
+      correlationId: id
+    }
+    
+    return NextResponse.json(response, { 
+      status: 200,
+      headers: { 'X-Correlation-ID': id }
     })
   },
 

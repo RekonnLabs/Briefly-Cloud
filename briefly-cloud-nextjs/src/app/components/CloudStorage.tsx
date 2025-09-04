@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Cloud, Download, ExternalLink, RefreshCw, AlertCircle, Play, Pause, X, CheckCircle, XCircle, Clock, Folder, FolderOpen } from 'lucide-react';
 import { Breadcrumb, type BreadcrumbItem } from './ui/Breadcrumb';
+import { useToast } from './ui/toast';
 
 interface CloudFile {
   id: string;
@@ -72,6 +73,8 @@ interface ImportFileStatus {
 }
 
 export function CloudStorage() {
+  const { showSuccess, showError } = useToast();
+  
   const [providers, setProviders] = useState<CloudProvider[]>([
     {
       id: 'google',
@@ -101,10 +104,62 @@ export function CloudStorage() {
   const [batchJobs, setBatchJobs] = useState<Map<string, ImportJob>>(new Map());
   const [showJobDetails, setShowJobDetails] = useState<string | null>(null);
 
+  // Function to refresh connection status
+  const refreshConnectionStatus = useCallback(async () => {
+    await checkConnectionStatus();
+  }, []);
+
   useEffect(() => {
     // Check connection status on mount
     checkConnectionStatus();
-  }, []);
+    
+    // Check for OAuth success/error indicators in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const connectedProvider = urlParams.get('connected');
+    const errorCode = urlParams.get('error');
+    
+    if (connectedProvider) {
+      const providerName = connectedProvider === 'google' ? 'Google Drive' : 'OneDrive';
+      showSuccess(`${providerName} connected successfully!`, 'You can now import files from your cloud storage.');
+      
+      // Clean up URL parameters
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('connected');
+      window.history.replaceState({}, '', newUrl.toString());
+      
+      // Refresh connection status after successful OAuth
+      setTimeout(() => {
+        refreshConnectionStatus();
+      }, 1000);
+    }
+    
+    if (errorCode) {
+      const errorMessage = getErrorMessage(errorCode);
+      showError('Connection failed', errorMessage);
+      
+      // Clean up URL parameters
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('error');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }, [showSuccess, showError, refreshConnectionStatus]);
+
+  // Function to map error codes to user-friendly messages
+  const getErrorMessage = (errorCode: string): string => {
+    const errorMessages: Record<string, string> = {
+      missing_code: 'OAuth authorization was cancelled or failed. Please try connecting again.',
+      state_mismatch: 'Security verification failed. Please try connecting again.',
+      auth_failed: 'Authentication failed. Please sign in again and try connecting.',
+      token_exchange_failed: 'Failed to complete authorization. Please try connecting again.',
+      token_storage_failed: 'Failed to save connection. Please try connecting again.',
+      unexpected_error: 'An unexpected error occurred. Please try connecting again.',
+      access_denied: 'Access was denied. Please grant permission to connect your cloud storage.',
+      invalid_request: 'Invalid request. Please try connecting again.',
+      server_error: 'Server error occurred. Please try again later.'
+    };
+    
+    return errorMessages[errorCode] || 'Connection failed. Please try again.';
+  };
 
   const checkConnectionStatus = async () => {
     try {
@@ -146,27 +201,30 @@ export function CloudStorage() {
   };
 
   const connectProvider = async (providerId: 'google' | 'microsoft') => {
-    const startUrl = providerId === 'google' 
-      ? '/api/storage/google/start'
-      : '/api/storage/microsoft/start';
-    
-    window.location.href = startUrl;
+    try {
+      const startUrl = providerId === 'google' 
+        ? '/api/storage/google/start'
+        : '/api/storage/microsoft/start';
+      
+      const response = await fetch(startUrl, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`OAuth start failed: ${response.status}`);
+      }
+      
+      // Consistent JSON response pattern
+      const { data: { url } } = await response.json();
+      window.location.href = url;
+    } catch (error) {
+      console.error('OAuth initiation failed:', error);
+      const providerName = providerId === 'google' ? 'Google Drive' : 'OneDrive';
+      showError(`Failed to connect ${providerName}`, 'Please try again or check your internet connection.');
+    }
   };
 
-  // Check for successful connection on component mount (in case user just returned from OAuth)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('connected') === 'true') {
-      // Remove the parameter from URL
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-      
-      // Refresh connection status
-      setTimeout(() => {
-        checkConnectionStatus();
-      }, 1000);
-    }
-  }, []);
+
 
   const disconnectProvider = async (providerId: 'google' | 'microsoft') => {
     try {
@@ -218,14 +276,15 @@ export function CloudStorage() {
           return newMap;
         });
         
-        alert(`Successfully disconnected from ${providerId === 'google' ? 'Google Drive' : 'OneDrive'}`);
+        const providerName = providerId === 'google' ? 'Google Drive' : 'OneDrive';
+        showSuccess(`Successfully disconnected from ${providerName}`, 'Your cloud storage has been disconnected.');
       } else {
         const error = await response.json();
-        alert(`Failed to disconnect: ${error.error?.message || 'Unknown error'}`);
+        showError('Failed to disconnect', error.error?.message || 'Unknown error occurred.');
       }
     } catch (error) {
       console.error('Disconnect error:', error);
-      alert('Failed to disconnect due to network error');
+      showError('Failed to disconnect', 'Network error occurred. Please try again.');
     }
   };
 
@@ -354,13 +413,13 @@ export function CloudStorage() {
 
       if (response.ok) {
         const result = await response.json();
-        alert(`Successfully imported ${fileName}`);
+        showSuccess(`Successfully imported ${fileName}`, 'The file has been added to your document library.');
       } else {
         throw new Error('Import failed');
       }
     } catch (error) {
       console.error('Import error:', error);
-      alert(`Failed to import ${fileName}`);
+      showError(`Failed to import ${fileName}`, 'Please try again or check your connection.');
     } finally {
       setImportingFiles(prev => {
         const newSet = new Set(prev);
@@ -402,11 +461,11 @@ export function CloudStorage() {
         pollJobProgress(job.jobId, providerId);
       } else {
         const error = await response.json();
-        alert(`Failed to start batch import: ${error.error?.message || 'Unknown error'}`);
+        showError('Failed to start batch import', error.error?.message || 'Unknown error occurred.');
       }
     } catch (error) {
       console.error('Batch import error:', error);
-      alert('Failed to start batch import');
+      showError('Failed to start batch import', 'Please try again or check your connection.');
     }
   };
 
@@ -468,11 +527,11 @@ export function CloudStorage() {
         });
       } else {
         const error = await response.json();
-        alert(`Failed to cancel job: ${error.error?.message || 'Unknown error'}`);
+        showError('Failed to cancel job', error.error?.message || 'Unknown error occurred.');
       }
     } catch (error) {
       console.error('Cancel job error:', error);
-      alert('Failed to cancel job');
+      showError('Failed to cancel job', 'Please try again or check your connection.');
     }
   };
 

@@ -48,6 +48,10 @@ export default function RootLayout({
             {children}
           </div>
         </Providers>
+        {/* OAuth Console Helpers - Development Only */}
+        {process.env.NODE_ENV === 'development' && (
+          <script src="/oauth-console-helpers.js" async />
+        )}
       </body>
     </html>
   );

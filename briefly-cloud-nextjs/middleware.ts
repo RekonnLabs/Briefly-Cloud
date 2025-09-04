@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { clampNext } from './src/app/lib/auth/utils'
+import { applySecurityHeaders } from './src/app/lib/security/headers'
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl
@@ -67,14 +68,13 @@ export async function middleware(req: NextRequest) {
 
   // Helpful signal for RSC pages
   if (user) res.headers.set('x-sb-session', '1')
+  
+  // Apply production security headers (only in production environment)
+  applySecurityHeaders(res)
+  
   return res
 }
 
 export const config = {
-  matcher: [
-    '/',                   // root (because it may redirect)
-    '/briefly/:path*',     // ALL app routes
-    '/auth/signin',        // gate signin when authed
-    '/api/:path*',         // (we still early-exit callbacks above)
-  ],
+  matcher: ['/((?!api|_next|favicon.ico|assets).*)'],
 }

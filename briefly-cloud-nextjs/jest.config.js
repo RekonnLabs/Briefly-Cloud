@@ -33,7 +33,7 @@ const customJestConfig = {
     customExportConditions: [''],
   },
   // Handle server-only imports and module aliases
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^server-only$': '<rootDir>/tests/__mocks__/server-only.js',
     '^@/(.*)$': '<rootDir>/src/app/$1',
   },
