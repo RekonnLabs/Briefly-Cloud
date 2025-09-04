@@ -102,7 +102,7 @@ export function createProtectedApiHandler(
       // Authentication handling
       const { data, error } = await supabase.auth.getUser()
       if (error || !data?.user) {
-        return ApiResponse.unauthorized('Authentication failed', 'UNAUTHORIZED', correlationId)
+        return ApiResponse.unauthorized('Authentication failed', ApiErrorCode.UNAUTHORIZED, correlationId)
       }
 
       // Create enhanced context
@@ -124,11 +124,24 @@ export function createProtectedApiHandler(
 
     } catch (error) {
       console.error('[api:error]', error)
-      return ApiResponse.serverError('Internal server error', 'INTERNAL_ERROR', undefined, correlationId)
+      return ApiResponse.serverError('Internal server error', ApiErrorCode.INTERNAL_ERROR, undefined, correlationId)
     }
   }
 }
 
 // Note: Error retry logic moved to ErrorHandler.isRetryableError()
 
-// Simple wrapper for the OAuth use case
+// ✨ keep your existing imports/exports
+export type PublicApiContext = { req: Request }
+
+/**
+ * Public API wrapper: no auth, no cookie mutation.
+ * Centralizes future cross-cutting concerns (CORS, headers, metrics).
+ */
+export function createPublicApiHandler(
+  handler: (req: Request, ctx: PublicApiContext) => Promise<Response> | Response
+) {
+  return async function wrapped(req: Request) {
+    return handler(req, { req })
+  }
+}

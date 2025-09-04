@@ -1,11 +1,13 @@
+export const runtime = 'nodejs'
+export const revalidate = 0
+
 import { NextResponse } from 'next/server'
-import { createPublicApiHandler, ApiContext } from '@/app/lib/api-middleware'
-import { ApiResponse } from '@/app/lib/api-utils'
-import { rateLimitConfigs } from '@/app/lib/rate-limit'
+import { createPublicApiHandler, PublicApiContext } from '@/app/lib/api-middleware'
+import { ApiResponse } from '@/app/lib/api-response'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 
 // Diagnostics handler
-async function diagnosticsHandler(_request: Request, _context: ApiContext): Promise<NextResponse> {
+async function diagnosticsHandler(_request: Request, _context: PublicApiContext): Promise<NextResponse> {
   const diagnostics = {
     service: 'briefly-cloud-nextjs',
     version: '1.0.0',
@@ -60,7 +62,7 @@ async function diagnosticsHandler(_request: Request, _context: ApiContext): Prom
     external_services: await checkExternalServices(),
   }
   
-  return ApiResponse.success(diagnostics)
+  return ApiResponse.ok(diagnostics)
 }
 
 // Check route availability
@@ -150,13 +152,4 @@ async function checkExternalServices() {
 }
 
 // Export the handler with middleware
-export const GET = createPublicApiHandler(diagnosticsHandler, {
-  rateLimit: {
-    ...rateLimitConfigs.general,
-    maxRequests: 10, // More restrictive for diagnostics
-  },
-  logging: {
-    enabled: true,
-    includeBody: false,
-  },
-})
+export const GET = createPublicApiHandler(diagnosticsHandler)

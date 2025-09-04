@@ -5,28 +5,28 @@
  */
 
 import { NextRequest } from 'next/server'
-import { ApiResponse, generateCorrelationId } from '@/app/lib/api-response'
+import { ApiResponse, generateCorrelationId } from '../../src/app/lib/api-response'
 
 // Mock dependencies
-jest.mock('@/app/lib/api-middleware', () => ({
+jest.mock('../../src/app/lib/api-middleware', () => ({
   createProtectedApiHandler: (handler: Function) => handler,
 }))
 
-jest.mock('@/app/lib/oauth/state-manager', () => ({
+jest.mock('../../src/app/lib/oauth/state-manager', () => ({
   OAuthStateManager: {
     generateState: jest.fn((userId: string) => userId),
     logStateGeneration: jest.fn(),
   },
 }))
 
-jest.mock('@/app/lib/oauth/logger', () => ({
+jest.mock('../../src/app/lib/oauth/logger', () => ({
   OAuthLogger: {
     logStart: jest.fn(),
     logError: jest.fn(),
   },
 }))
 
-jest.mock('@/app/lib/oauth/error-codes', () => ({
+jest.mock('../../src/app/lib/oauth/error-codes', () => ({
   OAuthErrorCodes: {
     UNEXPECTED_ERROR: 'UNEXPECTED_ERROR',
   },
@@ -35,7 +35,7 @@ jest.mock('@/app/lib/oauth/error-codes', () => ({
   },
 }))
 
-jest.mock('@/app/lib/oauth/security-config', () => ({
+jest.mock('../../src/app/lib/oauth/security-config', () => ({
   getOAuthScopes: jest.fn((provider: string) => {
     if (provider === 'google') {
       return 'openid email profile https://www.googleapis.com/auth/drive.readonly'
@@ -58,7 +58,7 @@ jest.mock('@/app/lib/oauth/security-config', () => ({
   }),
 }))
 
-jest.mock('@/app/lib/oauth/redirect-validation', () => ({
+jest.mock('../../src/app/lib/oauth/redirect-validation', () => ({
   constructRedirectUri: jest.fn((origin: string, provider: string, path: string) => {
     return `${origin}${path}`
   }),
@@ -143,7 +143,7 @@ describe('OAuth Response Structure Consistency', () => {
 
     beforeEach(async () => {
       // Import the handler function from the Google start route
-      const googleRoute = await import('@/app/api/storage/google/start/route')
+      const googleRoute = await import('../../src/app/api/storage/google/start/route')
       // Extract the handler from the createProtectedApiHandler wrapper
       googleHandler = jest.fn(async (req: Request, context: any) => {
         const correlationId = generateCorrelationId()

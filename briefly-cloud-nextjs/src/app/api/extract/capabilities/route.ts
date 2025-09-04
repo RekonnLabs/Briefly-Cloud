@@ -1,11 +1,12 @@
+export const runtime = 'nodejs'
+export const revalidate = 0
+
 import { NextResponse } from 'next/server'
-import { createPublicApiHandler, ApiContext } from '@/app/lib/api-middleware'
-import { ApiResponse } from '@/app/lib/api-utils'
-import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { SUPPORTED_EXTRACTORS } from '@/app/lib/document-extractor'
+import { createPublicApiHandler, PublicApiContext } from '@/app/lib/api-middleware'
+import { ApiResponse } from '@/app/lib/api-response'
 
 // GET /api/extract/capabilities - Get text extraction capabilities
-async function getCapabilitiesHandler(_request: Request, _context: ApiContext): Promise<NextResponse> {
+async function getCapabilitiesHandler(_request: Request, _context: PublicApiContext): Promise<NextResponse> {
   try {
     // Group extractors by category
     const capabilities = {
@@ -160,26 +161,30 @@ async function getCapabilitiesHandler(_request: Request, _context: ApiContext): 
         status_checks: '100 requests per 15 minutes',
       },
       
-      supported_mime_types: Object.keys(SUPPORTED_EXTRACTORS),
-      supported_extensions: Object.values(SUPPORTED_EXTRACTORS),
+      supported_mime_types: [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/plain',
+        'text/markdown',
+        'text/csv',
+        'application/json'
+      ],
+      supported_extensions: ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'txt', 'md', 'csv', 'json'],
       
       version: '1.0.0',
       last_updated: '2024-01-01T00:00:00Z',
     }
     
-    return ApiResponse.success(capabilities)
+    return ApiResponse.ok(capabilities)
     
   } catch (error) {
     console.error('Get capabilities handler error:', error)
-    return ApiResponse.internalError('Failed to get extraction capabilities')
+    return ApiResponse.serverError('Failed to get extraction capabilities')
   }
 }
 
 // Export handler with middleware (public endpoint)
-export const GET = createPublicApiHandler(getCapabilitiesHandler, {
-  rateLimit: rateLimitConfigs.general,
-  logging: {
-    enabled: true,
-    includeBody: false,
-  },
-})
+export const GET = createPublicApiHandler(getCapabilitiesHandler)
