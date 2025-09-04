@@ -21,6 +21,14 @@ export const rateLimitConfigs = {
   embedding: {
     windowMs: 60 * 1000, // 1 minute
     max: 20, // 20 embedding requests per minute
+  },
+  fileOperations: {
+    windowMs: 60 * 1000, // 1 minute
+    max: 15, // 15 file operations per minute
+  },
+  general: {
+    windowMs: 60 * 1000, // 1 minute
+    max: 60, // 60 requests per minute
   }
 } as const;
 

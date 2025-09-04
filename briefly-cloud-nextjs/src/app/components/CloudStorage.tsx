@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Cloud, Download, ExternalLink, RefreshCw, AlertCircle, Play, Pause, X, CheckCircle, XCircle, Clock, Folder, FolderOpen } from 'lucide-react';
 import { Breadcrumb, type BreadcrumbItem } from './ui/Breadcrumb';
 import { useToast } from './ui/toast';
+import { GooglePicker } from './GooglePicker';
 
 interface CloudFile {
   id: string;
@@ -72,7 +73,19 @@ interface ImportFileStatus {
   timestamp: string;
 }
 
-export function CloudStorage() {
+interface SelectedFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  downloadUrl?: string;
+}
+
+interface CloudStorageProps {
+  userId?: string;
+}
+
+export function CloudStorage({ userId }: CloudStorageProps = {}) {
   const { showSuccess, showError } = useToast();
   
   const [providers, setProviders] = useState<CloudProvider[]>([
@@ -103,6 +116,7 @@ export function CloudStorage() {
   const [importingFiles, setImportingFiles] = useState<Set<string>>(new Set());
   const [batchJobs, setBatchJobs] = useState<Map<string, ImportJob>>(new Map());
   const [showJobDetails, setShowJobDetails] = useState<string | null>(null);
+  const [isProcessingPickerFiles, setIsProcessingPickerFiles] = useState(false);
 
   // Function to refresh connection status
   const refreshConnectionStatus = useCallback(async () => {
@@ -535,6 +549,102 @@ export function CloudStorage() {
     }
   };
 
+  // Handle Google Picker file selection
+  const handleGoogleFilesSelected = async (files: SelectedFile[]) => {
+    // Check if Google Drive is still connected
+    const googleProvider = providers.find(p => p.id === 'google');
+    if (!googleProvider?.connected) {
+      showError(
+        'Google Drive not connected',
+        'Please reconnect your Google Drive account to continue.'
+      );
+      return;
+    }
+
+    setIsProcessingPickerFiles(true);
+    
+    try {
+      const response = await fetch('/api/storage/google/register-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ files })
+      });
+
+      if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please reconnect your Google Drive account.');
+        } else if (response.status === 403) {
+          throw new Error('Access denied. Please check your Google Drive permissions.');
+        }
+        throw new Error('Failed to register selected files');
+      }
+
+      const { data } = await response.json();
+      
+      // Show detailed success message with file breakdown
+      const fileNames = files.length <= 3 
+        ? files.map(f => f.name).join(', ')
+        : `${files.slice(0, 2).map(f => f.name).join(', ')} and ${files.length - 2} more`;
+      
+      showSuccess(
+        `Successfully added ${files.length} file${files.length > 1 ? 's' : ''} for processing`,
+        `Files: ${fileNames}. They will appear in your document library shortly.`
+      );
+      
+      // Refresh the file list to show any updates
+      const googleProvider = providers.find(p => p.id === 'google');
+      if (googleProvider?.connected) {
+        await loadFiles('google');
+      }
+      
+    } catch (error) {
+      console.error('Failed to process selected files:', error);
+      showError(
+        'Failed to add selected files', 
+        'Please try again or check your connection.'
+      );
+    } finally {
+      setIsProcessingPickerFiles(false);
+    }
+  };
+
+  // Handle Google Picker errors
+  const handlePickerError = (error: string) => {
+    console.error('Google Picker error:', error);
+    
+    // Check connection status first
+    const googleProvider = providers.find(p => p.id === 'google');
+    if (!googleProvider?.connected) {
+      showError(
+        'Google Drive not connected',
+        'Please reconnect your Google Drive account to use the file picker.'
+      );
+      return;
+    }
+    
+    // Provide user-friendly error messages based on error type
+    let userMessage = 'File selection failed. Please try again.';
+    let description = error;
+    
+    if (error.includes('token') || error.includes('auth')) {
+      userMessage = 'Authentication expired';
+      description = 'Your Google Drive session has expired. Please disconnect and reconnect your account.';
+    } else if (error.includes('API') || error.includes('picker')) {
+      userMessage = 'Failed to load file picker';
+      description = 'Please check your internet connection and try again.';
+    } else if (error.includes('network') || error.includes('fetch')) {
+      userMessage = 'Network error';
+      description = 'Please check your internet connection and try again.';
+    } else if (error.includes('permission') || error.includes('access')) {
+      userMessage = 'Access denied';
+      description = 'Please check your Google Drive permissions or try reconnecting your account.';
+    }
+    
+    showError(userMessage, description);
+  };
+
   const getJobStatusIcon = (status: ImportJob['status']) => {
     switch (status) {
       case 'pending':
@@ -669,6 +779,32 @@ export function CloudStorage() {
                   </button>
                 )}
               </div>
+
+              {/* Google Picker Integration - Only show for Google Drive */}
+              {provider.id === 'google' && (
+                <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-xl border border-gray-700/30">
+                  <div className="flex-1">
+                    <h5 className="text-sm font-medium text-white mb-1">Quick File Selection</h5>
+                    <p className="text-xs text-gray-400">
+                      Use Google's file picker to quickly select specific files from anywhere in your Drive
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    {isProcessingPickerFiles && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-300">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Processing files...</span>
+                      </div>
+                    )}
+                    <GooglePicker
+                      onFilesSelected={handleGoogleFilesSelected}
+                      onError={handlePickerError}
+                      disabled={isProcessingPickerFiles}
+                      userId={userId}
+                    />
+                  </div>
+                </div>
+              )}
 
               {provider.loading ? (
                 <div className="text-center py-8">
@@ -938,6 +1074,11 @@ export function CloudStorage() {
             <div className="text-center py-8 text-gray-400">
               <Cloud className="w-12 h-12 mx-auto mb-4 text-gray-600" />
               <p>Connect your {provider.name} account to import files</p>
+              {provider.id === 'google' && (
+                <p className="text-sm text-gray-500 mt-2">
+                  Once connected, you'll be able to browse folders and use the quick file picker
+                </p>
+              )}
             </div>
           )}
         </div>

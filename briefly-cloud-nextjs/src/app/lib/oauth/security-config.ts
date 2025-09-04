@@ -22,7 +22,7 @@ export interface OAuthProviderConfig {
  * 1. Minimal Scope Principle - Request only necessary permissions
  * 2. Offline Access - Enable refresh tokens for persistent access
  * 3. User Consent - Always prompt for explicit user consent
- * 4. Read-Only Access - Prefer read-only scopes when possible
+ * 4. File-Specific Access - Only access files explicitly selected by user
  */
 export const OAuthSecurityConfig: Record<string, OAuthProviderConfig> = {
   google: {
@@ -30,7 +30,7 @@ export const OAuthSecurityConfig: Record<string, OAuthProviderConfig> = {
       'openid',                                              // Required for OAuth 2.0 identity
       'email',                                               // User email for account linking
       'profile',                                             // Basic profile info
-      'https://www.googleapis.com/auth/drive.readonly'       // Read-only Google Drive access
+      'https://www.googleapis.com/auth/drive.file'           // Access to files opened/created by app
     ],
     settings: {
       access_type: 'offline',                                // Enable refresh tokens
@@ -42,7 +42,7 @@ export const OAuthSecurityConfig: Record<string, OAuthProviderConfig> = {
       'openid': 'Basic identity verification',
       'email': 'Access to your email address for account linking',
       'profile': 'Access to basic profile information (name, picture)',
-      'https://www.googleapis.com/auth/drive.readonly': 'Read-only access to your Google Drive files'
+      'https://www.googleapis.com/auth/drive.file': 'Access to files you select or create with this app'
     }
   },
 
@@ -121,7 +121,7 @@ export function validateScopes(provider: keyof typeof OAuthSecurityConfig, reque
  */
 export const SecurityImplications = {
   google: {
-    dataAccess: 'Read-only access to Google Drive files and metadata',
+    dataAccess: 'Access only to files you select or create with this app',
     retention: 'Tokens stored securely with encryption, refresh tokens enable persistent access',
     revocation: 'Users can revoke access at https://myaccount.google.com/permissions',
     compliance: 'GDPR compliant, follows Google OAuth 2.0 security best practices'

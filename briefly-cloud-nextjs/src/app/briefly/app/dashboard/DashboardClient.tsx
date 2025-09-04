@@ -124,7 +124,7 @@ function DashboardContent({ user }: DashboardClientProps) {
 
             {activeTab === 'storage' && (
               <ErrorBoundary>
-                <CloudStorage />
+                <CloudStorage userId={user?.id} />
               </ErrorBoundary>
             )}
           </main>
