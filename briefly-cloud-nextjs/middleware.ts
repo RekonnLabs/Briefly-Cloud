@@ -14,9 +14,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/robots.txt') ||
     pathname.startsWith('/sitemap.xml') ||
     pathname.startsWith('/images/') ||
-    pathname.startsWith('/auth/start') ||
-    pathname.startsWith('/auth/callback') ||
-    pathname.startsWith('/auth/v1/callback') ||        // Supabase callback
+    pathname.startsWith('/auth/') ||                   // All auth routes
     pathname.startsWith('/api/storage/google/callback') ||
     pathname.startsWith('/api/storage/microsoft/callback') ||
     pathname.startsWith('/api/billing/webhook') ||
@@ -42,7 +40,7 @@ export async function middleware(req: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isApp = pathname.startsWith('/briefly')
+  const isApp = pathname.startsWith('/briefly/app')
   const isSignin = pathname === '/auth/signin'
 
   // Unauthed → protect app
@@ -54,6 +52,24 @@ export async function middleware(req: NextRequest) {
     // propagate any Set-Cookie written on `res`
     res.cookies.getAll().forEach((c) => redirect.cookies.set(c))
     return redirect
+  }
+
+  // Authed → check plan access for app routes
+  if (user && isApp) {
+    const { data: access } = await supabase
+      .from('v_user_access')
+      .select('trial_active, paid_active')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!(access?.trial_active || access?.paid_active)) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/join' // onboarding/paywall page
+      url.searchParams.set('next', clampNext(pathname + search))
+      const redirect = NextResponse.redirect(url, { status: 307 })
+      res.cookies.getAll().forEach((c) => redirect.cookies.set(c))
+      return redirect
+    }
   }
 
   // Authed → keep out of /auth/signin

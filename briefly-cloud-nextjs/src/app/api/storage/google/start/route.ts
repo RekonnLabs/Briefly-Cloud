@@ -9,7 +9,17 @@ import { OAuthErrorCodes, OAuthErrorHandler } from '@/app/lib/oauth/error-codes'
 import { getOAuthScopes, getOAuthSettings } from '@/app/lib/oauth/security-config'
 import { constructRedirectUri } from '@/app/lib/oauth/redirect-validation'
 
-async function handler(req: Request, { user }: ApiContext) {
+async function handler(req: Request, { user, supabase }: ApiContext) {
+  // Check plan access using existing supabase client from context
+  const { data: access } = await supabase
+    .from('v_user_access')
+    .select('trial_active, paid_active')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!(access?.trial_active || access?.paid_active)) {
+    return ApiResponse.forbidden('Plan required', 'PLAN_REQUIRED')
+  }
   const correlationId = generateCorrelationId()
   
   try {
@@ -30,20 +40,18 @@ async function handler(req: Request, { user }: ApiContext) {
     // Log state generation for debugging
     OAuthStateManager.logStateGeneration('google', user.id, correlationId)
     
-    // Use security configuration for scopes and settings
-    const scopes = getOAuthScopes('google')
-    const settings = getOAuthSettings('google')
-    
     const auth = new URL('https://accounts.google.com/o/oauth2/v2/auth')
     auth.searchParams.set('client_id', process.env.GOOGLE_DRIVE_CLIENT_ID!)
+    auth.searchParams.set('response_type', 'code')
     auth.searchParams.set('redirect_uri', redirectUri)
-    auth.searchParams.set('scope', scopes)
+    auth.searchParams.set('scope', [
+      'openid', 'email', 'profile',
+      'https://www.googleapis.com/auth/drive.file'
+    ].join(' '))
+    auth.searchParams.set('access_type', 'offline')
+    auth.searchParams.set('include_granted_scopes', 'true')
+    auth.searchParams.set('prompt', 'consent')  // Maximize chances of refresh_token
     auth.searchParams.set('state', state)
-    
-    // Apply security settings from configuration
-    Object.entries(settings).forEach(([key, value]) => {
-      auth.searchParams.set(key, value)
-    })
   
     const response = ApiResponse.oauthUrl(auth.toString(), correlationId)
     

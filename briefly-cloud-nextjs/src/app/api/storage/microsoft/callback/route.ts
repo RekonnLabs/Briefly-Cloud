@@ -118,12 +118,16 @@ export async function GET(req: NextRequest) {
     const tokens = await tokenResponse.json()
     
     try {
-      // Store tokens securely
+      // Read existing token to preserve refresh_token if Microsoft doesn't send a new one
+      const existingToken = await TokenStore.getToken(user.id, 'microsoft')
+      const refreshToken = tokens.refresh_token ?? existingToken?.refreshToken ?? null
+
+      // Store tokens securely with merged refresh token
       await TokenStore.saveToken(user.id, 'microsoft', {
         accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
+        refreshToken: refreshToken,
         expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-        scope: tokens.scope
+        scope: tokens.scope || 'User.Read Files.Read offline_access'
       })
 
       // Log successful token storage
