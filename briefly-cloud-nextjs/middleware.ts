@@ -4,7 +4,16 @@ import { createServerClient } from '@supabase/ssr'
 import { clampNext } from './src/app/lib/auth/utils'
 import { applySecurityHeaders } from './src/app/lib/security/headers'
 
+const PRIMARY_HOST = 'briefly.rekonnlabs.com'
+
 export async function middleware(req: NextRequest) {
+  // Force canonical host redirect (PKCE requires same host)
+  if (req.nextUrl.hostname !== PRIMARY_HOST && process.env.NODE_ENV === 'production') {
+    const url = new URL(req.url)
+    url.hostname = PRIMARY_HOST
+    return NextResponse.redirect(url, 308)
+  }
+
   const { pathname, search } = req.nextUrl
 
   // ---- Hard excludes: never gate these ----
