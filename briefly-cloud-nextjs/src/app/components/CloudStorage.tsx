@@ -216,6 +216,17 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
 
   const connectProvider = async (providerId: 'google' | 'microsoft') => {
     try {
+      // Import browser client at runtime to avoid SSR issues
+      const { getSupabaseBrowser } = await import('@/app/lib/supabase-browser')
+      const supabase = getSupabaseBrowser()
+      
+      // Hard stop if user isn't logged in
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        window.location.href = `/auth/signin?next=${encodeURIComponent('/briefly/app/dashboard?tab=storage')}`
+        return
+      }
+
       const startUrl = providerId === 'google' 
         ? '/api/storage/google/start'
         : '/api/storage/microsoft/start';
@@ -225,6 +236,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       });
       
       if (!response.ok) {
+        console.error('[connect] start failed', providerId, response.status)
         throw new Error(`OAuth start failed: ${response.status}`);
       }
       
