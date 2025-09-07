@@ -1,57 +1,93 @@
 "use client";
 
 import { useState } from 'react';
-import { Crown, CreditCard, Zap } from 'lucide-react';
+import { Crown, CreditCard, Zap, AlertCircle } from 'lucide-react';
+import { CompleteUserData } from '@/app/lib/user-data-types';
 
 interface SubscriptionStatusProps {
-  user: any;
+  user: CompleteUserData | null;
 }
 
 export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const tier = user?.subscription_tier || 'free';
-  const status = user?.subscription_status || 'active';
+  // Handle case where user data is not available
+  if (!user) {
+    return (
+      <div className="flex items-center space-x-2">
+        <div className="px-3 py-1 rounded-full text-xs font-medium border border-gray-600/50 bg-gray-800/50 text-gray-400">
+          <AlertCircle className="w-3 h-3 inline mr-1" />
+          <span>User data unavailable</span>
+        </div>
+      </div>
+    );
+  }
 
-  const getTierInfo = (tier: string) => {
-    switch (tier) {
-      case 'free':
-        return {
-          name: 'Free',
-          icon: '🆓',
-          color: 'text-gray-300',
-          bgColor: 'bg-gray-800/50',
-          description: 'Basic features'
-        };
-      case 'pro':
-        return {
-          name: 'Pro',
-          icon: '⭐',
-          color: 'text-blue-300',
-          bgColor: 'bg-blue-900/50',
-          description: 'Advanced features'
-        };
-      case 'pro_byok':
-        return {
-          name: 'Pro BYOK',
-          icon: '👑',
-          color: 'text-purple-300',
-          bgColor: 'bg-purple-900/50',
-          description: 'Bring your own key'
-        };
-      default:
-        return {
-          name: 'Free',
-          icon: '🆓',
-          color: 'text-gray-600',
-          bgColor: 'bg-gray-100',
-          description: 'Basic features'
-        };
+  const tier = user.subscription_tier || 'free';
+  const status = user.subscription_status || 'active';
+
+  const getTierInfo = (tier: string, status: string) => {
+    const baseInfo = {
+      free: {
+        name: 'Free',
+        icon: '🆓',
+        color: 'text-gray-300',
+        bgColor: 'bg-gray-800/50',
+        description: 'Basic features'
+      },
+      pro: {
+        name: 'Pro',
+        icon: '⭐',
+        color: 'text-blue-300',
+        bgColor: 'bg-blue-900/50',
+        description: 'Advanced features'
+      },
+      pro_byok: {
+        name: 'Pro BYOK',
+        icon: '👑',
+        color: 'text-purple-300',
+        bgColor: 'bg-purple-900/50',
+        description: 'Bring your own key'
+      }
+    };
+
+    const info = baseInfo[tier as keyof typeof baseInfo] || baseInfo.free;
+
+    // Modify appearance based on subscription status
+    if (status === 'past_due' || status === 'unpaid') {
+      return {
+        ...info,
+        color: 'text-red-300',
+        bgColor: 'bg-red-900/50',
+        description: 'Payment required'
+      };
+    } else if (status === 'canceled') {
+      return {
+        ...info,
+        color: 'text-orange-300',
+        bgColor: 'bg-orange-900/50',
+        description: 'Canceled'
+      };
+    } else if (status === 'trialing') {
+      return {
+        ...info,
+        description: 'Trial period'
+      };
     }
+
+    return info;
   };
 
-  const tierInfo = getTierInfo(tier);
+  const tierInfo = getTierInfo(tier, status);
+
+  // Calculate usage percentage for display
+  const usagePercentage = user.usage_limit > 0 
+    ? Math.round((user.usage_count / user.usage_limit) * 100)
+    : 0;
+
+  const isNearLimit = usagePercentage >= 80;
+  const isOverLimit = usagePercentage >= 100;
 
   const upgradeToPro = async () => {
     setIsLoading(true);
@@ -109,7 +145,25 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
         <div className={`px-3 py-1 rounded-full text-xs font-medium border border-gray-600/50 ${tierInfo.bgColor} ${tierInfo.color}`}>
           <span className="mr-1">{tierInfo.icon}</span>
           {tierInfo.name}
+          {status === 'trialing' && user.trial_end_date && (
+            <span className="ml-1 text-xs opacity-75">
+              (Trial)
+            </span>
+          )}
         </div>
+
+        {/* Usage indicator for free tier */}
+        {tier === 'free' && (
+          <div className={`px-2 py-1 rounded text-xs ${
+            isOverLimit 
+              ? 'bg-red-900/50 text-red-300' 
+              : isNearLimit 
+                ? 'bg-yellow-900/50 text-yellow-300'
+                : 'bg-gray-800/50 text-gray-400'
+          }`}>
+            {user.usage_count}/{user.usage_limit}
+          </div>
+        )}
         
         {tier === 'free' && (
           <button
@@ -119,6 +173,16 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
             <Zap className="w-3 h-3" />
             <span>Upgrade</span>
           </button>
+        )}
+
+        {/* Show warning for problematic subscription statuses */}
+        {(status === 'past_due' || status === 'unpaid' || status === 'canceled') && (
+          <div className="px-2 py-1 rounded text-xs bg-red-900/50 text-red-300 border border-red-700/50">
+            <AlertCircle className="w-3 h-3 inline mr-1" />
+            {status === 'past_due' ? 'Payment Due' : 
+             status === 'unpaid' ? 'Payment Failed' : 
+             'Subscription Canceled'}
+          </div>
         )}
       </div>
 

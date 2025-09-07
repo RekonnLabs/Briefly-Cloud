@@ -35,7 +35,12 @@ const customJestConfig = {
   // Handle server-only imports and module aliases
   moduleNameMapper: {
     '^server-only$': '<rootDir>/tests/__mocks__/server-only.js',
-    '^@/(.*)$': '<rootDir>/src/app/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/app/(.*)$': '<rootDir>/src/app/$1',
+    '^@/components/(.*)$': '<rootDir>/src/app/components/$1',
+    '^@/lib/(.*)$': '<rootDir>/src/app/lib/$1',
+    '^@/types/(.*)$': '<rootDir>/src/app/types/$1',
+    '^@/api/(.*)$': '<rootDir>/src/app/api/$1',
   },
   // Transform configuration for TypeScript and ES modules
   transform: {

@@ -10,11 +10,12 @@ import {
   LogOut,
   User
 } from 'lucide-react';
+import { CompleteUserData } from '@/app/lib/user-data-types';
 
 interface SidebarProps {
   activeTab: 'chat' | 'files' | 'storage';
   setActiveTab: (tab: 'chat' | 'files' | 'storage') => void;
-  user: any;
+  user: CompleteUserData | null;
 }
 
 export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
@@ -23,6 +24,33 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
     window.location.href = '/api/auth/signout'
   }
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Handle case where user data is not available
+  if (!user) {
+    return (
+      <div className="w-64 bg-gray-900/80 backdrop-blur-sm border-r border-gray-700/50 flex flex-col">
+        <div className="p-6 border-b border-gray-700/50">
+          <div className="flex items-center space-x-3">
+            <img 
+              src="/Briefly_Logo_120px.png" 
+              alt="Briefly Logo" 
+              className="w-8 h-8"
+            />
+            <div>
+              <h1 className="text-xl font-bold text-white">Briefly</h1>
+              <p className="text-sm text-gray-300">AI Document Assistant</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <User className="w-8 h-8 mx-auto mb-2" />
+            <p className="text-sm">User data unavailable</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const navItems = [
     {
@@ -102,10 +130,10 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-medium text-white truncate">
-                {user?.name || user?.email}
+                {user?.name || user?.full_name || user?.email || 'User'}
               </div>
               <div className="text-xs text-gray-400 truncate">
-                {user?.email}
+                {user?.email || 'No email'}
               </div>
             </div>
           </button>
