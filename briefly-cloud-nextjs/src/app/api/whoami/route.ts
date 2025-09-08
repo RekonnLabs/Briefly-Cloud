@@ -12,21 +12,27 @@ export async function GET(req: Request) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => getCookie(req, n), set: () => {}, remove: () => {} } }
+    { 
+      cookies: { 
+        get: (n) => getCookie(req, n), 
+        set: () => {}, 
+        remove: () => {} 
+      } 
+    }
   )
-  
+
   const { data, error } = await supabase.auth.getUser()
   
-  return new Response(JSON.stringify({ 
-    user: data?.user ?? null, 
-    error: error?.message ?? null,
-    timestamp: new Date().toISOString(),
-    cookies: {
-      count: (req.headers.get('cookie') || '').split(';').filter(c => c.trim().startsWith('sb-')).length,
-      hasSession: !!(req.headers.get('cookie') || '').includes('sb-')
+  return new Response(
+    JSON.stringify({ 
+      user: data?.user ?? null, 
+      error: error?.message ?? null 
+    }), 
+    {
+      headers: { 
+        'content-type': 'application/json', 
+        'cache-control': 'no-store' 
+      },
     }
-  }), {
-    headers: { 'content-type': 'application/json' },
-    status: 200,
-  })
+  )
 }

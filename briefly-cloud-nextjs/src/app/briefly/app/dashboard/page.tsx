@@ -1,9 +1,27 @@
-import { headers } from 'next/headers'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { createServerClient } from '@supabase/ssr'
 import { getCurrentUserData } from '@/app/lib/user-data'
-import DashboardClient from './DashboardClient'
+import { DefensiveDashboardWrapper } from './DefensiveDashboardWrapper'
 import { Suspense } from 'react'
 
-export const dynamic = 'force-dynamic' // no static caching for authed pages
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic' // never cache user-specific page
+
+function getServerSupabase() {
+  const jar = cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (n) => jar.get(n)?.value,
+        set: (n, v, o) => jar.set({ name: n, value: v, ...o }),
+        remove: (n, o) => jar.set({ name: n, value: '', ...o, maxAge: 0 }),
+      },
+    }
+  )
+}
 
 // Loading component for dashboard
 function DashboardLoading() {
@@ -45,22 +63,28 @@ function DashboardError({ error, retry }: { error: string; retry?: () => void })
 }
 
 export default async function DashboardPage() {
-  // Optional: cheap check if middleware authenticated this request
-  const h = await headers()
-  const hasSession = h.get('x-sb-session') === '1'
+  const supabase = getServerSupabase()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // If no session detected by middleware, show error
-  if (!hasSession) {
-    return (
-      <DashboardError 
-        error="Authentication session not found. Please sign in again." 
-      />
-    )
+  // No session? Bounce to sign-in with a safe return path.
+  if (!user) {
+    redirect('/auth/signin?next=/briefly/app/dashboard')
+  }
+
+  // Optional: gate by plan before rendering client UI
+  const { data: access } = await supabase
+    .from('v_user_access')
+    .select('trial_active,paid_active')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!access || (!access.trial_active && !access.paid_active)) {
+    redirect('/join')
   }
 
   try {
     // Fetch complete user data including subscription information
-    const { user, error } = await getCurrentUserData()
+    const { user: userData, error } = await getCurrentUserData()
 
     // Handle user data fetch errors
     if (error) {
@@ -73,7 +97,7 @@ export default async function DashboardPage() {
     }
 
     // Handle case where user data is not available
-    if (!user) {
+    if (!userData) {
       console.error('Dashboard: User data not found despite valid session')
       return (
         <DashboardError 
@@ -82,10 +106,10 @@ export default async function DashboardPage() {
       )
     }
 
-    // Successfully loaded user data, render dashboard
+    // Successfully loaded user data, render dashboard with defensive wrapper
     return (
       <Suspense fallback={<DashboardLoading />}>
-        <DashboardClient user={user} />
+        <DefensiveDashboardWrapper user={userData} />
       </Suspense>
     )
   } catch (error) {
