@@ -1,31 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { getSupabaseBrowser } from '@/app/lib/supabase-browser'
+import { useState } from 'react'
 
 export default function SignInPage() {
   const [busy, setBusy] = useState<'google' | 'azure' | null>(null)
 
-  // One browser client instance per mount
-  const supabase = useMemo(() => getSupabaseBrowser(), [])
-
-  async function signIn(provider: 'google' | 'azure') {
-    try {
-      setBusy(provider)
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-      if (error) {
-        console.error('[signin] oauth error', error)
-        setBusy(null)
-      }
-    } catch (e) {
-      console.error('[signin] unexpected', e)
-      setBusy(null)
-    }
+  const go = (provider: 'google' | 'azure') => {
+    setBusy(provider)
+    window.location.href = `/auth/start?provider=${provider}`
   }
 
   return (
@@ -52,7 +34,7 @@ export default function SignInPage() {
             {/* OAuth Providers */}
             <div className="space-y-4">
               <button
-                onClick={() => signIn('google')}
+                onClick={() => go('google')}
                 disabled={busy !== null}
                 data-provider="google"
                 className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -67,14 +49,14 @@ export default function SignInPage() {
               </button>
 
               <button
-                onClick={() => signIn('azure')}
+                onClick={() => go('azure')}
                 disabled={busy !== null}
                 data-provider="azure-ad"
                 className="w-full flex items-center justify-center px-6 py-3.5 border border-gray-600 rounded-xl text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                   <path fill="#f25022" d="M1 1h10v10H1z"/>
-                  <path fill="#00a4ef" d="M13 1h10v10H13z"/>
+                  <path fill="#00a4ef" d="M13 1h10v10H1z"/>
                   <path fill="#7fba00" d="M1 13h10v10H1z"/>
                   <path fill="#ffb900" d="M13 13h10v10H13z"/>
                 </svg>
