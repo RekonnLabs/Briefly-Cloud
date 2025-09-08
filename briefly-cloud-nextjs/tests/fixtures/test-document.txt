@@ -1,7 +1,0 @@
-This is a test document for the Briefly Cloud application.
-
-It contains sample text content that can be used for testing the document processing pipeline, including text extraction, chunking, and embedding generation.
-
-The document includes multiple paragraphs to test the chunking functionality and ensure that the system can handle various types of content appropriately.
-
-This file is used in the comprehensive test suite to validate the complete upload and processing workflow.

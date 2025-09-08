@@ -35,23 +35,27 @@ export async function GET(req: Request) {
 
   const supabase = sb()
 
-  // Handle both API shapes: exchange(code) and exchange({ code })
-  const ex: any = (supabase as any).auth.exchangeCodeForSession
-  let error: any = null
+  // Drop-in replacement for exchange block - handle both signatures with bound method calls
+  const auth: any = (supabase as any).auth
+  let result: any = null
+  let err: any = null
+
   try {
-    const argCount = typeof ex === 'function' ? ex.length : 0
-    const res =
-      argCount === 1
-        ? await ex(code)                 // newer supabase-js
-        : await ex({ authCode: code })   // older supabase-js
-    error = res?.error ?? null
+    // Try the 1-arg signature first (newer @supabase/supabase-js)
+    if (typeof auth.exchangeCodeForSession === 'function' && auth.exchangeCodeForSession.length === 1) {
+      result = await auth.exchangeCodeForSession(code)    // ✅ bound call
+    } else {
+      // Older versions expect an object
+      result = await auth.exchangeCodeForSession({ code }) // ✅ bound call
+    }
+    err = result?.error ?? null
   } catch (e) {
-    error = e
+    err = e
   }
 
-  if (error) {
-    console.error('[auth/callback] exchange error', error)
-    // clear sb-* cookies so retries aren't poisoned
+  if (err) {
+    console.error('[auth/callback] exchange error', err)
+    // Clear poison cookies so a retry isn't doomed
     const jar = cookies()
     for (const c of jar.getAll()) if (c.name.startsWith('sb-')) jar.set(c.name, '', { path: '/', maxAge: 0 })
     return NextResponse.redirect(new URL('/auth/signin?err=exchange', req.url))

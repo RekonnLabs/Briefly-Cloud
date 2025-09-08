@@ -10,7 +10,6 @@ const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
   testMatch: [
-    '<rootDir>/tests/**/*.test.{js,jsx,ts,tsx}',
     '<rootDir>/src/**/__tests__/**/*.{js,jsx,ts,tsx}',
     '<rootDir>/src/**/*.{test,spec}.{js,jsx,ts,tsx}'
   ],
@@ -34,7 +33,7 @@ const customJestConfig = {
   },
   // Handle server-only imports and module aliases
   moduleNameMapper: {
-    '^server-only$': '<rootDir>/tests/__mocks__/server-only.js',
+    '^server-only$': '<rootDir>/src/app/lib/__mocks__/server-only.js',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@/app/(.*)$': '<rootDir>/src/app/$1',
     '^@/components/(.*)$': '<rootDir>/src/app/components/$1',
@@ -50,7 +49,7 @@ const customJestConfig = {
     '/node_modules/(?!(.*\\.mjs$|@supabase|@upstash))',
   ],
   // Setup files
-  setupFiles: ['<rootDir>/tests/setup.js'],
+  setupFiles: [],
   // Global test timeout
   testTimeout: 30000,
   // Verbose output for debugging
