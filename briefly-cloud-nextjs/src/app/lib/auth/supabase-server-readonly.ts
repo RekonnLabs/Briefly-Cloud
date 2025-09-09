@@ -8,6 +8,7 @@ export function createServerClientReadOnly() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      db: { schema: 'public' },
       cookies: {
         // RSC: read only — never write here
         get: (name) => store.get(name)?.value,

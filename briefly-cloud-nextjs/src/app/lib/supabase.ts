@@ -13,7 +13,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // Simple client for browser/client-side operations (fallback to basic client for build compatibility)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  db: { schema: 'app' },
+  db: { schema: 'public' },
   global: {
     headers: {
       'X-Client-Info': 'briefly-cloud-browser'

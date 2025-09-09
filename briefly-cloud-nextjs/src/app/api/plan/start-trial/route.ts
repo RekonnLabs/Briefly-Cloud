@@ -13,7 +13,10 @@ function sb(req: Request) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { get: (n) => getCookie(req, n), set: () => {}, remove: () => {} } }
+    { 
+      db: { schema: 'public' },
+      cookies: { get: (n) => getCookie(req, n), set: () => {}, remove: () => {} } 
+    }
   )
 }
 

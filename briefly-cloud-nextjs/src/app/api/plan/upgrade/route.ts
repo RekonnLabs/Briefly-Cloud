@@ -12,7 +12,10 @@ const getCookie = (req: Request, n: string) => {
 const sb = (req: Request) => createServerClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { cookies: { get: (n) => getCookie(req, n), set: () => {}, remove: () => {} } }
+  { 
+    db: { schema: 'public' },
+    cookies: { get: (n) => getCookie(req, n), set: () => {}, remove: () => {} } 
+  }
 )
 
 export async function POST(req: Request) {
