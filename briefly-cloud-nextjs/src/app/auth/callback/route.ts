@@ -2,22 +2,7 @@ export const runtime = 'nodejs'
 
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-
-function sb() {
-  const jar = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get: (n) => jar.get(n)?.value,
-        set: (n, v, o) => jar.set({ name: n, value: v, ...o }),
-        remove: (n, o) => jar.set({ name: n, value: '', ...o, maxAge: 0 }),
-      },
-    }
-  )
-}
+import { getSupabaseServerMutable } from '@/app/lib/auth/supabase-server-mutable'
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
@@ -33,7 +18,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL('/auth/signin?err=missing_code', req.url))
   }
 
-  const supabase = sb()
+  const supabase = getSupabaseServerMutable()
 
   // Drop-in replacement for exchange block - handle both signatures with bound method calls
   const auth: any = (supabase as any).auth

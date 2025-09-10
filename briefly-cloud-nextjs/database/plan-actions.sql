@@ -152,4 +152,34 @@ $$;
 grant execute on function public.bc_get_usage_summary() to authenticated;
 
 -- Make PostgREST reload schema
-select pg_notify('pgrst', 'reload schema');
+select pg_notify('pgrst', 'reload schema');-- Use
+r profile RPC to replace phantom users.name queries
+create or replace function public.bc_get_user_profile()
+returns table(
+  id uuid,
+  email text,
+  full_name text,
+  subscription_tier text,
+  subscription_status text,
+  trial_ends_at timestamptz,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language sql
+security definer
+set search_path = public, app
+as $$
+  select
+    u.id,
+    u.email,
+    u.full_name,
+    u.subscription_tier,
+    u.subscription_status,
+    u.trial_ends_at,
+    u.created_at,
+    u.updated_at
+  from app.users u
+  where u.id = auth.uid()
+$$;
+
+grant execute on function public.bc_get_user_profile() to authenticated;

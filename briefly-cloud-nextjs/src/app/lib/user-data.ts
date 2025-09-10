@@ -1,5 +1,5 @@
 import 'server-only'
-import { createServerClientReadOnly } from './auth/supabase-server-readonly'
+import { getSupabaseServerReadOnly } from './auth/supabase-server-readonly'
 import { supabaseAdmin } from './supabase-admin'
 
 // Re-export types from the types file for server-side use
@@ -448,7 +448,7 @@ export async function getCurrentUserData(bypassCache: boolean = false): Promise<
     // Get current authenticated user using read-only client with retry logic
     const authResult = await executeWithRetry(
       async () => {
-        const supabase = createServerClientReadOnly()
+        const supabase = getSupabaseServerReadOnly()
         return await supabase.auth.getUser()
       },
       'getCurrentUserAuth',
@@ -595,3 +595,13 @@ export function getDatabaseOptimizationRecommendations(): {
   }
 }
 
+
+/**
+ * Get dashboard user data using RPC (no phantom columns)
+ */
+export async function getDashboardUser() {
+  const supabase = getSupabaseServerReadOnly()
+  const { data, error } = await supabase.rpc('bc_get_user_profile')
+  if (error) throw error // surfaces DB issues in logs
+  return data?.[0] ?? null
+}

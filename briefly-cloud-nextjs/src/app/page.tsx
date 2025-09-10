@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation'
-import { createServerClientReadOnly } from '@/app/lib/auth/supabase-server-readonly'
+import { getSupabaseServerReadOnly } from '@/app/lib/auth/supabase-server-readonly'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
-  const supabase = createServerClientReadOnly()
+  const supabase = getSupabaseServerReadOnly()
   const { data: { user } } = await supabase.auth.getUser()
   redirect(user ? '/briefly/app/dashboard' : '/auth/signin')
 }

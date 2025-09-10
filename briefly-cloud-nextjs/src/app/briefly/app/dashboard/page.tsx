@@ -1,27 +1,11 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createServerClient } from '@supabase/ssr'
-import { getCurrentUserData } from '@/app/lib/user-data'
+import { getSupabaseServerReadOnly } from '@/app/lib/auth/supabase-server-readonly'
+import { getDashboardUser } from '@/app/lib/user-data'
 import { DefensiveDashboardWrapper } from './DefensiveDashboardWrapper'
 import { Suspense } from 'react'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic' // never cache user-specific page
-
-function getServerSupabase() {
-  const jar = cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get: (n) => jar.get(n)?.value,
-        set: (n, v, o) => jar.set({ name: n, value: v, ...o }),
-        remove: (n, o) => jar.set({ name: n, value: '', ...o, maxAge: 0 }),
-      },
-    }
-  )
-}
 
 // Loading component for dashboard
 function DashboardLoading() {
@@ -63,7 +47,7 @@ function DashboardError({ error, retry }: { error: string; retry?: () => void })
 }
 
 export default async function DashboardPage() {
-  const supabase = getServerSupabase()
+  const supabase = getSupabaseServerReadOnly()
   const { data: { user } } = await supabase.auth.getUser()
 
   // No session? Bounce to sign-in with a safe return path.
@@ -83,18 +67,8 @@ export default async function DashboardPage() {
   }
 
   try {
-    // Fetch complete user data including subscription information
-    const { user: userData, error } = await getCurrentUserData()
-
-    // Handle user data fetch errors
-    if (error) {
-      console.error('Dashboard: Failed to fetch user data:', error)
-      return (
-        <DashboardError 
-          error="Failed to load your account information. Please try refreshing the page." 
-        />
-      )
-    }
+    // Fetch dashboard user data using RPC (no phantom columns)
+    const userData = await getDashboardUser()
 
     // Handle case where user data is not available
     if (!userData) {
