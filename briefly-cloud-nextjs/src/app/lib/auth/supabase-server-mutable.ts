@@ -14,12 +14,22 @@ const BASE_COOKIE_OPTS: Partial<CookieOptions> = {
   // domain: '.rekonnlabs.com', // uncomment if you ever bounce across subdomains
 }
 
-export function getSupabaseServerMutable(res: NextResponse) {
+export function getSupabaseServerMutable(res: NextResponse, req?: Request) {
   return createServerClient(URL, KEY, {
     db: { schema: 'public' },
     cookies: {
       get(name) {
-        // not needed here – the exchange writes cookies; reads aren't critical
+        // Read from request cookies if available (needed for PKCE)
+        if (req) {
+          const cookieHeader = req.headers.get('cookie')
+          if (cookieHeader) {
+            const cookies = cookieHeader
+              .split(';')
+              .map(s => s.trim())
+              .find(s => s.startsWith(name + '='))
+            return cookies?.split('=').slice(1).join('=')
+          }
+        }
         return undefined
       },
       set(name, value, options) {

@@ -8,6 +8,12 @@ export async function GET(request: Request) {
   const code = url.searchParams.get('code')
   const next = url.searchParams.get('next') || '/briefly/app/dashboard'
 
+  console.log('[auth/callback] received params:', { 
+    code: code ? 'present' : 'missing', 
+    next,
+    cookies: request.headers.get('cookie')?.includes('sb-') ? 'has sb- cookies' : 'no sb- cookies'
+  })
+
   // Handle provider errors
   const providerErr = url.searchParams.get('error')
   if (providerErr) {
@@ -25,21 +31,35 @@ export async function GET(request: Request) {
   const res = NextResponse.redirect(new URL(next, url.origin))
 
   // 2) Create the client bound to THIS response
-  const supabase = getSupabaseServerMutable(res)
+  const supabase = getSupabaseServerMutable(res, request)
 
-  // 3) Exchange code for session
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
-  if (error) {
-    console.error('[auth/callback] exchange error', error)
-    return NextResponse.redirect(new URL('/auth/signin?err=exchange', url.origin))
+  try {
+    // 3) Exchange code for session
+    console.log('[auth/callback] attempting code exchange...')
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (error) {
+      console.error('[auth/callback] exchange error:', {
+        message: error.message,
+        status: error.status,
+        name: error.name
+      })
+      return NextResponse.redirect(new URL('/auth/signin?err=exchange', url.origin))
+    }
+
+    console.log('[auth/callback] exchange successful:', {
+      user: data.user?.email,
+      session: data.session ? 'present' : 'missing'
+    })
+
+    // 4) Log cookie attachment
+    const cookiesAttached = res.cookies.getAll().some(c => c.name.includes('sb-'))
+    console.info('[auth/callback] cookies attached:', cookiesAttached ? 'yes' : 'no')
+
+    // 5) Return the very response that holds Set-Cookie
+    return res
+  } catch (err) {
+    console.error('[auth/callback] unexpected error:', err)
+    return NextResponse.redirect(new URL('/auth/signin?err=unexpected', url.origin))
   }
-
-  // 4) Optionally: quick sanity log – remove later
-  console.info(
-    '[auth/callback] cookies attached',
-    res.cookies.getAll().some(c => c.name.includes('sb-')) ? 'yes' : 'no'
-  )
-
-  // 5) Return the very response that holds Set-Cookie
-  return res
 }
