@@ -1,43 +1,21 @@
-import 'server-only'
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse } from 'next/server'
-import type { CookieOptions } from '@supabase/ssr'
+// Use ONLY in route handlers that must set cookies (/auth/start, /auth/callback)
+import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-// Optional, but helps if you ever canonicalize between subdomains.
-const BASE_COOKIE_OPTS: Partial<CookieOptions> = {
-  path: '/',
-  sameSite: 'lax',
-  secure: true,
-  // domain: '.rekonnlabs.com', // uncomment if you ever bounce across subdomains
-}
-
-export function getSupabaseServerMutable(res: NextResponse, req?: Request) {
-  return createServerClient(URL, KEY, {
-    db: { schema: 'public' },
-    cookies: {
-      get(name) {
-        // Read from request cookies if available (needed for PKCE)
-        if (req) {
-          const cookieHeader = req.headers.get('cookie')
-          if (cookieHeader) {
-            const cookies = cookieHeader
-              .split(';')
-              .map(s => s.trim())
-              .find(s => s.startsWith(name + '='))
-            return cookies?.split('=').slice(1).join('=')
-          }
-        }
-        return undefined
+export function getSupabaseServerMutable(req: NextRequest, res: NextResponse) {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      db: { schema: "public" },
+      cookies: {
+        // read from the incoming request
+        get: (name) => req.cookies.get(name)?.value,
+        // write to the response we'll actually return
+        set: (name, value, options) => res.cookies.set(name, value, options),
+        remove: (name, options) => res.cookies.set(name, "", { ...options, maxAge: 0 }),
       },
-      set(name, value, options) {
-        res.cookies.set({ name, value, ...BASE_COOKIE_OPTS, ...options })
-      },
-      remove(name, options) {
-        res.cookies.set({ name, value: '', ...BASE_COOKIE_OPTS, ...options })
-      },
-    },
-  })
+    }
+  );
+  return supabase;
 }

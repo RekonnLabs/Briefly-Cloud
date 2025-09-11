@@ -1,50 +1,31 @@
-export const runtime = 'nodejs'
+export const runtime = "nodejs";
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseServerMutable } from "@/app/lib/auth/supabase-server-mutable";
 
-import { NextResponse } from 'next/server'
-import { getSupabaseServerMutable } from '@/app/lib/auth/supabase-server-mutable'
-
-export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const provider = url.searchParams.get('provider') as 'google' | 'azure' | null
-  
-  console.log('[auth/start] initiating OAuth for provider:', provider)
-  
+export async function GET(req: NextRequest) {
+  const provider = req.nextUrl.searchParams.get("provider");
   if (!provider) {
-    return NextResponse.json({ error: 'missing provider' }, { status: 400 })
+    return NextResponse.redirect(new URL("/auth/signin?err=provider", req.url));
   }
 
-  // Create a temporary response to capture PKCE cookies
-  const tempRes = NextResponse.next()
-  const supabase = getSupabaseServerMutable(tempRes, req)
-  
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${url.origin}/auth/callback`,
-        // Keep PKCE default; server will set the verifier cookie
-      },
-    })
+  // A response that will carry any PKCE cookies Supabase sets during URL generation
+  const res = NextResponse.next();
 
-    if (error || !data?.url) {
-      console.error('[auth/start] signInWithOAuth error:', error)
-      return NextResponse.redirect(new URL('/auth/signin?err=start', url))
-    }
+  const supabase = getSupabaseServerMutable(req, res);
 
-    console.log('[auth/start] OAuth URL generated, PKCE cookies:', 
-      tempRes.cookies.getAll().filter(c => c.name.includes('sb-')).length
-    )
+  const redirectTo = new URL("/auth/callback", req.url).toString();
 
-    // Create the redirect response and copy PKCE cookies
-    const redirectRes = NextResponse.redirect(data.url, 302)
-    tempRes.cookies.getAll().forEach(cookie => {
-      redirectRes.cookies.set(cookie)
-      console.log('[auth/start] copying cookie:', cookie.name)
-    })
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: provider as any,
+    options: { redirectTo },
+  });
 
-    return redirectRes
-  } catch (err) {
-    console.error('[auth/start] unexpected error:', err)
-    return NextResponse.redirect(new URL('/auth/signin?err=start_error', url))
+  if (error || !data?.url) {
+    return NextResponse.redirect(new URL("/auth/signin?err=start", req.url), {
+      headers: res.headers, // include any cookies that were set
+    });
   }
+
+  // IMPORTANT: return a redirect that *includes* the Set-Cookie headers from `res`
+  return NextResponse.redirect(data.url, { headers: res.headers });
 }
