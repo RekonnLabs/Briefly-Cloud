@@ -8,19 +8,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/auth/signin?err=code", req.url));
   }
 
-  const res = NextResponse.next(); // will carry Set-Cookie
+  // ⬇️ REPLACE NextResponse.next() with a plain writable response
+  const res = new NextResponse(null);
   const supabase = getSupabaseServerMutable(req, res);
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-  // Whether success or failure, always pass through the `res.headers`
+  const headers = res.headers; // carry Set-Cookie from Supabase
+
   if (error) {
-    return NextResponse.redirect(new URL("/auth/signin?err=exchange", req.url), {
-      headers: res.headers,
-    });
+    return NextResponse.redirect(new URL("/auth/signin?err=exchange", req.url), { headers });
   }
 
-  return NextResponse.redirect(new URL("/briefly/app/dashboard", req.url), {
-    headers: res.headers,
-  });
+  return NextResponse.redirect(new URL("/briefly/app/dashboard", req.url), { headers });
 }

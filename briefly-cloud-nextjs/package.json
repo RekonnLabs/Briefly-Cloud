@@ -17,7 +17,6 @@
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --runInBand",
-
     "test:google-picker": "jest --testPathPatterns=\"google-picker|GooglePicker|register-files\" --runInBand",
     "test:google-picker:coverage": "jest --testPathPatterns=\"google-picker|GooglePicker|register-files\" --coverage --runInBand",
     "test:google-picker:watch": "jest --testPathPatterns=\"google-picker|GooglePicker|register-files\" --watch",
@@ -91,9 +90,9 @@
     "@testing-library/react": "^16.3.0",
     "@types/formidable": "^3.4.5",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20",
+    "@types/node": "20.19.13",
     "@types/pdf-parse": "^1.1.5",
-    "@types/react": "^19",
+    "@types/react": "19.1.12",
     "@types/react-dom": "^19",
     "@typescript-eslint/eslint-plugin": "^8.18.2",
     "@typescript-eslint/parser": "^8.18.2",
@@ -102,6 +101,6 @@
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "5.9.2"
   }
 }
