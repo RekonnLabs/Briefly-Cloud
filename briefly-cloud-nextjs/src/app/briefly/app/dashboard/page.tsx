@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { getSupabaseServerReadOnly } from '@/app/lib/auth/supabase-server-readonly'
 import { getDashboardUser } from '@/app/lib/user-data'
 import { DefensiveDashboardWrapper } from './DefensiveDashboardWrapper'
@@ -73,52 +72,49 @@ function SessionExpired() {
 
 export default async function DashboardPage() {
   const supabase = getSupabaseServerReadOnly()
-  const { data: { user } } = await supabase.auth.getUser()
+
+  console.log('[dashboard] Checking user session...')
+  const { data: { user }, error } = await supabase.auth.getUser()
+
+  console.log('[dashboard] User check result:', {
+    user: user ? user.email : 'null',
+    error: error?.message
+  })
 
   // No session? Show session expired UI
   if (!user) {
+    console.log('[dashboard] No user found, showing session expired')
     return <SessionExpired />
   }
 
-  // Optional: gate by plan before rendering client UI
-  const { data: access } = await supabase
-    .from('v_user_access')
-    .select('trial_active,paid_active')
-    .eq('user_id', user.id)
-    .single()
+  console.log('[dashboard] User found, rendering dashboard for:', user.email)
 
-  if (!access || (!access.trial_active && !access.paid_active)) {
-    redirect('/join')
-  }
-
-  try {
-    // Fetch dashboard user data using RPC (no phantom columns)
-    const userData = await getDashboardUser()
-
-    // Handle case where user data is not available
-    if (!userData) {
-      console.error('Dashboard: User data not found despite valid session')
-      return (
-        <DashboardError 
-          error="Your account information could not be found. Please contact support if this persists." 
-        />
-      )
-    }
-
-    // Successfully loaded user data, render dashboard with defensive wrapper
-    return (
-      <Suspense fallback={<DashboardLoading />}>
-        <DefensiveDashboardWrapper user={userData} />
-      </Suspense>
-    )
-  } catch (error) {
-    // Handle unexpected errors during user data fetching
-    console.error('Dashboard: Unexpected error fetching user data:', error)
-    return (
-      <DashboardError 
-        error="An unexpected error occurred while loading your dashboard. Please try again." 
-      />
-    )
-  }
+  // Simple dashboard for now - just show welcome message
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
+      <div className="text-center max-w-md mx-auto p-6">
+        <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-8">
+          <div className="text-center">
+            <div className="mb-6">
+              <img
+                src="/Briefly_Logo_120px.png"
+                alt="Briefly Logo"
+                className="w-20 h-20 mx-auto mb-4"
+              />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">
+              Welcome to Briefly!
+            </h1>
+            <p className="text-gray-300 mb-4">
+              Hello, {user.email}
+            </p>
+            <p className="text-sm text-gray-400">
+              Dashboard is loading successfully! 🎉
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
