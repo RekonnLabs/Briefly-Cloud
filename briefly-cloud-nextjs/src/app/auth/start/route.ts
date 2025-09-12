@@ -4,15 +4,17 @@ import { getSupabaseServerMutable } from "@/app/lib/auth/supabase-server-mutable
 
 export async function GET(req: NextRequest) {
   const provider = req.nextUrl.searchParams.get("provider");
+  const next = req.nextUrl.searchParams.get("next") ?? "/briefly/app/dashboard";
+
   if (!provider) {
     return NextResponse.redirect(new URL("/auth/signin?err=provider", req.url));
   }
 
-  // ⬇️ REPLACE NextResponse.next() with a plain writable response
   const res = new NextResponse(null);
-
   const supabase = getSupabaseServerMutable(req, res);
-  const redirectTo = new URL("/auth/callback", req.url).toString();
+
+  // Hand the intended destination through the callback URL
+  const redirectTo = new URL(`/auth/callback?next=${encodeURIComponent(next)}`, req.url).toString();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: provider as any,
@@ -20,11 +22,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (error || !data?.url) {
-    return NextResponse.redirect(new URL("/auth/signin?err=start", req.url), {
-      headers: res.headers, // preserve Set-Cookie
-    });
+    return NextResponse.redirect(new URL("/auth/signin?err=start", req.url), { headers: res.headers });
   }
-
-  // Preserve PKCE cookies on the redirect
   return NextResponse.redirect(data.url, { headers: res.headers });
 }

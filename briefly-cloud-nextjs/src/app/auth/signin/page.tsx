@@ -7,7 +7,8 @@ export default function SignInPage() {
 
   const go = (provider: 'google' | 'azure') => {
     setBusy(provider)
-    window.location.href = `/auth/start?provider=${provider}`
+    const next = new URLSearchParams(window.location.search).get('next') || '/briefly/app/dashboard'
+    window.location.href = `/auth/start?provider=${provider}&next=${encodeURIComponent(next)}`
   }
 
   return (
