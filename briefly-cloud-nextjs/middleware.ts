@@ -24,6 +24,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/sitemap.xml') ||
     pathname.startsWith('/images/') ||
     pathname.startsWith('/auth/') ||                   // All auth routes
+    pathname.startsWith('/briefly/app/') ||            // App routes use page-level gating
     pathname.startsWith('/api/storage/google/callback') ||
     pathname.startsWith('/api/storage/microsoft/callback') ||
     pathname.startsWith('/api/billing/webhook') ||
@@ -50,37 +51,7 @@ export async function middleware(req: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isApp = pathname.startsWith('/briefly/app')
   const isSignin = pathname === '/auth/signin'
-
-  // Unauthed → protect app
-  if (!user && isApp) {
-    const url = req.nextUrl.clone()
-    url.pathname = '/auth/signin'
-    url.searchParams.set('next', clampNext(pathname + search))
-    const redirect = NextResponse.redirect(url, { status: 307 })
-    // propagate any Set-Cookie written on `res`
-    res.cookies.getAll().forEach((c) => redirect.cookies.set(c))
-    return redirect
-  }
-
-  // Authed → check plan access for app routes
-  if (user && isApp) {
-    const { data: access } = await supabase
-      .from('v_user_access')
-      .select('trial_active, paid_active')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!(access?.trial_active || access?.paid_active)) {
-      const url = req.nextUrl.clone()
-      url.pathname = '/join' // onboarding/paywall page
-      url.searchParams.set('next', clampNext(pathname + search))
-      const redirect = NextResponse.redirect(url, { status: 307 })
-      res.cookies.getAll().forEach((c) => redirect.cookies.set(c))
-      return redirect
-    }
-  }
 
   // Authed → keep out of /auth/signin
   if (user && isSignin) {
@@ -92,12 +63,14 @@ export async function middleware(req: NextRequest) {
     return redirect
   }
 
+  // For app pages, do nothing — let page-level guards handle it
+
   // Helpful signal for RSC pages
   if (user) res.headers.set('x-sb-session', '1')
-  
+
   // Apply production security headers (only in production environment)
   applySecurityHeaders(res)
-  
+
   return res
 }
 
