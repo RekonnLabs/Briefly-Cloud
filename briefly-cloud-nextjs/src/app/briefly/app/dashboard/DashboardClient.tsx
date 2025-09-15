@@ -213,19 +213,29 @@ function DashboardContent({ user, error }: DashboardClientProps) {
                 <ErrorBoundary>
                   <SubscriptionStatus user={user} />
                 </ErrorBoundary>
-                <div className="flex items-center space-x-2">
-                  <img
-                    src={user?.image || '/default-avatar.png'}
-                    alt="Profile"
-                    className="w-8 h-8 rounded-full border-2 border-gray-600"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = '/default-avatar.png';
-                    }}
-                  />
-                  <span className="text-sm font-medium text-gray-200">
-                    {user?.name || user?.full_name || user?.email || 'User'}
-                  </span>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <img
+                      src={user?.image || '/default-avatar.png'}
+                      alt="Profile"
+                      className="w-8 h-8 rounded-full border-2 border-gray-600"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/default-avatar.png';
+                      }}
+                    />
+                    <span className="text-sm font-medium text-gray-200">
+                      {user?.name || user?.full_name || user?.email || 'User'}
+                    </span>
+                  </div>
+                  <form action="/auth/signout" method="post">
+                    <button 
+                      type="submit"
+                      className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1 rounded border border-gray-600 hover:border-gray-500"
+                    >
+                      Sign out
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>
