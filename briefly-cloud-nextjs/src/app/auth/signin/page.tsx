@@ -1,13 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { OAUTH_ERROR_MESSAGES, DEFAULT_POST_LOGIN_PATH } from '@/app/lib/auth/constants'
 
 export default function SignInPage() {
   const [busy, setBusy] = useState<'google' | 'azure' | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [correlationId, setCorrelationId] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Check for error parameters in URL
+    const urlParams = new URLSearchParams(window.location.search)
+    const error = urlParams.get('error')
+    const corrId = urlParams.get('correlationId')
+    
+    if (error && error in OAUTH_ERROR_MESSAGES) {
+      setErrorMessage(OAUTH_ERROR_MESSAGES[error as keyof typeof OAUTH_ERROR_MESSAGES])
+      setCorrelationId(corrId)
+    }
+    
+    // Clear error from URL without page reload
+    if (error) {
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete('error')
+      newUrl.searchParams.delete('correlationId')
+      window.history.replaceState({}, '', newUrl.toString())
+    }
+  }, [])
 
   const go = (provider: 'google' | 'azure') => {
     setBusy(provider)
-    const next = new URLSearchParams(window.location.search).get('next') || '/briefly/app/dashboard'
+    setErrorMessage(null) // Clear any previous errors
+    const next = new URLSearchParams(window.location.search).get('next') || DEFAULT_POST_LOGIN_PATH
     window.location.href = `/auth/start?provider=${provider}&next=${encodeURIComponent(next)}`
   }
 
@@ -31,6 +55,32 @@ export default function SignInPage() {
                 Sign in to continue to your AI document assistant
               </p>
             </div>
+
+            {/* Error Message Display */}
+            {errorMessage && (
+              <div className="bg-red-900/50 border border-red-700/50 rounded-xl p-4 mb-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-red-300 mb-1">
+                      Sign-in Error
+                    </h3>
+                    <p className="text-sm text-red-200">
+                      {errorMessage}
+                    </p>
+                    {correlationId && (
+                      <p className="text-xs text-red-400 mt-2 font-mono">
+                        Reference ID: {correlationId}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* OAuth Providers */}
             <div className="space-y-4">

@@ -1,8 +1,18 @@
 /**
- * Cookie Configuration for Production
+ * ⚠️ DEPRECATED - DO NOT USE - DANGEROUS CONFIGURATIONS ⚠️
  * 
- * This module provides explicit cookie configuration for production environments
- * to prevent SameSite issues with OAuth flows.
+ * This file contains dangerous cookie configurations that can cause authentication issues.
+ * Use Supabase SSR's built-in secure cookie handling instead.
+ * 
+ * SECURITY WARNING: The configurations in this file have security vulnerabilities:
+ * - httpOnly: false allows client-side access to auth cookies
+ * - Manual cookie handling bypasses Supabase SSR security
+ * - Custom domain configurations may not work across environments
+ * 
+ * This file is kept for reference only and should NEVER be imported.
+ * Any imports of this file will cause authentication security issues.
+ * 
+ * Use middleware.ts with createServerClient() for secure cookie handling.
  */
 
 // Production cookie configuration for SameSite protection

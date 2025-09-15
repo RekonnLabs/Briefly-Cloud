@@ -7,6 +7,7 @@
 
 import { logger } from '@/app/lib/logger'
 import { PickerErrorType, PickerErrorInfo } from './error-handling'
+import { DEFAULT_POST_LOGIN_PATH } from '@/app/lib/auth/constants'
 
 /**
  * Recovery flow types for different authentication scenarios
@@ -65,7 +66,7 @@ export const RECOVERY_FLOWS: Record<RecoveryFlowType, RecoveryFlow> = {
         title: 'Disconnect Current Connection',
         description: 'First, we need to remove the expired connection to Google Drive.',
         actionText: 'Go to Storage Settings',
-        actionUrl: '/briefly/app/dashboard?tab=storage',
+        actionUrl: `${DEFAULT_POST_LOGIN_PATH}?tab=storage`,
         actionType: 'link',
         isRequired: true,
         estimatedTime: '30 seconds',
@@ -113,7 +114,7 @@ export const RECOVERY_FLOWS: Record<RecoveryFlowType, RecoveryFlow> = {
         title: 'Open Storage Settings',
         description: 'Navigate to the storage settings page to connect your Google Drive.',
         actionText: 'Go to Storage Settings',
-        actionUrl: '/briefly/app/dashboard?tab=storage',
+        actionUrl: `${DEFAULT_POST_LOGIN_PATH}?tab=storage`,
         actionType: 'link',
         isRequired: true,
         estimatedTime: '30 seconds'
@@ -170,7 +171,7 @@ export const RECOVERY_FLOWS: Record<RecoveryFlowType, RecoveryFlow> = {
         title: 'Disconnect and Reconnect',
         description: 'Remove the current connection and establish a fresh one.',
         actionText: 'Go to Storage Settings',
-        actionUrl: '/briefly/app/dashboard?tab=storage',
+        actionUrl: `${DEFAULT_POST_LOGIN_PATH}?tab=storage`,
         actionType: 'link',
         isRequired: true,
         estimatedTime: '1-2 minutes',
@@ -308,7 +309,7 @@ export const RECOVERY_FLOWS: Record<RecoveryFlowType, RecoveryFlow> = {
         title: 'Disconnect Current Connection',
         description: 'Remove the current connection that has insufficient permissions.',
         actionText: 'Go to Storage Settings',
-        actionUrl: '/briefly/app/dashboard?tab=storage',
+        actionUrl: `${DEFAULT_POST_LOGIN_PATH}?tab=storage`,
         actionType: 'link',
         isRequired: true,
         estimatedTime: '30 seconds'

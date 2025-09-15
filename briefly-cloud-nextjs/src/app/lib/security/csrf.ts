@@ -5,7 +5,7 @@ const TRUSTED_ORIGIN = process.env.NEXT_PUBLIC_APP_URL! // e.g. https://briefly-
 const CSRF_COOKIE = "csrf-token"
 
 export function issueCsrf(res: NextResponse, value: string) {
-  res.cookies.set(CSRF_COOKIE, value, { httpOnly: false, secure: true, sameSite: "none", path: "/" })
+  res.cookies.set(CSRF_COOKIE, value, { httpOnly: true, secure: true, sameSite: "lax", path: "/" })
 }
 
 export function verifyCsrf(req: NextRequest) {

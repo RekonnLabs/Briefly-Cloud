@@ -1,0 +1,68 @@
+# Development and testing files
+src/app/__tests__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+jest.config.js
+jest.setup.js
+
+# Documentation files
+*.md
+!README.md
+docs/
+DEPLOYMENT.md
+SECURITY.md
+PERFORMANCE.md
+
+# Development configuration
+.env.example
+.env.local
+.env.development
+
+# IDE files
+.vscode/
+.idea/
+
+# Legacy and deprecated files
+src/app/lib/auth/legacy/
+
+# Build artifacts
+.next/
+out/
+dist/
+build/
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+
+# Package manager files
+node_modules/
+.npm/
+.yarn/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Summary and fix files
+*_SUMMARY.md
+*_FIX*.md
+*_CLEANUP*.md
+*_IMPLEMENTATION*.md
+*_VERIFICATION*.md

@@ -72,13 +72,25 @@ function SessionExpired() {
 }
 
 export default async function DashboardPage() {
+  console.log('[dashboard] Starting dashboard page render...')
+  
   const supabase = getSupabaseServerReadOnly()
-  const { data: { user } } = await supabase.auth.getUser()
+  
+  console.log('[dashboard] Created supabase client, calling getUser()...')
+  const { data: { user }, error } = await supabase.auth.getUser()
+  
+  console.log('[dashboard] getUser() result:', {
+    user: user ? { id: user.id, email: user.email } : null,
+    error: error ? { message: error.message, status: error.status } : null
+  })
 
   // No session? Show session expired UI
   if (!user) {
+    console.log('[dashboard] No user found, showing SessionExpired component')
     return <SessionExpired />
   }
+  
+  console.log('[dashboard] User authenticated, proceeding with dashboard render')
 
   // Optional: gate by plan before rendering client UI
   const { data: access } = await supabase
