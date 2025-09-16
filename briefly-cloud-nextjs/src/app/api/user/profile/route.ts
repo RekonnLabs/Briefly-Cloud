@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
@@ -19,7 +20,8 @@ async function getProfileHandler(request: Request, context: ApiContext): Promise
     
     // Get full user profile with usage statistics
     const { data: userProfile, error } = await supabase
-      .from('app.users')
+      .schema('app')
+      .from('profiles')
       .select(`
         id,
         email,
@@ -107,7 +109,8 @@ async function updateProfileHandler(request: Request, context: ApiContext): Prom
     
     // Update user profile
     const { data: updatedProfile, error } = await supabase
-      .from('app.users')
+      .schema('app')
+      .from('profiles')
       .update({
         full_name: updateData.full_name,
         preferences: updateData.preferences,
@@ -162,7 +165,8 @@ async function deleteProfileHandler(request: Request, context: ApiContext): Prom
     
     // 2. Delete user profile
     const { error: deleteError } = await supabase
-      .from('app.users')
+      .schema('app')
+      .from('profiles')
       .delete()
       .eq('id', user.id)
     
@@ -226,3 +230,4 @@ export const DELETE = createProtectedApiHandler(deleteProfileHandler, {
     includeBody: false,
   },
 })
+
