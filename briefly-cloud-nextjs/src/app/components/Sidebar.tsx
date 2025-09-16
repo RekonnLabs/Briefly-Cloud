@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from 'react';
-// Removed client-side signOut import - using server-side logout
-import { 
-  MessageSquare, 
-  FileText, 
-  Cloud, 
-  Settings, 
+import {
+  MessageSquare,
+  FileText,
+  Cloud,
+  Settings,
   LogOut,
   User
 } from 'lucide-react';
@@ -20,9 +19,12 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
   const handleSignOut = () => {
-    // Use server-side signout route
-    window.location.href = '/api/auth/signout'
-  }
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/auth/signout';
+    document.body.appendChild(form);
+    form.submit();
+  };
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Handle case where user data is not available
@@ -31,9 +33,9 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
       <div className="w-64 bg-gray-900/80 backdrop-blur-sm border-r border-gray-700/50 flex flex-col">
         <div className="p-6 border-b border-gray-700/50">
           <div className="flex items-center space-x-3">
-            <img 
-              src="/Briefly_Logo_120px.png" 
-              alt="Briefly Logo" 
+            <img
+              src="/Briefly_Logo_120px.png"
+              alt="Briefly Logo"
               className="w-8 h-8"
             />
             <div>
@@ -78,9 +80,9 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
       {/* Logo */}
       <div className="p-6 border-b border-gray-700/50">
         <div className="flex items-center space-x-3">
-          <img 
-            src="/Briefly_Logo_120px.png" 
-            alt="Briefly Logo" 
+          <img
+            src="/Briefly_Logo_120px.png"
+            alt="Briefly Logo"
             className="w-8 h-8"
           />
           <div>
@@ -95,14 +97,14 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
-          
+
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
-                isActive 
-                  ? 'bg-blue-600/80 text-white border border-blue-500/50 shadow-lg' 
+                isActive
+                  ? 'bg-blue-600/80 text-white border border-blue-500/50 shadow-lg'
                   : 'text-gray-300 hover:bg-gray-800/50 hover:text-white'
               }`}
             >
