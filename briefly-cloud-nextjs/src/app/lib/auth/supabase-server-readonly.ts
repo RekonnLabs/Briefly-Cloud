@@ -2,19 +2,14 @@
 import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
-function getCookieValue(name: string): string | undefined {
-  // Prefer Next's cookies() (works in most cases)
+function readCookie(name: string): string | undefined {
   try {
     const v = cookies().get(name)?.value;
     if (v) return v;
-  } catch {
-    // ignore
-  }
-  // Fallback: parse raw Cookie header (handles edge cases after middleware)
+  } catch {/* ignore */}
   const raw = headers().get("cookie") ?? "";
-  // Basic cookie parsing
-  for (const pair of raw.split(";")) {
-    const [k, ...rest] = pair.trim().split("=");
+  for (const part of raw.split(";")) {
+    const [k, ...rest] = part.trim().split("=");
     if (k === name) return rest.join("=");
   }
   return undefined;
@@ -26,9 +21,8 @@ export function getSupabaseServerReadOnly() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => getCookieValue(name),
-        // Read-only: MUST be no-ops in server components/layouts
-        set: () => {},
+        get: (name) => readCookie(name),
+        set: () => {}, // RSC-safe: never write cookies here
         remove: () => {},
       },
     }
