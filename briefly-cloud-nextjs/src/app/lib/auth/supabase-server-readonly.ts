@@ -1,12 +1,14 @@
-// src/app/lib/auth/supabase-server-readonly.ts
 import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
+// Safely read a cookie; fall back to raw Cookie header for first-SSR edge cases
 function readCookie(name: string): string | undefined {
   try {
     const v = cookies().get(name)?.value;
     if (v) return v;
-  } catch {/* ignore */}
+  } catch {
+    // ignore
+  }
   const raw = headers().get("cookie") ?? "";
   for (const part of raw.split(";")) {
     const [k, ...rest] = part.trim().split("=");
@@ -22,7 +24,8 @@ export function getSupabaseServerReadOnly() {
     {
       cookies: {
         get: (name) => readCookie(name),
-        set: () => {}, // RSC-safe: never write cookies here
+        // RSC-safe: never write cookies in server components/layouts
+        set: () => {},
         remove: () => {},
       },
     }
