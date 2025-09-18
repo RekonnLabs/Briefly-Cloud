@@ -47,10 +47,11 @@ function formatBytes(bytes: number): string {
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
-async function fetchApiData(url: string, signal?: AbortSignal) {
+async function fetchApiData<T = any>(url: string, signal?: AbortSignal): Promise<T | null> {
   const response = await fetch(url, {
     method: "GET",
     credentials: "include",
+    cache: "no-store",
     headers: {
       Accept: "application/json",
     },
@@ -68,6 +69,16 @@ async function fetchApiData(url: string, signal?: AbortSignal) {
   const text = await response.text();
   const json = text ? JSON.parse(text) : null;
 
+  if (json && Object.prototype.hasOwnProperty.call(json, "ok")) {
+    if (!json.ok) {
+      const message = json?.error?.message ?? `Request to ${url} failed`;
+      const error = new Error(message);
+      (error as any).code = json?.error?.code;
+      throw error;
+    }
+    return json as T;
+  }
+
   if (!response.ok) {
     const message = json?.error?.message ?? `Request to ${url} failed (${response.status})`;
     const error = new Error(message);
@@ -80,7 +91,12 @@ async function fetchApiData(url: string, signal?: AbortSignal) {
     throw new Error(message);
   }
 
-  return json?.data ?? null;
+  if (json && json.error && json.error !== null) {
+    const message = json?.error?.message ?? `Request to ${url} failed`;
+    throw new Error(message);
+  }
+
+  return json as T;
 }
 
 function mapToCompleteUserData(
@@ -566,3 +582,4 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     </div>
   );
 }
+

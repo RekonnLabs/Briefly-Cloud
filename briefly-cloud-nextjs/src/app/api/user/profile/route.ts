@@ -35,13 +35,26 @@ export async function GET(req: Request) {
     }
   );
 
+  const json = (body: any, init?: number | ResponseInit) => {
+    const status = typeof init === "number" ? init : init?.status ?? 200;
+    const response = new NextResponse(JSON.stringify(body), { status });
+    response.headers.set("content-type", "application/json; charset=utf-8");
+    res.headers.forEach((value, key) => {
+      response.headers.append(key, value);
+    });
+    return response;
+  };
+
   const {
     data: { user },
     error: uerr,
   } = await supabase.auth.getUser();
 
   if (uerr || !user) {
-    return new NextResponse("Unauthorized", { status: 401, headers: res.headers });
+    return json(
+      { ok: false, error: { code: "UNAUTHORIZED", message: "No user" } },
+      { status: 401 }
+    );
   }
 
   let {
@@ -54,7 +67,7 @@ export async function GET(req: Request) {
     .eq("id", user.id)
     .single();
 
-  if (error?.code == "PGRST116") {
+  if (error?.code === "PGRST116") {
     const { data: upserted, error: insErr } = await supabase
       .schema("app")
       .from("profiles")
@@ -63,7 +76,16 @@ export async function GET(req: Request) {
       .single();
 
     if (insErr) {
-      return NextResponse.json({ error: insErr }, { status: 500, headers: res.headers });
+      return json(
+        {
+          ok: false,
+          error: {
+            code: insErr.code ?? "INSERT_FAILED",
+            message: insErr.message,
+          },
+        },
+        500
+      );
     }
 
     profile = upserted;
@@ -71,8 +93,17 @@ export async function GET(req: Request) {
   }
 
   if (error) {
-    return NextResponse.json({ error }, { status: 500, headers: res.headers });
+    return json(
+      {
+        ok: false,
+        error: {
+          code: error.code ?? "READ_FAILED",
+          message: error.message,
+        },
+      },
+      500
+    );
   }
 
-  return NextResponse.json({ user, profile }, { headers: res.headers });
+  return json({ ok: true, error: null, user, profile });
 }
