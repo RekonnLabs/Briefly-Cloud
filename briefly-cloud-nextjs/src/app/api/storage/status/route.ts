@@ -14,13 +14,19 @@ async function getStorageStatus(request: NextRequest, context: ApiContext) {
   
   // Simple parallel token checks - no drama, no complex DB operations
   const [googleToken, microsoftToken] = await Promise.all([
-    TokenStore.getToken(user.id, 'google_drive'),
-    TokenStore.getToken(user.id, 'microsoft')
+    TokenStore.getToken(user.id, 'google_drive').catch(() => null),
+    TokenStore.getToken(user.id, 'microsoft').catch(() => null)
   ])
 
   return ApiResponse.ok({
-    google: !!(googleToken?.accessToken),
-    microsoft: !!(microsoftToken?.accessToken)
+    google: {
+      connected: Boolean(googleToken?.accessToken),
+      expiresAt: googleToken?.expiresAt ?? null,
+    },
+    microsoft: {
+      connected: Boolean(microsoftToken?.accessToken),
+      expiresAt: microsoftToken?.expiresAt ?? null,
+    },
   })
 }
 

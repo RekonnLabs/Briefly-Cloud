@@ -26,7 +26,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
 
-  const body = await request.json().catch(() => ({}))
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return ApiResponse.badRequest('Invalid JSON payload')
+  }
+
   const parsed = chatSchema.safeParse(body)
   if (!parsed.success) return ApiResponse.badRequest('Invalid request data')
 
@@ -65,6 +71,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   )
 
   const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
+  const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
 
   // If we should use "need more info" response, return early
   if (shouldUseNeedMoreInfo) {
@@ -127,7 +134,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   }
   
   // Analyze query for routing signals
-  const routingSignals = analyzeQuery(message, contextSnippets, [])
+  const routingSignals = analyzeQuery(message, safeContextSnippets, [])
   
   // Route to appropriate model
   const routing = routeModel(tier, boost, routingSignals)
@@ -140,10 +147,18 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   const messages = buildMessages({
     developerTask,
     developerShape,
-    contextSnippets,
+    safeContextSnippets,
     historySummary,
     userMessage: message
   })
+
+  if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {
+    console.error('Invalid chat message payload', {
+      userId: user.id,
+      conversationId: convoId,
+    })
+    return ApiResponse.internalError('Failed to prepare chat messages')
+  }
 
   // Generate response using routed model
   let rawResponse: string
@@ -182,7 +197,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     inputTokens,
     outputTokens,
     latency,
-    contextCount: contextSnippets.length,
+    contextCount: safeContextSnippets.length,
     linterApplied: lintResult.rewritten,
     boost,
     tier,
@@ -198,7 +213,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
         conversation_id: convoId, 
         role: 'assistant', 
         content: finalResponse, 
-        sources: contextSnippets.map(snippet => ({ 
+        sources: safeContextSnippets.map(snippet => ({ 
           source: snippet.source,
           content: snippet.content.substring(0, 200), // Truncate for storage
           relevance_score: snippet.relevance 
@@ -236,7 +251,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   return ApiResponse.success({
     conversation_id: convoId,
     response: finalResponse,
-    sources: contextSnippets.map(snippet => ({
+    sources: safeContextSnippets.map(snippet => ({
       content: snippet.content,
       source: snippet.source,
       relevance_score: snippet.relevance
@@ -251,7 +266,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       inputTokens,
       outputTokens,
       latency,
-      contextCount: contextSnippets.length,
+      contextCount: safeContextSnippets.length,
       linterApplied: lintResult.rewritten,
       retrievalStats
     }

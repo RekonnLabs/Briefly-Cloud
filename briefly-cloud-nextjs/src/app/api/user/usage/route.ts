@@ -58,43 +58,66 @@ async function getUserUsageHandler(request: Request, context: ApiContext): Promi
         usage_reset_date
       `)
       .eq('id', user.id)
-      .single()
-    
-    if (profileError) {
+      .maybeSingle()
+
+    if (profileError && profileError.code !== 'PGRST116') {
       console.error('Profile fetch error:', profileError)
       return ApiResponse.internalError('Failed to fetch usage data')
     }
-    
-    // Get tier limits
-    const tierLimits = TIER_LIMITS[userProfile.subscription_tier as keyof typeof TIER_LIMITS] || TIER_LIMITS.free
-    
-    // Calculate usage statistics
+
+    const subscriptionTier = (userProfile?.subscription_tier as keyof typeof TIER_LIMITS) || 'free'
+    const tierLimits = TIER_LIMITS[subscriptionTier] || TIER_LIMITS.free
+
+    const chatMessagesCount = userProfile?.chat_messages_count ?? 0
+    const chatMessagesLimit = userProfile?.chat_messages_limit ?? tierLimits.chat_messages
+    const chatMessagesPercentage = chatMessagesLimit > 0
+      ? Math.min(100, Math.round((chatMessagesCount / chatMessagesLimit) * 100))
+      : 0
+
+    const documentsUploaded = userProfile?.documents_uploaded ?? 0
+    const documentsLimit = userProfile?.documents_limit ?? tierLimits.documents
+    const documentsPercentage = documentsLimit > 0
+      ? Math.min(100, Math.round((documentsUploaded / documentsLimit) * 100))
+      : 0
+
+    const apiCallsCount = userProfile?.api_calls_count ?? 0
+    const apiCallsLimit = userProfile?.api_calls_limit ?? tierLimits.api_calls
+    const apiCallsPercentage = apiCallsLimit > 0
+      ? Math.min(100, Math.round((apiCallsCount / apiCallsLimit) * 100))
+      : 0
+
+    const storageUsedBytes = userProfile?.storage_used_bytes ?? 0
+    const storageLimitBytes = userProfile?.storage_limit_bytes ?? tierLimits.storage_bytes
+    const storagePercentage = storageLimitBytes > 0
+      ? Math.min(100, Math.round((storageUsedBytes / storageLimitBytes) * 100))
+      : 0
+
     const currentUsage = {
       chat_messages: {
-        used: userProfile.chat_messages_count || 0,
-        limit: userProfile.chat_messages_limit || tierLimits.chat_messages,
-        percentage: Math.round(((userProfile.chat_messages_count || 0) / (userProfile.chat_messages_limit || tierLimits.chat_messages)) * 100),
-        remaining: Math.max(0, (userProfile.chat_messages_limit || tierLimits.chat_messages) - (userProfile.chat_messages_count || 0))
+        used: chatMessagesCount,
+        limit: chatMessagesLimit,
+        percentage: chatMessagesPercentage,
+        remaining: Math.max(0, chatMessagesLimit - chatMessagesCount)
       },
       documents: {
-        used: userProfile.documents_uploaded || 0,
-        limit: userProfile.documents_limit || tierLimits.documents,
-        percentage: Math.round(((userProfile.documents_uploaded || 0) / (userProfile.documents_limit || tierLimits.documents)) * 100),
-        remaining: Math.max(0, (userProfile.documents_limit || tierLimits.documents) - (userProfile.documents_uploaded || 0))
+        used: documentsUploaded,
+        limit: documentsLimit,
+        percentage: documentsPercentage,
+        remaining: Math.max(0, documentsLimit - documentsUploaded)
       },
       api_calls: {
-        used: userProfile.api_calls_count || 0,
-        limit: userProfile.api_calls_limit || tierLimits.api_calls,
-        percentage: Math.round(((userProfile.api_calls_count || 0) / (userProfile.api_calls_limit || tierLimits.api_calls)) * 100),
-        remaining: Math.max(0, (userProfile.api_calls_limit || tierLimits.api_calls) - (userProfile.api_calls_count || 0))
+        used: apiCallsCount,
+        limit: apiCallsLimit,
+        percentage: apiCallsPercentage,
+        remaining: Math.max(0, apiCallsLimit - apiCallsCount)
       },
       storage: {
-        used: userProfile.storage_used_bytes || 0,
-        limit: userProfile.storage_limit_bytes || tierLimits.storage_bytes,
-        percentage: Math.round(((userProfile.storage_used_bytes || 0) / (userProfile.storage_limit_bytes || tierLimits.storage_bytes)) * 100),
-        remaining: Math.max(0, (userProfile.storage_limit_bytes || tierLimits.storage_bytes) - (userProfile.storage_used_bytes || 0)),
-        used_formatted: formatBytes(userProfile.storage_used_bytes || 0),
-        limit_formatted: formatBytes(userProfile.storage_limit_bytes || tierLimits.storage_bytes)
+        used: storageUsedBytes,
+        limit: storageLimitBytes,
+        percentage: storagePercentage,
+        remaining: Math.max(0, storageLimitBytes - storageUsedBytes),
+        used_formatted: formatBytes(storageUsedBytes),
+        limit_formatted: formatBytes(storageLimitBytes)
       }
     }
     
@@ -171,14 +194,14 @@ async function getUserUsageHandler(request: Request, context: ApiContext): Promi
     })
     
     const responseData = {
-      subscription_tier: userProfile.subscription_tier,
-      usage_reset_date: userProfile.usage_reset_date,
+      subscription_tier: subscriptionTier,
+      usage_reset_date: userProfile?.usage_reset_date ?? null,
       current_usage: currentUsage,
       warnings,
       tier_limits: tierLimits,
       ...(usageHistory && { usage_history: usageHistory })
     }
-    
+
     return ApiResponse.success(responseData)
     
   } catch (error) {
