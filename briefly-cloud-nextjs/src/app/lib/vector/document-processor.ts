@@ -11,6 +11,9 @@ import { getVectorStore } from './vector-store-factory'
 import { generateEmbedding, generateEmbeddings } from '@/app/lib/embeddings'
 import { createTextChunks } from '@/app/lib/document-chunker'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+const FILES_TABLE = 'app.files'
+const CHUNKS_TABLE = 'app.document_chunks'
+
 import type {
   IDocumentProcessor,
   VectorDocument,
@@ -86,14 +89,14 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Step 5: Update file processing status
       await supabaseAdmin
-        .from('files')
+        .from(FILES_TABLE)
         .update({
           processed: true,
           processing_status: 'completed',
           updated_at: new Date().toISOString()
         })
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       // Step 6: Log usage for analytics
       await supabaseAdmin
@@ -131,14 +134,14 @@ export class DocumentProcessor implements IDocumentProcessor {
       // Update file status to failed
       try {
         await supabaseAdmin
-          .from('files')
+          .from(FILES_TABLE)
           .update({
             processed: false,
             processing_status: 'failed',
             updated_at: new Date().toISOString()
           })
           .eq('id', fileId)
-          .eq('user_id', userId)
+          .eq('owner_id', userId)
       } catch (updateError) {
         logger.error('Failed to update file status after processing error', updateError as Error)
       }
@@ -219,10 +222,10 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Step 2: Delete file metadata (this will cascade to chunks via foreign key)
       const { error } = await supabaseAdmin
-        .from('files')
+        .from(FILES_TABLE)
         .delete()
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       if (error) {
         throw error
@@ -263,9 +266,9 @@ export class DocumentProcessor implements IDocumentProcessor {
     try {
       // Get file statistics
       const { data: fileStats, error: fileError } = await supabaseAdmin
-        .from('files')
+        .from(FILES_TABLE)
         .select('processed, processing_status')
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       if (fileError) {
         throw fileError
@@ -277,9 +280,9 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Get chunk statistics
       const { count: totalChunks, error: chunkError } = await supabaseAdmin
-        .from('document_chunks')
+        .from(CHUNKS_TABLE)
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       if (chunkError) {
         throw chunkError
@@ -321,10 +324,10 @@ export class DocumentProcessor implements IDocumentProcessor {
     try {
       // Get file information
       const { data: file, error } = await supabaseAdmin
-        .from('files')
+        .from(FILES_TABLE)
         .select('name, processed, processing_status')
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
         .single()
 
       if (error || !file) {
@@ -346,14 +349,14 @@ export class DocumentProcessor implements IDocumentProcessor {
 
       // Mark file as not processed
       await supabaseAdmin
-        .from('files')
+        .from(FILES_TABLE)
         .update({
           processed: false,
           processing_status: 'processing',
           updated_at: new Date().toISOString()
         })
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       logger.info('Document marked for reprocessing', {
         userId,

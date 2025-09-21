@@ -28,7 +28,7 @@ export class ConnectionManager {
 
       // Get current token for revocation if requested
       if (options.revokeAtProvider) {
-        const token = await TokenStore.getToken(userId, 'google_drive')
+        const token = await TokenStore.getToken(userId, 'google')
         if (token?.accessToken) {
           await this.revokeGoogleToken(token.accessToken)
         }
@@ -40,7 +40,7 @@ export class ConnectionManager {
       }
 
       // Delete stored token
-      await TokenStore.deleteToken(userId, 'google_drive')
+      await TokenStore.deleteToken(userId, 'google')
 
       // Update connection status
       await supabaseAdmin.rpc('update_connection_status', {
@@ -210,7 +210,7 @@ export class ConnectionManager {
   }> {
     try {
       // Check if we have a valid token
-      const token = await TokenStore.getToken(userId, provider)
+      const token = await TokenStore.getToken(userId, provider === 'google_drive' ? 'google' : provider)
       
       let connected = false
       if (token) {

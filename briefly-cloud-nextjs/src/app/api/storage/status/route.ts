@@ -12,20 +12,30 @@ import { TokenStore } from '@/app/lib/oauth/token-store'
 async function getStorageStatus(request: NextRequest, context: ApiContext) {
   const { user } = context
   
-  // Simple parallel token checks - no drama, no complex DB operations
-  const [googleToken, microsoftToken] = await Promise.all([
-    TokenStore.getToken(user.id, 'google_drive').catch(() => null),
-    TokenStore.getToken(user.id, 'microsoft').catch(() => null)
+  const [google, microsoft] = await Promise.all([
+    TokenStore.getToken(user.id, 'google'),
+    TokenStore.getToken(user.id, 'microsoft'),
   ])
+
+  const now = Date.now()
+  const isConnected = (token: { expiresAt?: string | null } | null) => {
+    if (!token) return false
+    if (!token.expiresAt) return true
+
+    const parsed = Date.parse(token.expiresAt)
+    if (Number.isNaN(parsed)) return true
+
+    return parsed > now - 60_000
+  }
 
   return ApiResponse.ok({
     google: {
-      connected: Boolean(googleToken?.accessToken),
-      expiresAt: googleToken?.expiresAt ?? null,
+      connected: isConnected(google),
+      expiresAt: google?.expiresAt ?? null,
     },
     microsoft: {
-      connected: Boolean(microsoftToken?.accessToken),
-      expiresAt: microsoftToken?.expiresAt ?? null,
+      connected: isConnected(microsoft),
+      expiresAt: microsoft?.expiresAt ?? null,
     },
   })
 }

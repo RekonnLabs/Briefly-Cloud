@@ -125,9 +125,11 @@ export async function GET(req: NextRequest) {
       // Store tokens securely with merged refresh token
       await TokenStore.saveToken(user.id, 'microsoft', {
         accessToken: tokens.access_token,
-        refreshToken: refreshToken,
-        expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-        scope: tokens.scope || 'User.Read Files.Read offline_access'
+        refreshToken: refreshToken || undefined,
+        expiresAt: typeof tokens.expires_in === 'number'
+          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+          : null,
+        scope: tokens.scope ?? null,
       })
 
       // Log successful token storage

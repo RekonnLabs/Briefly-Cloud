@@ -6,7 +6,6 @@
  */
 
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
-import { createSupabaseServerClient } from '@/app/lib/auth/supabase-auth'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 import type {
@@ -17,6 +16,11 @@ import type {
   VectorStoreStats,
   VectorStoreConfig
 } from './vector-store.interface'
+import type { AppFile } from '@/app/types/rag'
+
+const CHUNKS_TABLE = 'app.document_chunks'
+const FILES_TABLE = 'app.files'
+
 
 /**
  * pgvector Vector Store Implementation
@@ -104,27 +108,21 @@ export class PgVectorStore implements IVectorStore {
       await this.validateUserAccess(userId)
 
       // Prepare document chunks for insertion
-      const chunks = documents.map(doc => ({
-        id: doc.id,
-        user_id: userId,
+      const now = new Date().toISOString()
+      const chunks = documents.map((doc, index) => ({
+        owner_id: userId,
         file_id: doc.metadata.fileId,
+        chunk_index: doc.metadata.chunkIndex ?? index,
         content: doc.content,
-        embedding: doc.embedding,
-        chunk_index: doc.metadata.chunkIndex || 0,
-        metadata: {
-          ...doc.metadata,
-          fileName: doc.metadata.fileName,
-          createdAt: doc.metadata.createdAt || new Date().toISOString()
-        }
+        embedding: doc.embedding ?? null,
+        token_count: doc.metadata.tokenCount ?? doc.metadata.tokens ?? null,
+        created_at: doc.metadata.createdAt ?? now
       }))
 
-      // Insert chunks using the secure function
+      // Insert chunks into app.document_chunks
       const { error } = await supabaseAdmin
-        .from('document_chunks')
-        .upsert(chunks, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        })
+        .from(CHUNKS_TABLE)
+        .insert(chunks)
 
       if (error) {
         throw error
@@ -184,13 +182,13 @@ export class PgVectorStore implements IVectorStore {
       // Validate user access
       await this.validateUserAccess(userId)
 
-      // Use the secure search function with RLS enforcement
+      // Use pgvector similarity search over app.document_chunks
       const { data: results, error } = await supabaseAdmin
-        .rpc('search_similar_chunks', {
+        .rpc('match_document_chunks', {
           query_embedding: queryEmbedding,
-          user_id: userId,
-          match_threshold: threshold,
-          match_count: limit
+          match_owner_id: userId,
+          match_count: limit,
+          match_threshold: threshold
         })
 
       if (error) {
@@ -201,24 +199,44 @@ export class PgVectorStore implements IVectorStore {
         return []
       }
 
-      // Filter by file IDs if specified
       let filteredResults = results
       if (fileIds && fileIds.length > 0) {
-        filteredResults = results.filter(result => 
-          fileIds.includes(result.file_id)
-        )
+        filteredResults = results.filter(result => fileIds.includes(result.file_id))
       }
 
-      // Transform results to match interface
+      const uniqueFileIds = Array.from(new Set(filteredResults.map(result => result.file_id).filter(Boolean)))
+      const fileNameMap = new Map<string, string>()
+
+      if (uniqueFileIds.length > 0) {
+        const { data: filesData, error: filesError } = await supabaseAdmin
+          .from<AppFile>(FILES_TABLE)
+          .select('id, name')
+          .in('id', uniqueFileIds as string[])
+
+        if (filesError) {
+          throw filesError
+        }
+
+        filesData?.forEach((file) => {
+          fileNameMap.set(file.id, file.name)
+        })
+      }
+
       const searchResults: VectorSearchResult[] = filteredResults.map(result => ({
-        id: result.id,
+        id: result.id?.toString() ?? `${result.file_id}:${result.chunk_index}`,
         content: result.content,
-        metadata: includeMetadata ? (result.metadata || {}) : {},
-        similarity: result.similarity,
-        distance: 1 - result.similarity,
+        metadata: includeMetadata
+          ? {
+              file_id: result.file_id,
+              chunk_index: result.chunk_index,
+              token_count: result.token_count ?? null
+            }
+          : {},
+        similarity: typeof result.similarity === 'number' ? result.similarity : 0,
+        distance: typeof result.similarity === 'number' ? 1 - result.similarity : 1,
         fileId: result.file_id,
-        fileName: result.metadata?.fileName || 'Unknown',
-        chunkIndex: result.metadata?.chunkIndex || 0
+        fileName: fileNameMap.get(result.file_id) ?? 'Unknown',
+        chunkIndex: result.chunk_index ?? 0
       }))
 
       // Log the search operation
@@ -274,38 +292,29 @@ export class PgVectorStore implements IVectorStore {
       let deletedCount = 0
 
       if (fileId) {
-        // Delete vectors for specific file using secure function
-        const { error } = await supabaseAdmin
-          .rpc('delete_file_cascade', {
-            file_id: fileId,
-            user_id: userId
-          })
-
-        if (error) {
-          throw error
-        }
-
-        // Get count of deleted chunks for logging
-        const { count } = await supabaseAdmin
-          .from('document_chunks')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId)
+        const { error, count } = await supabaseAdmin
+          .from(CHUNKS_TABLE)
+          .delete({ count: 'exact' })
+          .eq('owner_id', userId)
           .eq('file_id', fileId)
 
-        deletedCount = count || 0
+        if (error) {
+          throw error
+        }
+
+        deletedCount = count ?? 0
 
       } else {
-        // Delete all vectors for user
         const { error, count } = await supabaseAdmin
-          .from('document_chunks')
+          .from(CHUNKS_TABLE)
           .delete({ count: 'exact' })
-          .eq('user_id', userId)
+          .eq('owner_id', userId)
 
         if (error) {
           throw error
         }
 
-        deletedCount = count || 0
+        deletedCount = count ?? 0
       }
 
       // Log the deletion
@@ -349,9 +358,9 @@ export class PgVectorStore implements IVectorStore {
 
       // Get document count for user
       const { count, error } = await supabaseAdmin
-        .from('document_chunks')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
+        .from(CHUNKS_TABLE)
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', userId)
 
       if (error) {
         throw error
@@ -434,10 +443,10 @@ export class PgVectorStore implements IVectorStore {
       // If resourceId is provided, validate access to that specific resource
       if (resourceId) {
         const { data: resource, error: resourceError } = await supabaseAdmin
-          .from('files')
+          .from(FILES_TABLE)
           .select('id')
           .eq('id', resourceId)
-          .eq('user_id', userId)
+          .eq('owner_id', userId)
           .single()
 
         if (resourceError || !resource) {

@@ -17,7 +17,7 @@ export interface RefreshResult {
 export async function refreshGoogleToken(userId: string): Promise<RefreshResult> {
   try {
     // Get existing token
-    const existingToken = await TokenStore.getToken(userId, 'google_drive')
+    const existingToken = await TokenStore.getToken(userId, 'google')
     
     if (!existingToken?.refreshToken) {
       OAuthLogger.logTokenOperation('google', 'refresh', userId, false, {
@@ -70,7 +70,7 @@ export async function refreshGoogleToken(userId: string): Promise<RefreshResult>
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
     // Update stored token (keep existing refresh token unless Google sends a new one)
-    await TokenStore.saveToken(userId, 'google_drive', {
+    await TokenStore.saveToken(userId, 'google', {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token ?? existingToken.refreshToken,
       expiresAt,
@@ -118,7 +118,7 @@ export function needsRefresh(token: { expiresAt?: string }): boolean {
  */
 export async function getValidAccessToken(userId: string): Promise<string | null> {
   try {
-    const token = await TokenStore.getToken(userId, 'google_drive')
+    const token = await TokenStore.getToken(userId, 'google')
     
     if (!token) {
       return null

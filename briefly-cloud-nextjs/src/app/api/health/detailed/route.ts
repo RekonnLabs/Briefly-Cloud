@@ -119,7 +119,7 @@ async function checkAuthentication(correlationId: string): Promise<ServiceHealth
     // Test OAuth token storage
     const testUserId = '00000000-0000-0000-0000-000000000000'
     try {
-      await TokenStore.getToken(testUserId, 'google_drive')
+      await TokenStore.getToken(testUserId, 'google')
     } catch (error) {
       // This is expected to fail for test user, but should not throw connection errors
       if (error instanceof Error && error.message.includes('connection')) {
@@ -143,9 +143,9 @@ async function checkDatabase(correlationId: string): Promise<ServiceHealthStatus
     if (error) throw new Error(`Database error: ${error.message}`)
     
     // Test RPC functions (OAuth token storage)
-    const { error: rpcError } = await supabaseAdmin.rpc('get_oauth_token', {
+    const { error: rpcError } = await supabaseAdmin.rpc('app.get_oauth_token', {
       p_user_id: '00000000-0000-0000-0000-000000000000',
-      p_provider: 'google_drive'
+      p_provider: 'google'
     })
     
     // RPC should execute without connection errors (may return no data)

@@ -9,11 +9,89 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 
+type Provider = 'google' | 'microsoft'
+
+const normalizeProvider = (provider: Provider | 'google_drive'): Provider =>
+  provider === 'google_drive' ? 'google' : provider
+
+export async function getToken(userId: string, provider: Provider): Promise<{
+  accessToken: string
+  refreshToken: string | null
+  scope: string | null
+  expiresAt: string | null
+  updatedAt: string
+} | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .rpc('app.get_oauth_token', {
+        p_user_id: userId,
+        p_provider: provider,
+      })
+      .single()
+
+    if (error) {
+      logger.error('Failed to get OAuth token via RPC', {
+        userId,
+        provider,
+        error: error.message,
+      })
+      return null
+    }
+
+    if (!data) {
+      return null
+    }
+
+    return {
+      accessToken: data.access_token as string,
+      refreshToken: (data.refresh_token as string | null) ?? null,
+      scope: (data.scope as string | null) ?? null,
+      expiresAt: (data.expires_at as string | null) ?? null,
+      updatedAt: data.updated_at as string,
+    }
+  } catch (error) {
+    logger.error('Error getting OAuth token', {
+      userId,
+      provider,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
+    return null
+  }
+}
+
+export async function saveToken(
+  userId: string,
+  provider: Provider,
+  t: { accessToken: string; refreshToken?: string; scope?: string; expiresAt?: string | null }
+): Promise<void> {
+  const { error } = await supabaseAdmin.rpc('app.save_oauth_token', {
+    p_user_id: userId,
+    p_provider: provider,
+    p_access_token: t.accessToken,
+    p_refresh_token: t.refreshToken ?? null,
+    p_scope: t.scope ?? null,
+    p_expires_at: t.expiresAt ?? null,
+  })
+
+  if (error) {
+    logger.error('Failed to save OAuth token via RPC', {
+      userId,
+      provider,
+      error: error.message,
+    })
+    throw error
+  }
+}
+
+const baseGetToken = getToken
+const baseSaveToken = saveToken
+
 export interface OAuthTokenData {
   accessToken: string
   refreshToken?: string
   expiresAt?: string
   scope?: string
+  updatedAt?: string
 }
 
 export interface OAuthToken {
@@ -42,38 +120,32 @@ export class TokenStore {
    */
   static async saveToken(
     userId: string,
-    provider: 'google_drive' | 'microsoft',
+    provider: Provider | 'google_drive',
     tokenData: OAuthTokenData
   ): Promise<void> {
-    try {
-      const { error } = await supabaseAdmin.rpc('save_oauth_token', {
-        p_user_id: userId,
-        p_provider: provider,
-        p_access_token: tokenData.accessToken,
-        p_refresh_token: tokenData.refreshToken || null,
-        p_expires_at: tokenData.expiresAt || null,
-        p_scope: tokenData.scope || null
-      })
+    const normalizedProvider = normalizeProvider(provider)
 
-      if (error) {
-        logger.error('Failed to save OAuth token via RPC', {
-          userId,
-          provider,
-          error: error.message
-        })
-        throw createError.internal(`Failed to save OAuth token: ${error.message}`)
-      }
+    try {
+      await baseSaveToken(userId, normalizedProvider, {
+        accessToken: tokenData.accessToken,
+        refreshToken: tokenData.refreshToken,
+        scope: tokenData.scope,
+        expiresAt: tokenData.expiresAt ?? null,
+      })
 
       logger.info('OAuth token saved successfully via RPC', {
         userId,
-        provider
+        provider: normalizedProvider,
       })
     } catch (error) {
       logger.error('Error saving OAuth token', {
         userId,
-        provider,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        provider: normalizedProvider,
+        error: error instanceof Error ? error.message : 'Unknown error',
       })
+      if (error instanceof Error) {
+        throw createError.internal(`Failed to save OAuth token: ${error.message}`)
+      }
       throw error
     }
   }
@@ -83,39 +155,28 @@ export class TokenStore {
    */
   static async getToken(
     userId: string,
-    provider: 'google_drive' | 'microsoft'
+    provider: Provider | 'google_drive'
   ): Promise<OAuthTokenData | null> {
+    const normalizedProvider = normalizeProvider(provider)
+
     try {
-      const { data, error } = await supabaseAdmin.rpc('get_oauth_token', {
-        p_user_id: userId,
-        p_provider: provider
-      })
-
-      if (error) {
-        logger.error('Failed to get OAuth token via RPC', {
-          userId,
-          provider,
-          error: error.message
-        })
+      const token = await baseGetToken(userId, normalizedProvider)
+      if (!token) {
         return null
       }
 
-      if (!data || data.length === 0) {
-        return null
-      }
-
-      const tokenData = Array.isArray(data) ? data[0] : data
       return {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        expiresAt: tokenData.expires_at,
-        scope: tokenData.scope
+        accessToken: token.accessToken,
+        refreshToken: token.refreshToken ?? undefined,
+        expiresAt: token.expiresAt ?? undefined,
+        scope: token.scope ?? undefined,
+        updatedAt: token.updatedAt ?? undefined,
       }
     } catch (error) {
       logger.error('Error getting OAuth token', {
         userId,
-        provider,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        provider: normalizedProvider,
+        error: error instanceof Error ? error.message : 'Unknown error',
       })
       return null
     }
@@ -126,32 +187,34 @@ export class TokenStore {
    */
   static async deleteToken(
     userId: string,
-    provider: 'google_drive' | 'microsoft'
+    provider: Provider | 'google_drive'
   ): Promise<void> {
+    const normalizedProvider = normalizeProvider(provider)
+
     try {
-      const { error } = await supabaseAdmin.rpc('delete_oauth_token', {
+      const { error } = await supabaseAdmin.rpc('app.delete_oauth_token', {
         p_user_id: userId,
-        p_provider: provider
+        p_provider: normalizedProvider,
       })
 
       if (error) {
         logger.error('Failed to delete OAuth token via RPC', {
           userId,
-          provider,
-          error: error.message
+          provider: normalizedProvider,
+          error: error.message,
         })
         throw createError.internal(`Failed to delete OAuth token: ${error.message}`)
       }
 
       logger.info('OAuth token deleted successfully via RPC', {
         userId,
-        provider
+        provider: normalizedProvider,
       })
     } catch (error) {
       logger.error('Error deleting OAuth token', {
         userId,
-        provider,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        provider: normalizedProvider,
+        error: error instanceof Error ? error.message : 'Unknown error',
       })
       throw error
     }
@@ -162,10 +225,12 @@ export class TokenStore {
    */
   static async refreshTokenIfNeeded(
     userId: string,
-    provider: 'google_drive' | 'microsoft'
+    provider: Provider | 'google_drive'
   ): Promise<OAuthTokenData | null> {
+    const normalizedProvider = normalizeProvider(provider)
+
     try {
-      const token = await this.getToken(userId, provider)
+      const token = await this.getToken(userId, normalizedProvider)
       if (!token || !token.expiresAt) {
         return token
       }
@@ -174,22 +239,21 @@ export class TokenStore {
       const now = new Date()
       const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000)
 
-      // Refresh if expires within 5 minutes
       if (expiresAt <= fiveMinutesFromNow) {
         logger.info('Token expires soon, refreshing', {
           userId,
-          provider,
-          expiresAt: expiresAt.toISOString()
+          provider: normalizedProvider,
+          expiresAt: expiresAt.toISOString(),
         })
-        return await this.refreshToken(userId, provider, token)
+        return await this.refreshToken(userId, normalizedProvider, token)
       }
 
       return token
     } catch (error) {
       logger.error('Error checking token expiry', {
         userId,
-        provider,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        provider: normalizedProvider,
+        error: error instanceof Error ? error.message : 'Unknown error',
       })
       return null
     }
@@ -200,14 +264,16 @@ export class TokenStore {
    */
   private static async refreshToken(
     userId: string,
-    provider: 'google_drive' | 'microsoft',
+    provider: Provider | 'google_drive',
     currentToken: OAuthTokenData
   ): Promise<OAuthTokenData | null> {
-    if (provider === 'google_drive') {
+    const normalizedProvider = normalizeProvider(provider)
+
+    if (normalizedProvider === 'google') {
       return await this.refreshGoogleToken(userId, currentToken)
-    } else {
-      return await this.refreshMicrosoftToken(userId, currentToken)
     }
+
+    return await this.refreshMicrosoftToken(userId, currentToken)
   }
 
   /**
@@ -250,7 +316,7 @@ export class TokenStore {
         
         // If refresh token is invalid, we need to re-authenticate
         if (response.status === 400 || response.status === 401) {
-          await this.deleteToken(userId, 'google_drive')
+          await this.deleteToken(userId, 'google')
           throw new Error('Refresh token invalid, re-authentication required')
         }
         
@@ -270,7 +336,7 @@ export class TokenStore {
         scope: currentToken.scope
       }
 
-      await this.saveToken(userId, 'google_drive', newToken)
+      await this.saveToken(userId, 'google', newToken)
       
       logger.info('Google token refreshed successfully', { 
         userId,
@@ -367,14 +433,8 @@ export class TokenStore {
 
 // Legacy function exports for backward compatibility
 export async function storeEncryptedToken(token: OAuthToken): Promise<void> {
-  // Map legacy provider names to new ones
-  let mappedProvider: 'google_drive' | 'microsoft'
-  if (token.provider === 'google_drive' || token.provider === 'google') {
-    mappedProvider = 'google_drive'
-  } else {
-    mappedProvider = 'microsoft'
-  }
-  
+  const mappedProvider: Provider = token.provider === 'microsoft' ? 'microsoft' : 'google'
+
   await TokenStore.saveToken(token.userId, mappedProvider, {
     accessToken: token.accessToken,
     refreshToken: token.refreshToken,
@@ -387,8 +447,7 @@ export async function getDecryptedToken(
   userId: string, 
   provider: 'google' | 'microsoft'
 ): Promise<OAuthToken | null> {
-  const mappedProvider = provider === 'google' ? 'google_drive' : 'microsoft'
-  const tokenData = await TokenStore.getToken(userId, mappedProvider)
+  const tokenData = await TokenStore.getToken(userId, provider)
   
   if (!tokenData) {
     return null
@@ -409,8 +468,7 @@ export async function getValidToken(
   userId: string, 
   provider: 'google' | 'microsoft'
 ): Promise<OAuthToken | null> {
-  const mappedProvider = provider === 'google' ? 'google_drive' : 'microsoft'
-  const tokenData = await TokenStore.refreshTokenIfNeeded(userId, mappedProvider)
+  const tokenData = await TokenStore.refreshTokenIfNeeded(userId, provider)
   
   if (!tokenData) {
     return null

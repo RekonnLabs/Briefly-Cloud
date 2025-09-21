@@ -30,7 +30,7 @@ export class GoogleDriveProvider implements CloudStorageProvider {
     pageSize: number = 100
   ): Promise<CloudStorageListResponse> {
     try {
-      const token = await TokenStore.refreshTokenIfNeeded(userId, 'google_drive')
+      const token = await TokenStore.refreshTokenIfNeeded(userId, 'google')
       if (!token) {
         throw createError.unauthorized('No valid Google Drive token found')
       }
@@ -144,7 +144,7 @@ export class GoogleDriveProvider implements CloudStorageProvider {
    */
   async downloadFile(userId: string, fileId: string): Promise<Buffer> {
     try {
-      const token = await TokenStore.refreshTokenIfNeeded(userId, 'google_drive')
+      const token = await TokenStore.refreshTokenIfNeeded(userId, 'google')
       if (!token) {
         throw createError.unauthorized('No valid Google Drive token found')
       }
@@ -203,7 +203,7 @@ export class GoogleDriveProvider implements CloudStorageProvider {
    */
   async getFileMetadata(userId: string, fileId: string): Promise<CloudStorageFile> {
     try {
-      const token = await TokenStore.refreshTokenIfNeeded(userId, 'google_drive')
+      const token = await TokenStore.refreshTokenIfNeeded(userId, 'google')
       if (!token) {
         throw createError.unauthorized('No valid Google Drive token found')
       }

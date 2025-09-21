@@ -121,15 +121,17 @@ export async function GET(req: NextRequest) {
     
     try {
       // Read existing token to preserve refresh_token if Google doesn't send a new one
-      const existingToken = await TokenStore.getToken(user.id, 'google_drive')
+      const existingToken = await TokenStore.getToken(user.id, 'google')
       const refreshToken = tokens.refresh_token ?? existingToken?.refreshToken ?? null
 
       // Store tokens securely with merged refresh token
-      await TokenStore.saveToken(user.id, 'google_drive', {
+      await TokenStore.saveToken(user.id, 'google', {
         accessToken: tokens.access_token,
-        refreshToken: refreshToken,
-        expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-        scope: tokens.scope || 'https://www.googleapis.com/auth/drive.file'
+        refreshToken: refreshToken || undefined,
+        expiresAt: typeof tokens.expires_in === 'number'
+          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+          : null,
+        scope: tokens.scope ?? null,
       })
 
       // Log successful token storage
