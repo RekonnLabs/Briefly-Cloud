@@ -9,7 +9,7 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logApiUsage } from '@/app/lib/logger'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { createError } from '@/app/lib/api-errors'
-import { cacheManager, CACHE_KEYS } from '@/app/cache'
+import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
 import { logReq, logErr } from '@/app/lib/server/log'
 
