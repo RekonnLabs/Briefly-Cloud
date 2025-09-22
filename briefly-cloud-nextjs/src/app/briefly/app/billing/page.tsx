@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { createServerClientReadOnly } from '@/app/lib/auth/supabase-server-readonly'
+import { getSupabaseServerReadOnly } from '@/app/lib/auth/supabase-server-readonly'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +10,7 @@ export default async function BillingPage() {
   // Optionally hydrate user if you need it
   let user = null as any
   if (authed) {
-    const supabase = createServerClientReadOnly()
+    const supabase = getSupabaseServerReadOnly()
     const { data: { user: u } } = await supabase.auth.getUser()
     user = u ?? null
   }

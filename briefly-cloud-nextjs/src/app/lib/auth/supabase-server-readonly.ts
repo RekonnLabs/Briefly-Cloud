@@ -31,3 +31,6 @@ export function getSupabaseServerReadOnly() {
     }
   );
 }
+
+// Export alias for backward compatibility with existing imports
+export const createServerClientReadOnly = getSupabaseServerReadOnly;
