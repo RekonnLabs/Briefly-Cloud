@@ -1,5 +1,5 @@
 import { cookies, headers } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type SupabaseClient } from "@supabase/ssr";
 
 // Safely read a cookie; fall back to raw Cookie header for first-SSR edge cases
 function readCookie(name: string): string | undefined {
@@ -17,7 +17,7 @@ function readCookie(name: string): string | undefined {
   return undefined;
 }
 
-export function getSupabaseServerReadOnly() {
+export function getSupabaseServerReadOnly(): SupabaseClient {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -32,5 +32,5 @@ export function getSupabaseServerReadOnly() {
   );
 }
 
-// Export alias for backward compatibility with existing imports
+/** @deprecated Use getSupabaseServerReadOnly(). Alias kept for backward compat with older tests. */
 export const createServerClientReadOnly = getSupabaseServerReadOnly;
