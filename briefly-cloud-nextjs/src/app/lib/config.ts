@@ -91,6 +91,7 @@ const envSchema = z.object({
   FEATURE_MICROSOFT_ONEDRIVE: z.string().transform(val => val === 'true').default('true'),
   FEATURE_FILE_UPLOAD: z.string().transform(val => val === 'true').default('true'),
   FEATURE_CHAT_STREAMING: z.string().transform(val => val === 'true').default('true'),
+  RAG_APP_SCHEMA: z.string().transform(val => val != '0').default('1'),
   
   // Development
   DEBUG: z.string().transform(val => val === 'true').default('false'),
@@ -285,6 +286,7 @@ export const config = {
     microsoftOneDrive: env.FEATURE_MICROSOFT_ONEDRIVE,
     fileUpload: env.FEATURE_FILE_UPLOAD,
     chatStreaming: env.FEATURE_CHAT_STREAMING,
+    ragAppSchema: env.RAG_APP_SCHEMA,
   },
   
   // Development

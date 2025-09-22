@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   ip_address INET,
   user_agent TEXT,
   resource TEXT,
-  provider TEXT CHECK (provider IN ('google_drive', 'microsoft') OR provider IS NULL),
+  provider TEXT CHECK (provider IN ('google', 'microsoft') OR provider IS NULL),
   file_ids TEXT[],
   bytes_processed BIGINT,
   duration INTEGER, -- milliseconds

@@ -59,7 +59,7 @@ INSERT INTO feature_flags (name, description, enabled, rollout_percentage, user_
     ('vector_search_v2', 'Enhanced vector search with improved accuracy', FALSE, 0, '{}'),
     ('advanced_chunking', 'Advanced document chunking algorithm', FALSE, 0, '{"pro", "pro_byok"}'),
     ('real_time_chat', 'Real-time chat with streaming responses', FALSE, 0, '{}'),
-    ('google_drive_v2', 'Enhanced Google Drive integration', FALSE, 0, '{}'),
+    ('google_v2', 'Enhanced Google Drive integration', FALSE, 0, '{}'),
     ('onedrive_integration', 'Microsoft OneDrive integration', FALSE, 0, '{}'),
     ('dropbox_integration', 'Dropbox cloud storage integration', FALSE, 0, '{"pro", "pro_byok"}'),
     ('gpt4_turbo', 'GPT-4 Turbo model access', TRUE, 100, '{"pro", "pro_byok"}'),

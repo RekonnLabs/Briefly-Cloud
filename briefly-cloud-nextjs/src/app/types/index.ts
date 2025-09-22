@@ -1,7 +1,6 @@
 // Re-export types from Supabase lib for convenience
 export type {
   User,
-  OAuthToken,
   FileMetadata,
   DocumentChunk,
   Conversation,

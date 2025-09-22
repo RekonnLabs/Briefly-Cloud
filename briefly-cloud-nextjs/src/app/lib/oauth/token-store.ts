@@ -11,8 +11,8 @@ import { createError } from '@/app/lib/api-errors'
 
 type Provider = 'google' | 'microsoft'
 
-const normalizeProvider = (provider: Provider | 'google_drive'): Provider =>
-  provider === 'google_drive' ? 'google' : provider
+const normalizeProvider = (provider: Provider | 'google'): Provider =>
+  provider === 'google' ? 'google' : provider
 
 export async function getToken(userId: string, provider: Provider): Promise<{
   accessToken: string
@@ -96,7 +96,7 @@ export interface OAuthTokenData {
 
 export interface OAuthToken {
   userId: string
-  provider: 'google_drive' | 'microsoft' | 'google' // Support legacy 'google' format
+  provider: 'google' | 'microsoft' | 'google' // Support legacy 'google' format
   accessToken: string
   refreshToken?: string
   scope?: string
@@ -120,7 +120,7 @@ export class TokenStore {
    */
   static async saveToken(
     userId: string,
-    provider: Provider | 'google_drive',
+    provider: Provider | 'google',
     tokenData: OAuthTokenData
   ): Promise<void> {
     const normalizedProvider = normalizeProvider(provider)
@@ -155,7 +155,7 @@ export class TokenStore {
    */
   static async getToken(
     userId: string,
-    provider: Provider | 'google_drive'
+    provider: Provider | 'google'
   ): Promise<OAuthTokenData | null> {
     const normalizedProvider = normalizeProvider(provider)
 
@@ -187,7 +187,7 @@ export class TokenStore {
    */
   static async deleteToken(
     userId: string,
-    provider: Provider | 'google_drive'
+    provider: Provider | 'google'
   ): Promise<void> {
     const normalizedProvider = normalizeProvider(provider)
 
@@ -225,7 +225,7 @@ export class TokenStore {
    */
   static async refreshTokenIfNeeded(
     userId: string,
-    provider: Provider | 'google_drive'
+    provider: Provider | 'google'
   ): Promise<OAuthTokenData | null> {
     const normalizedProvider = normalizeProvider(provider)
 
@@ -264,7 +264,7 @@ export class TokenStore {
    */
   private static async refreshToken(
     userId: string,
-    provider: Provider | 'google_drive',
+    provider: Provider | 'google',
     currentToken: OAuthTokenData
   ): Promise<OAuthTokenData | null> {
     const normalizedProvider = normalizeProvider(provider)

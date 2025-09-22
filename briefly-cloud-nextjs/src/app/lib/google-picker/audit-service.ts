@@ -17,7 +17,7 @@ export interface FileSelectionEvent {
     pickerVersion?: string
     userAgent?: string
     ipAddress?: string // Anonymized/hashed for privacy
-    connectionType?: 'google_drive'
+    connectionType?: 'google'
   }
 }
 
@@ -307,7 +307,7 @@ export function logPickerSessionStart(userId: string, sessionId: string, tokenId
       pickerVersion: 'google_picker_api',
       userAgent: metadata?.userAgent,
       ipAddress: metadata?.ipAddress,
-      connectionType: 'google_drive'
+      connectionType: 'google'
     }
   })
 }
@@ -329,7 +329,7 @@ export function logFileSelectionSuccess(
     tokenId,
     metadata: {
       filesSelected: selectedFiles.length,
-      connectionType: 'google_drive'
+      connectionType: 'google'
     }
   })
 
@@ -366,7 +366,7 @@ export function logFileSelectionCancelled(userId: string, sessionId: string, tok
     sessionId,
     tokenId,
     metadata: {
-      connectionType: 'google_drive'
+      connectionType: 'google'
     }
   })
 }
@@ -387,7 +387,7 @@ export function logFileSelectionFailure(
     tokenId,
     metadata: {
       errorType: error,
-      connectionType: 'google_drive'
+      connectionType: 'google'
     }
   })
 }

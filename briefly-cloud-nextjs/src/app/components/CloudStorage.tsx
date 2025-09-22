@@ -40,7 +40,7 @@ interface CloudProvider {
 interface ImportJob {
   jobId: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
-  provider: 'google_drive' | 'microsoft';
+  provider: 'google' | 'microsoft';
   folderId?: string;
   progress: {
     total: number;
@@ -184,7 +184,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         const statusData = data.data;
         
         setProviders(prev => prev.map(provider => {
-          const providerKey = provider.id === 'google' ? 'google_drive' : 'microsoft';
+          const providerKey = provider.id === 'google' ? 'google' : 'microsoft';
           const status = statusData[providerKey];
           
           return {
@@ -291,7 +291,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         // Cancel any running batch jobs for this provider
         setBatchJobs(prev => {
           const newMap = new Map(prev);
-          const providerName = providerId === 'google' ? 'google_drive' : 'microsoft';
+          const providerName = providerId === 'google' ? 'google' : 'microsoft';
           
           for (const [jobId, job] of newMap.entries()) {
             if (job.provider === providerName && ['pending', 'processing'].includes(job.status)) {
@@ -940,7 +940,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
 
                   {/* Batch Import Jobs */}
                   {Array.from(batchJobs.values())
-                    .filter(job => job.provider === (provider.id === 'google' ? 'google_drive' : 'microsoft'))
+                    .filter(job => job.provider === (provider.id === 'google' ? 'google' : 'microsoft'))
                     .map((job) => (
                     <div key={job.jobId} className="mt-6 p-4 bg-gray-800/70 rounded-xl border border-gray-600/50">
                       <div className="flex items-center justify-between mb-3">

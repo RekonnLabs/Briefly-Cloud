@@ -11,6 +11,7 @@
 import 'server-only'
 import { createHash } from 'crypto'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { fileIngestRepo } from '@/app/lib/repos'
 import { GoogleDriveProvider } from '@/app/lib/cloud-storage/providers/google-drive'
 import { OneDriveProvider } from '@/app/lib/cloud-storage/providers/onedrive'
 import { logger } from '@/app/lib/logger'
@@ -26,7 +27,7 @@ import type { CloudStorageFile, CloudStorageProvider } from '@/app/lib/cloud-sto
 export interface ImportJob {
   id: string
   userId: string
-  provider: 'google_drive' | 'microsoft'
+  provider: 'google' | 'microsoft'
   folderId?: string
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
   progress: {
@@ -67,7 +68,7 @@ export interface FileProcessingResult {
 
 export class ImportJobManager {
   private static providers: Record<string, CloudStorageProvider> = {
-    google_drive: new GoogleDriveProvider(),
+    google: new GoogleDriveProvider(),
     microsoft: new OneDriveProvider()
   }
 
@@ -76,7 +77,7 @@ export class ImportJobManager {
    */
   static async createJob(
     userId: string,
-    provider: 'google_drive' | 'microsoft',
+    provider: 'google' | 'microsoft',
     folderId?: string,
     options: {
       batchSize?: number
@@ -559,6 +560,8 @@ export class ImportJobManager {
     job: ImportJob,
     file: CloudStorageFile
   ): Promise<FileProcessingResult> {
+    let createdFileId: string | null = null
+
     try {
       const provider = this.providers[job.provider]
       if (!provider) {
@@ -582,14 +585,9 @@ export class ImportJobManager {
       const contentHash = createHash('sha256').update(fileBuffer).digest('hex')
 
       // Check for existing file with same content hash
-      const { data: existingFile } = await supabaseAdmin
-        .from('files')
-        .select('id')
-        .eq('user_id', job.userId)
-        .eq('metadata->content_hash', contentHash)
-        .limit(1)
+      const hasExistingIngest = await fileIngestRepo.existsWithContentHash(job.userId, contentHash)
 
-      if (existingFile && existingFile.length > 0) {
+      if (hasExistingIngest) {
         return {
           success: true,
           status: 'duplicate',
@@ -606,7 +604,7 @@ export class ImportJobManager {
           path: file.name, // Use name as path for cloud storage files
           size: fileBuffer.length,
           mime_type: file.mimeType,
-          source: job.provider === 'google_drive' ? 'google' : 'microsoft',
+          source: job.provider === 'google' ? 'google' : 'microsoft',
           external_id: file.id,
           external_url: file.webViewLink,
           processed: false,
@@ -624,6 +622,28 @@ export class ImportJobManager {
       if (fileError || !fileMetadata) {
         throw new Error(`Failed to create file metadata: ${fileError?.message}`)
       }
+
+      createdFileId = fileMetadata.id
+
+      const ingestMeta = {
+        original_size: file.size,
+        modified_time: file.modifiedTime,
+        content_hash: contentHash,
+        provider_version: file.modifiedTime || new Date().toISOString(),
+        external_id: file.id,
+        external_url: file.webViewLink,
+        provider: job.provider,
+        file_name: file.name,
+        mime_type: file.mimeType,
+      }
+
+      await fileIngestRepo.upsert({
+        file_id: fileMetadata.id,
+        owner_id: job.userId,
+        status: 'processing',
+        source: job.provider,
+        meta: ingestMeta,
+      })
 
       // Record processing history
       await supabaseAdmin
@@ -652,13 +672,16 @@ export class ImportJobManager {
       // 4. Storing in document_chunks table
       // For now, we'll mark the file as processed
 
-      await supabaseAdmin
-        .from('files')
-        .update({
-          processed: true,
-          processing_status: 'completed'
-        })
-        .eq('id', fileMetadata.id)
+      await fileIngestRepo.upsert({
+        file_id: fileMetadata.id,
+        owner_id: job.userId,
+        status: 'ready',
+        source: job.provider,
+        meta: {
+          ...ingestMeta,
+          processed_at: new Date().toISOString(),
+        },
+      })
 
       logger.info('File processed successfully', {
         jobId: job.id,
@@ -682,6 +705,23 @@ export class ImportJobManager {
         fileName: file.name,
         error: error instanceof Error ? error.message : 'Unknown error'
       })
+
+      if (createdFileId) {
+        try {
+          await fileIngestRepo.updateStatus(
+            job.userId,
+            createdFileId,
+            'error',
+            error instanceof Error ? error.message : 'Unknown error'
+          )
+        } catch (statusError) {
+          logger.error('Failed to update ingest status after job error', {
+            userId: job.userId,
+            fileId: createdFileId,
+            error: statusError instanceof Error ? statusError.message : 'Unknown status update error',
+          })
+        }
+      }
 
       throw error
     }
@@ -946,7 +986,7 @@ export class ImportJobManager {
    */
   static async createAndProcessBatchImport(
     userId: string,
-    provider: 'google_drive' | 'microsoft',
+    provider: 'google' | 'microsoft',
     folderId?: string,
     options: {
       batchSize?: number
@@ -1076,7 +1116,7 @@ export class ImportJobManager {
     return {
       id: data.id,
       userId: data.user_id,
-      provider: data.input_data?.provider || 'google_drive',
+      provider: data.input_data?.provider || 'google',
       folderId: data.input_data?.folderId,
       status: data.status,
       progress: data.progress || {

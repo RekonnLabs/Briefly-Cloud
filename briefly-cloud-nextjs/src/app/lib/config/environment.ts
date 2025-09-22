@@ -69,8 +69,8 @@ const ENV_SCHEMA = {
   // Note: Login OAuth is handled by Supabase Auth, not app environment variables
   GOOGLE_DRIVE_CLIENT_ID: { required: false, type: 'string' },
   GOOGLE_DRIVE_CLIENT_SECRET: { required: false, type: 'string' },
-  GOOGLE_DRIVE_REDIRECT_URI: { required: false, type: 'url' },
-  // GOOGLE_DRIVE_SCOPES: Removed - scope is hardcoded for security
+  google_REDIRECT_URI: { required: false, type: 'url' },
+  // google_SCOPES: Removed - scope is hardcoded for security
   
   MS_DRIVE_CLIENT_ID: { required: false, type: 'string' },
   MS_DRIVE_CLIENT_SECRET: { required: false, type: 'string' },

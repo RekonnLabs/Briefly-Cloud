@@ -2,78 +2,84 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
-import { extractTextFromBuffer, createTextChunks } from '@/app/lib/document-extractor'
-import { storeDocumentChunks } from '@/app/lib/document-chunker'
-import { createEmbeddingsService } from '@/app/lib/embeddings'
-import { storeDocumentVectors } from '@/app/lib/vector-storage'
+import { TokenStore } from '@/app/lib/oauth/token-store'
+import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
+import { extractTextFromBuffer } from '@/app/lib/document-extractor'
 
 async function importOneDriveFileHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
+
   const body = await request.json().catch(() => ({})) as { fileId?: string }
   if (!body.fileId) return ApiResponse.badRequest('fileId is required')
 
-  const { data: token } = await supabaseAdmin
-    .from('oauth_tokens')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('provider', 'microsoft')
-    .single()
+  const token = await TokenStore.getToken(user.id, 'microsoft')
+  if (!token) return ApiResponse.badRequest('Microsoft account not connected')
 
-  if (!token?.access_token) return ApiResponse.badRequest('Microsoft account not connected')
-
-  // Get metadata
-  const metaResp = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${body.fileId}`, {
-    headers: { Authorization: `Bearer ${token.access_token}` },
-  })
+  const headers = { Authorization: `Bearer ${token.accessToken}` }
+  const metaResp = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${body.fileId}`, { headers })
   if (!metaResp.ok) return ApiResponse.internalError('Failed to fetch file metadata')
   const meta = await metaResp.json()
 
-  // Download
-  const dl = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${body.fileId}/content`, {
-    headers: { Authorization: `Bearer ${token.access_token}` },
-  })
-  if (!dl.ok) return ApiResponse.internalError('Failed to download file')
-  const arrayBuf = await dl.arrayBuffer()
-  const buffer = Buffer.from(arrayBuf)
+  const dlResp = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${body.fileId}/content`, { headers })
+  if (!dlResp.ok) return ApiResponse.internalError('Failed to download file')
+  const buffer = Buffer.from(await dlResp.arrayBuffer())
 
-  const { data: created } = await supabaseAdmin
-    .from('file_metadata')
-    .insert({
-      user_id: user.id,
-      name: meta.name,
-      path: `onedrive:${meta.id}`,
-      size: Number(meta.size || buffer.byteLength),
-      mime_type: meta.file?.mimeType || 'application/octet-stream',
+  const createdFile = await filesRepo.create({
+    ownerId: user.id,
+    name: meta.name ?? body.fileId,
+    path: `onedrive:${meta.id}`,
+    sizeBytes: Number(meta.size ?? buffer.byteLength),
+    mimeType: meta.file?.mimeType ?? 'application/octet-stream',
+    createdAt: new Date().toISOString(),
+  })
+
+  await fileIngestRepo.upsert({
+    file_id: createdFile.id,
+    owner_id: user.id,
+    status: 'pending',
+    source: 'microsoft',
+    meta: {
+      providerFileId: meta.id,
+      driveId: meta.parentReference?.driveId,
+      webUrl: meta.webUrl,
+      mimeType: meta.file?.mimeType,
+      sizeBytes: Number(meta.size ?? buffer.byteLength),
+      fileName: meta.name,
+    },
+  })
+
+  let processingStatus: 'pending' | 'processing' | 'ready' | 'error' = 'pending'
+
+  try {
+    processingStatus = 'processing'
+    await fileIngestRepo.updateStatus(user.id, createdFile.id, 'processing', null)
+
+    const extraction = await extractTextFromBuffer(buffer, meta.file?.mimeType ?? 'application/octet-stream', meta.name ?? body.fileId)
+    const { processDocument } = await import('@/app/lib/vector/document-processor')
+    await processDocument(user.id, createdFile.id, meta.name ?? body.fileId, extraction.text, {
       source: 'microsoft',
-      external_id: meta.id,
-      external_url: meta.webUrl,
-      processed: false,
-      processing_status: 'pending',
-      metadata: { provider: 'microsoft' },
+      mimeType: meta.file?.mimeType ?? 'application/octet-stream',
+      externalId: body.fileId,
+      importedAt: new Date().toISOString(),
     })
-    .select()
-    .single()
 
-  const fileId = created.id
-  const extraction = await extractTextFromBuffer(buffer, created.mime_type, created.name)
-  
-  const { processDocument } = await import('@/app/lib/vector/document-processor')
-  await processDocument(user.id, fileId, created.name, extraction.text, {
-    source: 'microsoft_onedrive',
-    mimeType: created.mime_type,
-    externalId: body.fileId,
-    importedAt: new Date().toISOString()
-  })
+    processingStatus = 'ready'
+    await fileIngestRepo.updateStatus(user.id, createdFile.id, 'ready', null)
+  } catch (error) {
+    processingStatus = 'error'
+    await fileIngestRepo.updateStatus(
+      user.id,
+      createdFile.id,
+      'error',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
+  }
 
-  return ApiResponse.success({ file_id: fileId, name: created.name })
+  return ApiResponse.success({ file_id: createdFile.id, name: meta.name ?? body.fileId, status: processingStatus })
 }
 
 export const POST = createProtectedApiHandler(importOneDriveFileHandler, {
   rateLimit: rateLimitConfigs.embedding,
   logging: { enabled: true, includeBody: true },
 })
-
-
-

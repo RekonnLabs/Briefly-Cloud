@@ -68,7 +68,7 @@ describe('File Registration Integration Tests', () => {
       status: 'pending',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      source: 'google_drive',
+      source: 'google',
       totalFiles: 1,
       processedFiles: 0,
       failedFiles: 0,
@@ -617,7 +617,7 @@ describe('File Registration Integration Tests', () => {
       expect(mockImportJobManager.createJob).toHaveBeenCalledTimes(2)
       expect(mockImportJobManager.createJob).toHaveBeenCalledWith(
         testUserId,
-        'google_drive',
+        'google',
         undefined,
         {
           batchSize: 1,
@@ -780,7 +780,7 @@ describe('File Registration Integration Tests', () => {
           status: 'pending',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          source: 'google_drive',
+          source: 'google',
           totalFiles: 1,
           processedFiles: 0,
           failedFiles: 0,

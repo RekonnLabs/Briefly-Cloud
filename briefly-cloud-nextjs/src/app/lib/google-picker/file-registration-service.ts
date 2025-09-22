@@ -9,7 +9,7 @@
  */
 
 import 'server-only'
-import { createFileMetadata, type FileMetadata } from '@/app/lib/supabase'
+import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
@@ -17,6 +17,7 @@ import {
   validateFileRegistrationPermissions,
   type PermissionValidationResult 
 } from './permission-validator'
+import type { AppFile } from '@/app/types/rag'
 
 // Supported MIME types for Google Picker file selection
 export const SUPPORTED_MIME_TYPES = [
@@ -322,47 +323,56 @@ async function createFileRecord(
   userId: string,
   file: SelectedFile,
   status: 'pending' | 'unsupported'
-): Promise<FileMetadata> {
+): Promise<AppFile> {
   try {
-    const fileMetadata: Omit<FileMetadata, 'id' | 'created_at' | 'updated_at'> = {
-      user_id: userId,
+    const createdFile = await filesRepo.create({
+      ownerId: userId,
       name: file.name,
-      path: file.name, // Use name as path for Google Drive files
-      size: file.size,
-      mime_type: file.mimeType,
-      source: 'google',
-      external_id: file.id,
-      external_url: file.downloadUrl,
-      processed: false,
-      processing_status: status,
-      metadata: {
-        picker_selected: true,
-        selected_at: new Date().toISOString(),
-        original_size: file.size,
-        download_url: file.downloadUrl
-      }
-    }
+      path: file.name,
+      sizeBytes: file.size,
+      mimeType: file.mimeType,
+    })
 
-    const createdFile = await createFileMetadata(fileMetadata)
-    
+    const now = new Date().toISOString()
+
+    await fileIngestRepo.upsert({
+      file_id: createdFile.id,
+      owner_id: userId,
+      status,
+      source: 'google',
+      error_msg: status === 'unsupported' ? 'Unsupported MIME type selected via Google Picker' : null,
+      meta: {
+        picker_selected: true,
+        selected_at: now,
+        original_size: file.size,
+        download_url: file.downloadUrl,
+        external_id: file.id,
+        external_url: file.downloadUrl,
+        provider: 'google_picker',
+        file_name: file.name,
+        mime_type: file.mimeType,
+      },
+    })
+
     logger.info('File record created', {
       userId,
       fileId: file.id,
       fileName: file.name,
       appFileId: createdFile.id,
-      status
+      status,
     })
 
     return createdFile
-
   } catch (error) {
     logger.error('Failed to create file record', {
       userId,
       fileId: file.id,
       fileName: file.name,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     })
-    throw createError.internal(`Failed to create file record: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw createError.internal(
+      `Failed to create file record: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
   }
 }
 
@@ -371,7 +381,7 @@ async function createFileRecord(
  */
 async function queueFileForProcessing(
   userId: string,
-  fileRecord: FileMetadata,
+  fileRecord: AppFile,
   originalFile: SelectedFile
 ): Promise<void> {
   try {
@@ -386,7 +396,7 @@ async function queueFileForProcessing(
 
     // Create a single-file processing job using the existing ImportJobManager
     // This leverages the existing infrastructure for file processing
-    const job = await ImportJobManager.createJob(userId, 'google_drive', undefined, {
+    const job = await ImportJobManager.createJob(userId, 'google', undefined, {
       batchSize: 1,
       maxRetries: 3
     })

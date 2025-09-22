@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS app.job_logs (
 -- Connection status table for provider connection state
 CREATE TABLE IF NOT EXISTS app.connection_status (
     user_id UUID NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-    provider TEXT NOT NULL CHECK (provider IN ('google_drive', 'microsoft')),
+    provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
     connected BOOLEAN NOT NULL DEFAULT FALSE,
     
     -- Connection metadata
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS app.file_processing_history (
     
     -- File identification
     external_id TEXT NOT NULL, -- Provider's file ID
-    provider TEXT NOT NULL CHECK (provider IN ('google_drive', 'microsoft')),
+    provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
     file_name TEXT NOT NULL,
     file_path TEXT,
     

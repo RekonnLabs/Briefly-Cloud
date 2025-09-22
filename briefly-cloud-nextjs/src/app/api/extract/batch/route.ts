@@ -45,7 +45,7 @@ async function batchExtractionHandler(request: Request, context: ApiContext): Pr
     
     // Get files metadata
     const { data: files, error: filesError } = await supabase
-      .from('file_metadata')
+      .from('app.files')
       .select('*')
       .eq('user_id', user.id)
       .in('id', file_ids)
@@ -174,7 +174,7 @@ async function batchExtractionHandler(request: Request, context: ApiContext): Pr
             
             // Update file metadata
             await supabase
-              .from('file_metadata')
+              .from('app.files')
               .update({
                 processed: true,
                 processing_status: 'completed',

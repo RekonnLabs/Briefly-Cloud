@@ -30,7 +30,7 @@ async function listGoogleFilesHandler(request: Request, context: ApiContext): Pr
       return ApiResponse.unauthorized('Google Drive access token is invalid or expired')
     }
     if (error instanceof Error && error.message.includes('Google Drive')) {
-      return ApiResponse.serverError('Google Drive API error', 'GOOGLE_DRIVE_ERROR')
+      return ApiResponse.serverError('Google Drive API error', 'google_ERROR')
     }
     return ApiResponse.serverError('Failed to list Google Drive files')
   }

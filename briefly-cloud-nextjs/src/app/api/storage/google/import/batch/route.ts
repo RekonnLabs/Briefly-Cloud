@@ -53,7 +53,7 @@ async function createGoogleBatchImportHandler(
     // Create and process the server-side batch import job
     const job = await ImportJobManager.createAndProcessBatchImport(
       user.id,
-      'google_drive',
+      'google',
       folderId,
       {
         batchSize: Math.min(batchSize, 10), // Server-side can handle larger batches
@@ -65,7 +65,7 @@ async function createGoogleBatchImportHandler(
     return ApiResponse.success({
       jobId: job.id,
       status: job.status,
-      provider: 'google_drive',
+      provider: 'google',
       folderId,
       createdAt: job.createdAt,
       progress: job.progress
@@ -159,7 +159,7 @@ async function listGoogleBatchImportsHandler(
     const jobs = await ImportJobManager.getUserJobs(user.id, status, limit)
 
     // Filter to only Google Drive jobs
-    const googleJobs = jobs.filter(job => job.provider === 'google_drive')
+    const googleJobs = jobs.filter(job => job.provider === 'google')
 
     return ApiResponse.success({
       jobs: googleJobs.map(job => ({

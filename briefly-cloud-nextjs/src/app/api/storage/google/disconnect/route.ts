@@ -19,7 +19,7 @@ export const POST = createProtectedApiHandler(async (request: NextRequest, conte
     })
 
     // Get current token for revocation
-    const token = await TokenStore.getToken(user.id, 'google_drive')
+    const token = await TokenStore.getToken(user.id, 'google')
     
     // Revoke token with Google if available
     if (token?.accessToken) {
@@ -54,7 +54,7 @@ export const POST = createProtectedApiHandler(async (request: NextRequest, conte
     }
 
     // Delete token from our database
-    await TokenStore.deleteToken(user.id, 'google_drive')
+    await TokenStore.deleteToken(user.id, 'google')
 
     logger.info('Google Drive disconnected successfully', {
       userId: user.id,
@@ -63,7 +63,7 @@ export const POST = createProtectedApiHandler(async (request: NextRequest, conte
 
     return ApiResponse.ok({
       message: 'Google Drive disconnected successfully',
-      provider: 'google_drive'
+      provider: 'google'
     }, 'Google Drive has been disconnected from your account', correlationId)
 
   } catch (error) {
@@ -77,7 +77,7 @@ export const POST = createProtectedApiHandler(async (request: NextRequest, conte
       return ApiResponse.badRequest(
         'Failed to disconnect Google Drive',
         'DISCONNECT_ERROR',
-        { provider: 'google_drive' },
+        { provider: 'google' },
         context.correlationId
       )
     }
@@ -85,7 +85,7 @@ export const POST = createProtectedApiHandler(async (request: NextRequest, conte
     return ApiResponse.serverError(
       'Internal server error during disconnect',
       'INTERNAL_ERROR',
-      { provider: 'google_drive' },
+      { provider: 'google' },
       context.correlationId
     )
   }

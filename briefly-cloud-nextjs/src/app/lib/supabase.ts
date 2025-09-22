@@ -46,19 +46,6 @@ export interface User {
   updated_at: string
 }
 
-export interface OAuthToken {
-  id: string
-  user_id: string
-  provider: 'google' | 'microsoft'
-  access_token: string
-  refresh_token?: string
-  expires_at?: string
-  scope?: string
-  token_type?: string
-  created_at: string
-  updated_at: string
-}
-
 export interface FileMetadata {
   id: string
   user_id: string
@@ -212,51 +199,11 @@ export async function updateUser(userId: string, updates: Partial<User>): Promis
 }
 
 // OAuth token operations
-export async function getOAuthToken(userId: string, provider: 'google' | 'microsoft'): Promise<OAuthToken | null> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('oauth_tokens')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('provider', provider)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') return null // No rows returned
-      throw new SupabaseError(`Failed to get OAuth token: ${error.message}`, error.code, error)
-    }
-
-    return data
-  } catch (error) {
-    if (error instanceof SupabaseError) throw error
-    throw new SupabaseError(`Unexpected error getting OAuth token: ${error}`)
-  }
-}
-
-export async function upsertOAuthToken(tokenData: Omit<OAuthToken, 'id' | 'created_at' | 'updated_at'>): Promise<OAuthToken> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('oauth_tokens')
-      .upsert(tokenData, { onConflict: 'user_id,provider' })
-      .select()
-      .single()
-
-    if (error) {
-      throw new SupabaseError(`Failed to upsert OAuth token: ${error.message}`, error.code, error)
-    }
-
-    return data
-  } catch (error) {
-    if (error instanceof SupabaseError) throw error
-    throw new SupabaseError(`Unexpected error upserting OAuth token: ${error}`)
-  }
-}
-
 // File metadata operations
 export async function getFileMetadata(userId: string, fileId?: string): Promise<FileMetadata[]> {
   try {
     let query = supabaseAdmin
-      .from('file_metadata')
+      .from('app.files')
       .select('*')
       .eq('user_id', userId)
 
@@ -280,7 +227,7 @@ export async function getFileMetadata(userId: string, fileId?: string): Promise<
 export async function createFileMetadata(metadata: Omit<FileMetadata, 'id' | 'created_at' | 'updated_at'>): Promise<FileMetadata> {
   try {
     const { data, error } = await supabaseAdmin
-      .from('file_metadata')
+      .from('app.files')
       .insert(metadata)
       .select()
       .single()

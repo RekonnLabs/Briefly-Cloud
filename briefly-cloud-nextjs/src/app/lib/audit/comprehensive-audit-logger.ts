@@ -62,7 +62,7 @@ export interface AuditLogEntry {
   ipAddress?: string
   userAgent?: string
   resource?: string
-  provider?: 'google_drive' | 'microsoft'
+  provider?: 'google' | 'microsoft'
   fileIds?: string[]
   bytesProcessed?: number
   duration?: number
@@ -138,7 +138,7 @@ export class ComprehensiveAuditLogger {
       ipAddress?: string
       userAgent?: string
       resource?: string
-      provider?: 'google_drive' | 'microsoft'
+      provider?: 'google' | 'microsoft'
       fileIds?: string[]
       bytesProcessed?: number
       duration?: number
@@ -602,7 +602,7 @@ export async function auditFileOperation(
   userId: string,
   success: boolean,
   correlationId: string,
-  provider?: 'google_drive' | 'microsoft',
+  provider?: 'google' | 'microsoft',
   bytesProcessed?: number,
   duration?: number,
   errorClass?: string,
@@ -638,7 +638,7 @@ export async function auditFileOperation(
 
 export async function auditOAuthOperation(
   operation: 'connect' | 'disconnect' | 'token_refresh',
-  provider: 'google_drive' | 'microsoft',
+  provider: 'google' | 'microsoft',
   userId: string,
   success: boolean,
   correlationId: string,
@@ -668,7 +668,7 @@ export async function auditOAuthOperation(
 
 export async function auditStorageOperation(
   operation: 'list' | 'batch_import',
-  provider: 'google_drive' | 'microsoft',
+  provider: 'google' | 'microsoft',
   userId: string,
   success: boolean,
   correlationId: string,
@@ -707,7 +707,7 @@ export async function auditJobOperation(
   jobId: string,
   userId: string,
   correlationId: string,
-  provider?: 'google_drive' | 'microsoft',
+  provider?: 'google' | 'microsoft',
   fileIds?: string[],
   bytesProcessed?: number,
   duration?: number,

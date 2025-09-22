@@ -17,21 +17,21 @@ export const TIER_LIMITS = {
     max_files: 25,
     max_llm_calls: 100,
     max_storage_bytes: 104857600, // 100MB
-    features: ['basic_chat', 'google_drive', 'gpt_3_5_turbo']
+    features: ['basic_chat', 'google', 'gpt_3_5_turbo']
   },
   pro: {
     tier: 'pro', 
     max_files: 500,
     max_llm_calls: 400,
     max_storage_bytes: 1073741824, // 1GB
-    features: ['advanced_chat', 'google_drive', 'onedrive', 'priority_support', 'gpt_4_turbo']
+    features: ['advanced_chat', 'google', 'microsoft', 'priority_support', 'gpt_4_turbo']
   },
   pro_byok: {
     tier: 'pro_byok',
     max_files: 5000, 
     max_llm_calls: 2000,
     max_storage_bytes: 10737418240, // 10GB
-    features: ['byok', 'advanced_chat', 'google_drive', 'onedrive', 'priority_support', 'gpt_4_turbo']
+    features: ['byok', 'advanced_chat', 'google', 'microsoft', 'priority_support', 'gpt_4_turbo']
   }
 } as const
 

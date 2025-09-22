@@ -21,8 +21,8 @@ SET search_path = public, private
 AS $function$
 BEGIN
   -- Validate provider
-  IF p_provider NOT IN ('google_drive', 'microsoft') THEN
-    RAISE EXCEPTION 'Invalid provider: %. Must be google_drive or microsoft', p_provider;
+  IF p_provider NOT IN ('google', 'microsoft') THEN
+    RAISE EXCEPTION 'Invalid provider: %. Must be google or microsoft', p_provider;
   END IF;
 
   -- Validate user exists
@@ -113,8 +113,8 @@ DECLARE
   token_record RECORD;
 BEGIN
   -- Validate provider
-  IF p_provider NOT IN ('google_drive', 'microsoft') THEN
-    RAISE EXCEPTION 'Invalid provider: %. Must be google_drive or microsoft', p_provider;
+  IF p_provider NOT IN ('google', 'microsoft') THEN
+    RAISE EXCEPTION 'Invalid provider: %. Must be google or microsoft', p_provider;
   END IF;
 
   -- Get token record
@@ -178,8 +178,8 @@ SET search_path = public, private
 AS $function$
 BEGIN
   -- Validate provider
-  IF p_provider NOT IN ('google_drive', 'microsoft') THEN
-    RAISE EXCEPTION 'Invalid provider: %. Must be google_drive or microsoft', p_provider;
+  IF p_provider NOT IN ('google', 'microsoft') THEN
+    RAISE EXCEPTION 'Invalid provider: %. Must be google or microsoft', p_provider;
   END IF;
 
   -- Delete the token
@@ -306,7 +306,7 @@ GRANT EXECUTE ON FUNCTION public.get_oauth_token_status(UUID,TEXT) TO authentica
 -- Create connection status table if it doesn't exist
 CREATE TABLE IF NOT EXISTS app.connection_status (
   user_id UUID NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-  provider TEXT NOT NULL CHECK (provider IN ('google_drive', 'microsoft')),
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
   connected BOOLEAN NOT NULL DEFAULT FALSE,
   last_sync TIMESTAMPTZ,
   error_message TEXT,

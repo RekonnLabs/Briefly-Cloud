@@ -4,7 +4,7 @@
 -- Connection status tracking table
 CREATE TABLE IF NOT EXISTS connection_status (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  provider TEXT NOT NULL CHECK (provider IN ('google_drive', 'microsoft')),
+  provider TEXT NOT NULL CHECK (provider IN ('google', 'microsoft')),
   connected BOOLEAN NOT NULL DEFAULT FALSE,
   last_sync TIMESTAMPTZ,
   error_message TEXT,

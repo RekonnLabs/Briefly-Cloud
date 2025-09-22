@@ -4,6 +4,7 @@ import { ApiResponse, validateFileUpload, formatFileSize } from '@/app/lib/api-u
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logApiUsage } from '@/app/lib/logger'
+import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { createError } from '@/app/lib/api-errors'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
@@ -163,49 +164,49 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     const { data: urlData } = supabase.storage
       .from('documents')
       .getPublicUrl(fileName)
-    
-    // Create file metadata record
-    const fileMetadata = {
-      id: `${timestamp}_${randomId}`,
-      user_id: user.id,
-      name: file.name,
-      path: fileName,
-      size: file.size,
-      mime_type: file.type,
-      source: 'upload',
-      external_id: uploadData.id,
-      external_url: urlData.publicUrl,
-      processed: false,
-      processing_status: 'pending',
-      metadata: {
-        category: SUPPORTED_FILE_TYPES[file.type as keyof typeof SUPPORTED_FILE_TYPES].category,
-        extension: fileExtension,
-        uploaded_at: new Date().toISOString(),
-        original_name: file.name,
-        ...metadata,
-      },
-    }
-    
-    // Insert file metadata
-    const { data: metadataResult, error: metadataError } = await supabase
-      .from('file_metadata')
-      .insert(fileMetadata)
-      .select()
-      .single()
-    
-    if (metadataError) {
+
+    let ingestStatus: 'pending' | 'processing' | 'ready' | 'error' = 'pending'
+
+    let createdFile
+    try {
+      createdFile = await filesRepo.create({
+        ownerId: user.id,
+        name: file.name,
+        path: fileName,
+        sizeBytes: file.size,
+        mimeType: file.type,
+        createdAt: new Date().toISOString(),
+      })
+    } catch (metadataError) {
       console.error('Metadata insert error:', metadataError, { correlationId, userId: user.id, fileName: file.name })
-      
-      // Clean up uploaded file if metadata insertion fails
       await supabase.storage.from('documents').remove([fileName])
-      
       return ApiResponse.serverError('Failed to save file metadata', 'METADATA_INSERT_ERROR', correlationId)
     }
 
-    // Automatic indexing with new pgvector pipeline
-    const fileId = metadataResult.id
+    const ingestRecord = await fileIngestRepo.upsert({
+      file_id: createdFile.id,
+      owner_id: user.id,
+      status: 'pending',
+      source: 'upload',
+      meta: {
+        storageBucket: 'documents',
+        storagePath: fileName,
+        storageFileId: uploadData.id,
+        publicUrl: urlData.publicUrl,
+        category: SUPPORTED_FILE_TYPES[file.type as keyof typeof SUPPORTED_FILE_TYPES].category,
+        extension: fileExtension,
+        uploadedAt: new Date().toISOString(),
+        originalName: file.name,
+        clientMetadata: metadata,
+      },
+    })
+
+    const fileId = createdFile.id
     
     try {
+      ingestStatus = 'processing'
+      await fileIngestRepo.updateStatus(user.id, fileId, 'processing', null)
+
       // 1) Extract text from the uploaded buffer
       const { extractTextFromBuffer } = await import('@/app/lib/document-extractor')
       const extraction = await extractTextFromBuffer(Buffer.from(fileBuffer), file.type, file.name)
@@ -218,17 +219,20 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
         uploadedAt: new Date().toISOString(),
         source: 'upload'
       })
-        
+      ingestStatus = 'ready'
+      await fileIngestRepo.updateStatus(user.id, fileId, 'ready', null)
+
     } catch (processingError) {
       console.error('File processing error:', processingError, { correlationId, userId: user.id, fileId, fileName: file.name })
       
-      // Mark as failed but don't fail the upload
-      await supabaseAdmin
-        .from('file_metadata')
-        .update({ processed: false, processing_status: 'failed' })
-        .eq('id', fileId)
-        .eq('user_id', user.id)
-        
+      ingestStatus = 'error'
+      await fileIngestRepo.updateStatus(
+        user.id,
+        fileId,
+        'error',
+        processingError instanceof Error ? processingError.message : 'Unknown error'
+      )
+
       // Log the processing error but continue with upload success
       logApiUsage(user.id, '/api/upload', 'processing_failed', {
         file_name: file.name,
@@ -269,13 +273,15 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     // Return success response
     return ApiResponse.created({
       file: {
-        id: metadataResult.id,
-        name: file.name,
+        id: createdFile.id,
+        name: createdFile.name,
         size: file.size,
         type: file.type,
         url: urlData.publicUrl,
-        uploaded_at: new Date().toISOString(),
-        processing_status: 'pending',
+        external_url: urlData.publicUrl,
+        uploaded_at: createdFile.created_at,
+        processing_status: ingestStatus,
+        source: ingestRecord.source,
       },
       usage: {
         files_used: currentFileCount + 1,

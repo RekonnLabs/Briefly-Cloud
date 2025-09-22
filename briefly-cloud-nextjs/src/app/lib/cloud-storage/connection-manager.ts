@@ -36,7 +36,7 @@ export class ConnectionManager {
 
       // Cancel running jobs if requested
       if (options.cancelRunningJobs) {
-        await this.cancelProviderJobs(userId, 'google_drive')
+        await this.cancelProviderJobs(userId, 'google')
       }
 
       // Delete stored token
@@ -45,7 +45,7 @@ export class ConnectionManager {
       // Update connection status
       await supabaseAdmin.rpc('update_connection_status', {
         p_user_id: userId,
-        p_provider: 'google_drive',
+        p_provider: 'google',
         p_connected: false,
         p_error_message: 'Disconnected by user'
       })
@@ -161,7 +161,7 @@ export class ConnectionManager {
    */
   private static async cancelProviderJobs(
     userId: string, 
-    provider: 'google_drive' | 'microsoft'
+    provider: 'google' | 'microsoft'
   ): Promise<void> {
     try {
       // Update running jobs to cancelled status
@@ -202,7 +202,7 @@ export class ConnectionManager {
    */
   static async getProviderStatus(
     userId: string,
-    provider: 'google_drive' | 'microsoft'
+    provider: 'google' | 'microsoft'
   ): Promise<{
     connected: boolean
     lastSync?: string
@@ -210,7 +210,7 @@ export class ConnectionManager {
   }> {
     try {
       // Check if we have a valid token
-      const token = await TokenStore.getToken(userId, provider === 'google_drive' ? 'google' : provider)
+      const token = await TokenStore.getToken(userId, provider)
       
       let connected = false
       if (token) {

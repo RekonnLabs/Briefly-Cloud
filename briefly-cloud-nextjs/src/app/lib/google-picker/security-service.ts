@@ -219,7 +219,7 @@ export async function generateSecurePickerToken(
   }
 
   // Get stored token from TokenStore
-  const storedToken = await TokenStore.getToken(userId, 'google_drive')
+  const storedToken = await TokenStore.getToken(userId, 'google')
   
   if (!storedToken || !storedToken.refreshToken) {
     throw new Error('No valid Google Drive token found')
@@ -246,7 +246,7 @@ export async function generateSecurePickerToken(
   let finalToken = storedToken
   
   if (timeUntilExpiry <= 5 * 60 * 1000) { // Less than 5 minutes remaining
-    const refreshedToken = await TokenStore.refreshTokenIfNeeded(userId, 'google_drive')
+    const refreshedToken = await TokenStore.refreshTokenIfNeeded(userId, 'google')
     if (!refreshedToken) {
       throw new Error('Failed to refresh token')
     }

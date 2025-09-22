@@ -359,7 +359,7 @@ export class EmbeddingsService {
 
       // Update file metadata with embedding information
       await supabase
-        .from('file_metadata')
+        .from('app.files')
         .update({
           processed: true,
           processing_status: 'completed',

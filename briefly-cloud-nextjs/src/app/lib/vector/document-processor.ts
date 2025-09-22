@@ -11,6 +11,7 @@ import { getVectorStore } from './vector-store-factory'
 import { generateEmbedding, generateEmbeddings } from '@/app/lib/embeddings'
 import { createTextChunks } from '@/app/lib/document-chunker'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 const FILES_TABLE = 'app.files'
 const CHUNKS_TABLE = 'app.document_chunks'
 
@@ -264,19 +265,12 @@ export class DocumentProcessor implements IDocumentProcessor {
     averageChunksPerDocument: number
   }> {
     try {
-      // Get file statistics
-      const { data: fileStats, error: fileError } = await supabaseAdmin
-        .from(FILES_TABLE)
-        .select('processed, processing_status')
-        .eq('owner_id', userId)
+      // Get ingest statistics
+      const ingestRecords = await fileIngestRepo.listByOwner(userId)
 
-      if (fileError) {
-        throw fileError
-      }
-
-      const totalDocuments = fileStats?.length || 0
-      const processedDocuments = fileStats?.filter(f => f.processed).length || 0
-      const failedDocuments = fileStats?.filter(f => f.processing_status === 'failed').length || 0
+      const totalDocuments = ingestRecords.length
+      const processedDocuments = ingestRecords.filter(record => record.status === 'ready').length
+      const failedDocuments = ingestRecords.filter(record => record.status === 'error').length
 
       // Get chunk statistics
       const { count: totalChunks, error: chunkError } = await supabaseAdmin
@@ -323,45 +317,44 @@ export class DocumentProcessor implements IDocumentProcessor {
   ): Promise<void> {
     try {
       // Get file information
-      const { data: file, error } = await supabaseAdmin
-        .from(FILES_TABLE)
-        .select('name, processed, processing_status')
-        .eq('id', fileId)
-        .eq('owner_id', userId)
-        .single()
-
-      if (error || !file) {
+      const fileRecord = await filesRepo.getById(userId, fileId)
+      if (!fileRecord) {
         throw new Error('File not found or access denied')
       }
 
-      // Check if reprocessing is needed
-      if (file.processed && !forceReprocess) {
+      const ingestRecord = await fileIngestRepo.get(userId, fileId)
+
+      if (ingestRecord?.status === 'ready' && !forceReprocess) {
         logger.info('File already processed, skipping reprocessing', {
           userId,
           fileId,
-          fileName: file.name
+          fileName: fileRecord.name
         })
         return
       }
 
-      // Delete existing vectors
       await this.vectorStore.deleteUserDocuments(userId, fileId)
 
-      // Mark file as not processed
-      await supabaseAdmin
-        .from(FILES_TABLE)
-        .update({
-          processed: false,
-          processing_status: 'processing',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', fileId)
-        .eq('owner_id', userId)
+      const updatedMeta = {
+        ...(ingestRecord?.meta ?? {}),
+        reprocess_requested_at: new Date().toISOString()
+      }
+
+      await fileIngestRepo.upsert({
+        file_id: fileId,
+        owner_id: userId,
+        status: 'processing',
+        source: ingestRecord?.source ?? null,
+        error_msg: null,
+        page_count: ingestRecord?.page_count ?? null,
+        lang: ingestRecord?.lang ?? null,
+        meta: updatedMeta,
+      })
 
       logger.info('Document marked for reprocessing', {
         userId,
         fileId,
-        fileName: file.name
+        fileName: fileRecord.name
       })
 
       // Note: The actual reprocessing would be triggered by the document upload pipeline
