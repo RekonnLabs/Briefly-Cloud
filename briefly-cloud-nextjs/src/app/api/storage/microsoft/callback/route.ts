@@ -6,8 +6,11 @@ import { TokenStore } from '@/app/lib/oauth/token-store'
 import { OAuthStateManager } from '@/app/lib/oauth/state-manager'
 import { OAuthLogger } from '@/app/lib/oauth/logger'
 import { OAuthErrorCodes, OAuthErrorHandler } from '@/app/lib/oauth/error-codes'
+import { logReq, logErr } from '@/app/lib/server/log'
 
 export async function GET(req: NextRequest) {
+  const rid = logReq({ route: '/api/storage/microsoft/callback', method: 'GET' })
+  
   try {
     const { searchParams } = new URL(req.url)
     const code = searchParams.get('code')
@@ -123,6 +126,7 @@ export async function GET(req: NextRequest) {
       const refreshToken = tokens.refresh_token ?? existingToken?.refreshToken ?? null
 
       // Store tokens securely with merged refresh token
+      console.log(`[${rid}] Saving Microsoft token for user ${user.id}`)
       await TokenStore.saveToken(user.id, 'microsoft', {
         accessToken: tokens.access_token,
         refreshToken: refreshToken || undefined,
@@ -131,6 +135,7 @@ export async function GET(req: NextRequest) {
           : null,
         scope: tokens.scope ?? null,
       })
+      console.log(`[${rid}] Microsoft token saved successfully`)
 
       // Log successful token storage
       OAuthLogger.logTokenOperation('microsoft', 'store', user.id, true, {
@@ -149,6 +154,8 @@ export async function GET(req: NextRequest) {
         new URL('/briefly/app/dashboard?tab=storage&connected=microsoft', req.url)
       )
     } catch (storageError) {
+      logErr(rid, 'token-storage', storageError, { userId: user.id, provider: 'microsoft' })
+      
       // Log token storage failure
       OAuthLogger.logTokenOperation('microsoft', 'store', user.id, false, {
         error: storageError instanceof Error ? storageError.message : String(storageError)

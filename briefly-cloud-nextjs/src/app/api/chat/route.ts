@@ -1,3 +1,6 @@
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-response'
@@ -8,6 +11,7 @@ import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
+import { logReq, logErr } from '@/app/lib/server/log'
 
 // Briefly Voice v1 imports
 import { buildMessages, buildDeveloper, type ContextSnippet } from '@/app/lib/prompt/promptBuilder'
@@ -24,6 +28,8 @@ const chatSchema = z.object({
 
 async function chatHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
+  const rid = logReq({ route: '/api/chat', method: 'POST', userId: user?.id })
+  
   if (!user) return ApiResponse.unauthorized('User not authenticated')
 
   let body: unknown
@@ -38,8 +44,9 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
 
   const { message, conversationId, stream, boost } = parsed.data
 
-  const supabase = supabaseAdmin
-  const startTime = Date.now()
+  try {
+    const supabase = supabaseAdmin
+    const startTime = Date.now()
 
   // Prepare conversation
   let convoId = conversationId
@@ -271,6 +278,11 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       retrievalStats
     }
   })
+  
+  } catch (error) {
+    logErr(rid, 'chat-handler', error, { userId: user?.id, message: message?.slice(0, 100) })
+    return ApiResponse.serverError('Chat processing failed', 'CHAT_ERROR', rid)
+  }
 }
 
 export const POST = withPerformanceMonitoring(

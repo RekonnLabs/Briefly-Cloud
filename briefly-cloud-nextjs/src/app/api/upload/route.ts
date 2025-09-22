@@ -1,3 +1,6 @@
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse, validateFileUpload, formatFileSize } from '@/app/lib/api-utils'
@@ -6,8 +9,9 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logApiUsage } from '@/app/lib/logger'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { createError } from '@/app/lib/api-errors'
-import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
+import { cacheManager, CACHE_KEYS } from '@/app/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
+import { logReq, logErr } from '@/app/lib/server/log'
 
 // Supported file types and their MIME types
 const SUPPORTED_FILE_TYPES = {
@@ -51,6 +55,7 @@ const TIER_LIMITS = {
 // POST /api/upload - Handle file upload
 async function uploadHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user, correlationId } = context
+  const rid = logReq({ route: '/api/upload', method: 'POST', userId: user.id })
   
   if (!user) {
     return ApiResponse.unauthorized('User not authenticated')
@@ -294,6 +299,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     }, 'File uploaded successfully')
     
   } catch (error) {
+    logErr(rid, 'upload-handler', error, { correlationId, userId: user?.id })
     console.error('Upload handler error:', error, { correlationId, userId: user?.id })
     
     // Re-throw known errors
