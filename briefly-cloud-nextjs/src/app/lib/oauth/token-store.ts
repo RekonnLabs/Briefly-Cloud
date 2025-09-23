@@ -64,7 +64,16 @@ export async function saveToken(
   provider: Provider,
   t: { accessToken: string; refreshToken?: string; scope?: string; expiresAt?: string | null }
 ): Promise<void> {
-  const { error } = await supabaseAdmin.rpc('app.save_oauth_token', {
+  console.log('[TokenStore] Calling RPC app.save_oauth_token with:', {
+    p_user_id: userId,
+    p_provider: provider,
+    p_access_token: t.accessToken ? `${t.accessToken.substring(0, 10)}...` : null,
+    p_refresh_token: t.refreshToken ? `${t.refreshToken.substring(0, 10)}...` : null,
+    p_scope: t.scope,
+    p_expires_at: t.expiresAt,
+  })
+
+  const { data, error } = await supabaseAdmin.rpc('app.save_oauth_token', {
     p_user_id: userId,
     p_provider: provider,
     p_access_token: t.accessToken,
@@ -72,6 +81,8 @@ export async function saveToken(
     p_scope: t.scope ?? null,
     p_expires_at: t.expiresAt ?? null,
   })
+
+  console.log('[TokenStore] RPC response:', { data, error })
 
   if (error) {
     logger.error('Failed to save OAuth token via RPC', {
@@ -81,6 +92,8 @@ export async function saveToken(
     })
     throw error
   }
+  
+  console.log('[TokenStore] Token saved successfully')
 }
 
 const baseGetToken = getToken
