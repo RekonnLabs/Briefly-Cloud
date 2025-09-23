@@ -23,6 +23,7 @@ export async function getToken(userId: string, provider: Provider): Promise<{
 } | null> {
   try {
     const { data, error } = await supabaseAdmin
+      .schema('app')
       .rpc('get_oauth_token', {
         p_user_id: userId,
         p_provider: provider,
@@ -73,7 +74,7 @@ export async function saveToken(
     p_expires_at: t.expiresAt,
   })
 
-  const { data, error } = await supabaseAdmin.rpc('save_oauth_token', {
+  const { data, error } = await supabaseAdmin.schema('app').rpc('save_oauth_token', {
     p_user_id: userId,
     p_provider: provider,
     p_access_token: t.accessToken,

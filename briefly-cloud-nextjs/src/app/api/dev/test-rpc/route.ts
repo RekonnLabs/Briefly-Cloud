@@ -25,7 +25,7 @@ export async function GET() {
     
     console.log('[TEST-RPC] Calling RPC with:', testData)
     
-    const { data, error } = await supabaseAdmin.rpc('save_oauth_token', testData)
+    const { data, error } = await supabaseAdmin.schema('app').rpc('save_oauth_token', testData)
     
     console.log('[TEST-RPC] RPC response:', { data, error })
     
@@ -38,7 +38,7 @@ export async function GET() {
     }
     
     // Now try to retrieve it
-    const { data: retrievedData, error: getError } = await supabaseAdmin.rpc('get_oauth_token', {
+    const { data: retrievedData, error: getError } = await supabaseAdmin.schema('app').rpc('get_oauth_token', {
       p_user_id: user.id,
       p_provider: 'google'
     })
