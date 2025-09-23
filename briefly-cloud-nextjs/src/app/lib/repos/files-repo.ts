@@ -1,7 +1,23 @@
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
-import config from '@/app/lib/config'
+import { BaseRepository } from './base-repo'
 import type { AppFile } from '@/app/types/rag'
-import { createError } from '@/app/lib/api-errors'
+
+// TypeScript interfaces for FileRecord and repository methods
+export interface FileRecord {
+  id: string
+  user_id: string
+  name: string
+  path: string
+  size: number
+  mime_type?: string
+  source: 'upload' | 'google' | 'microsoft'
+  external_id?: string
+  external_url?: string
+  processed: boolean
+  processing_status: 'pending' | 'processing' | 'completed' | 'failed'
+  metadata: Record<string, any>
+  created_at: string
+  updated_at: string
+}
 
 export interface FileSearchOptions {
   search?: string
@@ -17,249 +33,416 @@ export interface FileSearchResult {
   count: number
 }
 
-type CreateFileInput = {
+export interface CreateFileInput {
   ownerId: string
   name: string
   path: string
   sizeBytes: number
   mimeType?: string | null
+  source?: 'upload' | 'google' | 'microsoft'
+  externalId?: string | null
+  externalUrl?: string | null
+  metadata?: Record<string, any>
   checksum?: string | null
   createdAt?: string
 }
 
-const useAppSchema = config.features.ragAppSchema ?? true
+export interface UpdateFileInput {
+  name?: string
+  processed?: boolean
+  processing_status?: 'pending' | 'processing' | 'completed' | 'failed'
+  metadata?: Record<string, any>
+  checksum?: string | null
+}
 
-const FILES_TABLE = useAppSchema ? 'app.files' : 'file_metadata'
-
-const columnMap = useAppSchema
-  ? {
-      ownerId: 'owner_id',
-      name: 'name',
-      path: 'path',
-      sizeBytes: 'size_bytes',
-      mimeType: 'mime_type',
-      checksum: 'checksum',
-      createdAt: 'created_at',
-    } as const
-  : {
-      ownerId: 'user_id',
-      name: 'original_name',
-      path: 'path',
-      sizeBytes: 'size',
-      mimeType: 'mime_type',
-      checksum: 'checksum',
-      createdAt: 'created_at',
-    } as const
-
+// Map database record to AppFile format for backward compatibility
 const mapRecordToAppFile = (record: Record<string, any>): AppFile => ({
   id: record.id,
-  owner_id: record[useAppSchema ? 'owner_id' : 'user_id'],
-  name: record[useAppSchema ? 'name' : 'original_name'],
+  owner_id: record.user_id,
+  name: record.name,
   path: record.path,
-  size_bytes: Number(record[useAppSchema ? 'size_bytes' : 'size'] ?? 0),
+  size_bytes: Number(record.size ?? 0),
   mime_type: record.mime_type ?? null,
   checksum: record.checksum ?? null,
   created_at: record.created_at ?? new Date().toISOString(),
 })
 
-export const filesRepo = {
-  async create(input: CreateFileInput): Promise<AppFile> {
-    const payload: Record<string, any> = {
-      [columnMap.ownerId]: input.ownerId,
-      [columnMap.name]: input.name,
-      [columnMap.path]: input.path,
-      [columnMap.sizeBytes]: input.sizeBytes,
-      [columnMap.mimeType]: input.mimeType ?? null,
-      [columnMap.checksum]: input.checksum ?? null,
+// Map database record to FileRecord format
+const mapRecordToFileRecord = (record: Record<string, any>): FileRecord => ({
+  id: record.id,
+  user_id: record.user_id,
+  name: record.name,
+  path: record.path,
+  size: Number(record.size ?? 0),
+  mime_type: record.mime_type ?? null,
+  source: record.source ?? 'upload',
+  external_id: record.external_id ?? null,
+  external_url: record.external_url ?? null,
+  processed: record.processed ?? false,
+  processing_status: record.processing_status ?? 'pending',
+  metadata: record.metadata ?? {},
+  checksum: record.checksum ?? null,
+  created_at: record.created_at ?? new Date().toISOString(),
+  updated_at: record.updated_at ?? new Date().toISOString(),
+})
+
+/**
+ * Files Repository - App Schema Implementation
+ * 
+ * This repository handles file operations using the app schema (app.files table).
+ * It extends BaseRepository for schema-aware operations and proper error handling.
+ */
+export class FilesRepository extends BaseRepository {
+  private readonly TABLE_NAME = 'files'
+
+  /**
+   * Create a new file record in app.files table
+   */
+  async create(input: CreateFileInput): Promise<FileRecord> {
+    this.validateRequiredFields(input, ['ownerId', 'name', 'path', 'sizeBytes'], 'create file')
+
+    const payload = this.sanitizeInput({
+      user_id: input.ownerId,
+      name: input.name,
+      path: input.path,
+      size: input.sizeBytes,
+      mime_type: input.mimeType,
+      source: input.source || 'upload',
+      external_id: input.externalId,
+      external_url: input.externalUrl,
+      metadata: input.metadata || {},
+      checksum: input.checksum,
+      processed: false,
+      processing_status: 'pending',
+      created_at: input.createdAt || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+
+    try {
+      const { data, error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .insert(payload)
+        .select('*')
+        .single()
+
+      if (error) {
+        this.handleDatabaseError(error, 'create file record')
+      }
+
+      if (!data) {
+        throw new Error('No data returned from file creation')
+      }
+
+      return mapRecordToFileRecord(data)
+    } catch (error) {
+      this.handleDatabaseError(error, 'create file record in app schema')
     }
+  }
 
-    if (input.createdAt) {
-      payload[columnMap.createdAt] = input.createdAt
+  /**
+   * Get file by ID for a specific user
+   */
+  async getById(userId: string, fileId: string): Promise<FileRecord | null> {
+    this.validateRequiredFields({ userId, fileId }, ['userId', 'fileId'], 'get file by ID')
+
+    try {
+      const { data, error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .select('*')
+        .eq('id', fileId)
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (error) {
+        this.handleDatabaseError(error, 'fetch file by ID')
+      }
+
+      return data ? mapRecordToFileRecord(data) : null
+    } catch (error) {
+      this.handleDatabaseError(error, 'fetch file by ID from app schema')
     }
+  }
 
-    const { data, error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .insert(payload)
-      .select('*')
-      .single()
+  /**
+   * List all files for a user
+   */
+  async findByUserId(userId: string, limit = 50, offset = 0): Promise<FileRecord[]> {
+    this.validateRequiredFields({ userId }, ['userId'], 'list user files')
 
-    if (error || !data) {
-      throw createError.databaseError('Failed to create file record', { error })
+    try {
+      const { data, error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+
+      if (error) {
+        this.handleDatabaseError(error, 'list user files')
+      }
+
+      return (data || []).map(mapRecordToFileRecord)
+    } catch (error) {
+      this.handleDatabaseError(error, 'list user files from app schema')
     }
+  }
 
-    return mapRecordToAppFile(data)
-  },
+  /**
+   * Search files with various options
+   */
+  async search(userId: string, options: FileSearchOptions): Promise<FileSearchResult> {
+    this.validateRequiredFields({ userId }, ['userId'], 'search files')
 
-  async getById(ownerId: string, fileId: string): Promise<AppFile | null> {
-    const { data, error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .select('*')
-      .eq('id', fileId)
-      .eq(columnMap.ownerId, ownerId)
-      .maybeSingle()
-
-    if (error) {
-      throw createError.databaseError('Failed to fetch file record', { error })
-    }
-
-    return data ? mapRecordToAppFile(data) : null
-  },
-
-  async listByOwner(ownerId: string): Promise<AppFile[]> {
-    const { data, error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .select('*')
-      .eq(columnMap.ownerId, ownerId)
-      .order(columnMap.createdAt, { ascending: false })
-
-    if (error) {
-      throw createError.databaseError('Failed to list user files', { error })
-    }
-
-    return (data ?? []).map(mapRecordToAppFile)
-  },
-
-  async search(ownerId: string, options: FileSearchOptions): Promise<FileSearchResult> {
     const { search, sortBy = 'created_at', sortOrder = 'desc', offset = 0, limit = 20, filterIds } = options
 
     const sortColumnMap = {
-      created_at: columnMap.createdAt,
-      name: columnMap.name,
-      size: columnMap.sizeBytes,
+      created_at: 'created_at',
+      name: 'name',
+      size: 'size',
     } as const
 
     if (filterIds && filterIds.length === 0) {
       return { items: [], count: 0 }
     }
 
-    let query = supabaseAdmin
-      .from(FILES_TABLE)
-      .select('*', { count: 'exact' })
-      .eq(columnMap.ownerId, ownerId)
+    try {
+      let query = this.appClient
+        .from(this.TABLE_NAME)
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
 
-    if (filterIds && filterIds.length > 0) {
-      query = query.in('id', filterIds)
+      if (filterIds && filterIds.length > 0) {
+        query = query.in('id', filterIds)
+      }
+
+      if (search) {
+        query = query.ilike('name', `%${search}%`)
+      }
+
+      query = query.order(sortColumnMap[sortBy], { ascending: sortOrder === 'asc' })
+        .range(offset, offset + limit - 1)
+
+      const { data, error, count } = await query
+
+      if (error) {
+        this.handleDatabaseError(error, 'search files')
+      }
+
+      return {
+        items: (data || []).map(mapRecordToAppFile),
+        count: count || 0,
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'search files in app schema')
     }
+  }
 
-    if (search) {
-      query = query.ilike(columnMap.name, `%${search}%`)
-    }
-
-    query = query.order(sortColumnMap[sortBy], { ascending: sortOrder === 'asc' })
-      .range(offset, offset + limit - 1)
-
-    const { data, error, count } = await query
-
-    if (error) {
-      throw createError.databaseError('Failed to search files', { error })
-    }
-
-    return {
-      items: (data ?? []).map(mapRecordToAppFile),
-      count: count ?? 0,
-    }
-  },
-
-  async getByIds(ownerId: string, fileIds: string[]): Promise<AppFile[]> {
+  /**
+   * Get multiple files by IDs
+   */
+  async getByIds(userId: string, fileIds: string[]): Promise<AppFile[]> {
     if (!fileIds.length) return []
 
-    const { data, error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .select('*')
-      .eq(columnMap.ownerId, ownerId)
-      .in('id', fileIds)
+    this.validateRequiredFields({ userId }, ['userId'], 'get files by IDs')
 
-    if (error) {
-      throw createError.databaseError('Failed to fetch files by ids', { error })
+    try {
+      const { data, error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .select('*')
+        .eq('user_id', userId)
+        .in('id', fileIds)
+
+      if (error) {
+        this.handleDatabaseError(error, 'fetch files by IDs')
+      }
+
+      return (data || []).map(mapRecordToAppFile)
+    } catch (error) {
+      this.handleDatabaseError(error, 'fetch files by IDs from app schema')
+    }
+  }
+
+  /**
+   * Update file processing status
+   */
+  async updateProcessingStatus(
+    userId: string,
+    fileId: string,
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+  ): Promise<void> {
+    this.validateRequiredFields({ userId, fileId, status }, ['userId', 'fileId', 'status'], 'update processing status')
+
+    const payload = {
+      processing_status: status,
+      processed: status === 'completed',
+      updated_at: new Date().toISOString()
     }
 
-    return (data ?? []).map(mapRecordToAppFile)
-  },
+    try {
+      const { error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .update(payload)
+        .eq('id', fileId)
+        .eq('user_id', userId)
 
-  async update(ownerId: string, fileId: string, updates: Partial<{ name: string }>): Promise<void> {
-    const payload: Record<string, any> = {}
-    if (updates.name !== undefined) {
-      payload[columnMap.name] = updates.name
+      if (error) {
+        this.handleDatabaseError(error, 'update file processing status')
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'update file processing status in app schema')
     }
-    if (Object.keys(payload).length === 0) return
+  }
 
-    const { error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .update(payload)
-      .eq('id', fileId)
-      .eq(columnMap.ownerId, ownerId)
+  /**
+   * Update file record
+   */
+  async update(userId: string, fileId: string, updates: UpdateFileInput): Promise<void> {
+    this.validateRequiredFields({ userId, fileId }, ['userId', 'fileId'], 'update file')
 
-    if (error) {
-      throw createError.databaseError('Failed to update file', { error })
+    const payload = this.sanitizeInput({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+
+    if (Object.keys(payload).length <= 1) return // Only updated_at
+
+    try {
+      const { error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .update(payload)
+        .eq('id', fileId)
+        .eq('user_id', userId)
+
+      if (error) {
+        this.handleDatabaseError(error, 'update file')
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'update file in app schema')
     }
-  },
+  }
 
-  async updateMany(ownerId: string, fileIds: string[], updates: Partial<{ name: string }>): Promise<AppFile[]> {
+  /**
+   * Update multiple files
+   */
+  async updateMany(userId: string, fileIds: string[], updates: UpdateFileInput): Promise<AppFile[]> {
     if (!fileIds.length) return []
 
-    const payload: Record<string, any> = {}
+    this.validateRequiredFields({ userId }, ['userId'], 'bulk update files')
 
-    if (updates.name !== undefined) {
-      payload[columnMap.name] = updates.name
+    const payload = this.sanitizeInput({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+
+    if (Object.keys(payload).length <= 1) {
+      return this.getByIds(userId, fileIds)
     }
 
-    if (Object.keys(payload).length === 0) {
-      return this.getByIds(ownerId, fileIds)
+    try {
+      const { data, error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .update(payload)
+        .eq('user_id', userId)
+        .in('id', fileIds)
+        .select('*')
+
+      if (error) {
+        this.handleDatabaseError(error, 'bulk update files')
+      }
+
+      return (data || []).map(mapRecordToAppFile)
+    } catch (error) {
+      this.handleDatabaseError(error, 'bulk update files in app schema')
     }
+  }
 
-    const { data, error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .update(payload)
-      .eq(columnMap.ownerId, ownerId)
-      .in('id', fileIds)
-      .select('*')
+  /**
+   * Delete a file
+   */
+  async delete(userId: string, fileId: string): Promise<void> {
+    this.validateRequiredFields({ userId, fileId }, ['userId', 'fileId'], 'delete file')
 
-    if (error) {
-      throw createError.databaseError('Failed to bulk update files', { error })
+    try {
+      const { error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .delete()
+        .eq('id', fileId)
+        .eq('user_id', userId)
+
+      if (error) {
+        this.handleDatabaseError(error, 'delete file')
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'delete file from app schema')
     }
+  }
 
-    return (data ?? []).map(mapRecordToAppFile)
-  },
-
-  async delete(ownerId: string, fileId: string): Promise<void> {
-    const { error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .delete()
-      .eq('id', fileId)
-      .eq(columnMap.ownerId, ownerId)
-
-    if (error) {
-      throw createError.databaseError('Failed to delete file', { error })
-    }
-  },
-
-  async deleteMany(ownerId: string, fileIds: string[]): Promise<string[]> {
+  /**
+   * Delete multiple files
+   */
+  async deleteMany(userId: string, fileIds: string[]): Promise<string[]> {
     if (!fileIds.length) return []
 
-    const { data, error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .delete()
-      .eq(columnMap.ownerId, ownerId)
-      .in('id', fileIds)
-      .select('id')
+    this.validateRequiredFields({ userId }, ['userId'], 'bulk delete files')
 
-    if (error) {
-      throw createError.databaseError('Failed to bulk delete files', { error })
+    try {
+      const { data, error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .delete()
+        .eq('user_id', userId)
+        .in('id', fileIds)
+        .select('id')
+
+      if (error) {
+        this.handleDatabaseError(error, 'bulk delete files')
+      }
+
+      return (data || []).map((record: any) => record.id)
+    } catch (error) {
+      this.handleDatabaseError(error, 'bulk delete files from app schema')
     }
+  }
 
-    return (data ?? []).map((record: any) => record.id)
-  },
+  /**
+   * Update file checksum
+   */
+  async updateChecksum(userId: string, fileId: string, checksum: string | null): Promise<void> {
+    this.validateRequiredFields({ userId, fileId }, ['userId', 'fileId'], 'update file checksum')
 
-  async updateChecksum(ownerId: string, fileId: string, checksum: string | null): Promise<void> {
-    const { error } = await supabaseAdmin
-      .from(FILES_TABLE)
-      .update({ [columnMap.checksum]: checksum })
-      .eq('id', fileId)
-      .eq(columnMap.ownerId, ownerId)
+    try {
+      const { error } = await this.appClient
+        .from(this.TABLE_NAME)
+        .update({ 
+          checksum,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', fileId)
+        .eq('user_id', userId)
 
-    if (error) {
-      throw createError.databaseError('Failed to update file checksum', { error })
+      if (error) {
+        this.handleDatabaseError(error, 'update file checksum')
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'update file checksum in app schema')
     }
-  },
+  }
+
+  // Backward compatibility methods that return AppFile format
+  async listByOwner(ownerId: string): Promise<AppFile[]> {
+    const files = await this.findByUserId(ownerId)
+    return files.map(file => mapRecordToAppFile({
+      id: file.id,
+      user_id: file.user_id,
+      name: file.name,
+      path: file.path,
+      size: file.size,
+      mime_type: file.mime_type,
+      checksum: file.checksum,
+      created_at: file.created_at
+    }))
+  }
 }
+
+// Export singleton instance for backward compatibility
+export const filesRepo = new FilesRepository()
 

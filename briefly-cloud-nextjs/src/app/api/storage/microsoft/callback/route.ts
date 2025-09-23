@@ -2,11 +2,12 @@ export const runtime = 'nodejs'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/app/lib/auth/supabase-auth'
-import { TokenStore } from '@/app/lib/oauth/token-store'
+import { oauthTokensRepo } from '@/app/lib/repos/oauth-tokens-repo'
 import { OAuthStateManager } from '@/app/lib/oauth/state-manager'
 import { OAuthLogger } from '@/app/lib/oauth/logger'
 import { OAuthErrorCodes, OAuthErrorHandler } from '@/app/lib/oauth/error-codes'
 import { logReq, logErr } from '@/app/lib/server/log'
+import { handleSchemaError, logSchemaError } from '@/app/lib/errors/schema-errors'
 
 export async function GET(req: NextRequest) {
   const rid = logReq({ route: '/api/storage/microsoft/callback', method: 'GET' })
@@ -122,25 +123,26 @@ export async function GET(req: NextRequest) {
     
     try {
       // Read existing token to preserve refresh_token if Microsoft doesn't send a new one
-      const existingToken = await TokenStore.getToken(user.id, 'microsoft')
+      const existingToken = await oauthTokensRepo.getToken(user.id, 'microsoft')
       const refreshToken = tokens.refresh_token ?? existingToken?.refreshToken ?? null
 
-      // Store tokens securely with merged refresh token
-      console.log(`[${rid}] Saving Microsoft token for user ${user.id}`)
-      await TokenStore.saveToken(user.id, 'microsoft', {
+      // Store tokens securely with merged refresh token using RPC functions
+      console.log(`[${rid}] Saving Microsoft token for user ${user.id} via RPC`)
+      await oauthTokensRepo.saveToken(user.id, 'microsoft', {
         accessToken: tokens.access_token,
         refreshToken: refreshToken || undefined,
         expiresAt: typeof tokens.expires_in === 'number'
           ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-          : null,
-        scope: tokens.scope ?? null,
+          : undefined,
+        scope: tokens.scope ?? undefined,
       })
-      console.log(`[${rid}] Microsoft token saved successfully`)
+      console.log(`[${rid}] Microsoft token saved successfully via RPC`)
 
       // Log successful token storage
       OAuthLogger.logTokenOperation('microsoft', 'store', user.id, true, {
         scope: tokens.scope,
-        hasRefreshToken: !!tokens.refresh_token
+        hasRefreshToken: !!refreshToken,
+        preservedRefreshToken: !tokens.refresh_token && !!existingToken?.refreshToken
       })
 
       // Log successful callback completion
@@ -154,16 +156,43 @@ export async function GET(req: NextRequest) {
         new URL('/briefly/app/dashboard?tab=storage&connected=microsoft', req.url)
       )
     } catch (storageError) {
-      logErr(rid, 'token-storage', storageError, { userId: user.id, provider: 'microsoft' })
+      // Handle schema-specific errors for OAuth token storage
+      if (storageError.name === 'SchemaError') {
+        logSchemaError(storageError)
+        logErr(rid, 'token-storage-schema-error', storageError, { 
+          userId: user.id, 
+          provider: 'microsoft',
+          schemaContext: {
+            schema: storageError.schema,
+            operation: storageError.operation,
+            code: storageError.code,
+            isRetryable: storageError.isRetryable
+          }
+        })
+      } else {
+        // Handle non-schema errors and wrap them with schema context
+        const schemaError = handleSchemaError(storageError, {
+          schema: 'private',
+          operation: 'oauth_token_storage',
+          userId: user.id,
+          correlationId: rid,
+          originalError: storageError
+        })
+        logSchemaError(schemaError)
+        logErr(rid, 'token-storage-rpc', schemaError, { userId: user.id, provider: 'microsoft' })
+      }
       
-      // Log token storage failure
+      // Log token storage failure with RPC context
       OAuthLogger.logTokenOperation('microsoft', 'store', user.id, false, {
-        error: storageError instanceof Error ? storageError.message : String(storageError)
+        error: storageError instanceof Error ? storageError.message : String(storageError),
+        method: 'rpc_function',
+        schemaError: storageError.name === 'SchemaError'
       })
       
       OAuthLogger.logCallback('microsoft', user.id, false, OAuthErrorCodes.TOKEN_STORAGE_FAILED, {
-        operation: 'token_storage',
-        error: storageError instanceof Error ? storageError.message : String(storageError)
+        operation: 'token_storage_rpc',
+        error: storageError instanceof Error ? storageError.message : String(storageError),
+        schemaError: storageError.name === 'SchemaError'
       })
       
       return NextResponse.redirect(

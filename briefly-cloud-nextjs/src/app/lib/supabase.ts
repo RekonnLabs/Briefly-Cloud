@@ -6,10 +6,11 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from './supabase-admin'
+import { supabaseApp } from './supabase-clients'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Use placeholder values during build if environment variables are not available
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDA5OTUyMDAsImV4cCI6MTk1NjU3MTIwMH0.placeholder'
 
 // Simple client for browser/client-side operations (fallback to basic client for build compatibility)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -140,8 +141,8 @@ export class SupabaseError extends Error {
 // User operations
 export async function getUserById(userId: string): Promise<User | null> {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('app.users')
+    const { data, error } = await supabaseApp
+      .from('users')
       .select('*')
       .eq('id', userId)
       .single()
@@ -160,8 +161,8 @@ export async function getUserById(userId: string): Promise<User | null> {
 
 export async function getUserByEmail(email: string): Promise<User | null> {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('app.users')
+    const { data, error } = await supabaseApp
+      .from('users')
       .select('*')
       .eq('email', email)
       .single()
@@ -180,8 +181,8 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 
 export async function updateUser(userId: string, updates: Partial<User>): Promise<User> {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('app.users')
+    const { data, error } = await supabaseApp
+      .from('users')
       .update(updates)
       .eq('id', userId)
       .select()
@@ -202,8 +203,8 @@ export async function updateUser(userId: string, updates: Partial<User>): Promis
 // File metadata operations
 export async function getFileMetadata(userId: string, fileId?: string): Promise<FileMetadata[]> {
   try {
-    let query = supabaseAdmin
-      .from('app.files')
+    let query = supabaseApp
+      .from('files')
       .select('*')
       .eq('user_id', userId)
 
@@ -226,8 +227,8 @@ export async function getFileMetadata(userId: string, fileId?: string): Promise<
 
 export async function createFileMetadata(metadata: Omit<FileMetadata, 'id' | 'created_at' | 'updated_at'>): Promise<FileMetadata> {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('app.files')
+    const { data, error } = await supabaseApp
+      .from('files')
       .insert(metadata)
       .select()
       .single()
@@ -246,7 +247,7 @@ export async function createFileMetadata(metadata: Omit<FileMetadata, 'id' | 'cr
 // Document chunk operations
 export async function getDocumentChunks(userId: string, fileId?: string): Promise<DocumentChunk[]> {
   try {
-    let query = supabaseAdmin
+    let query = supabaseApp
       .from('document_chunks')
       .select('*')
       .eq('user_id', userId)
@@ -270,7 +271,7 @@ export async function getDocumentChunks(userId: string, fileId?: string): Promis
 
 export async function createDocumentChunk(chunk: Omit<DocumentChunk, 'id' | 'created_at'>): Promise<DocumentChunk> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseApp
       .from('document_chunks')
       .insert(chunk)
       .select()
@@ -290,7 +291,7 @@ export async function createDocumentChunk(chunk: Omit<DocumentChunk, 'id' | 'cre
 // Conversation operations
 export async function getConversations(userId: string): Promise<Conversation[]> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseApp
       .from('conversations')
       .select('*')
       .eq('user_id', userId)
@@ -309,7 +310,7 @@ export async function getConversations(userId: string): Promise<Conversation[]> 
 
 export async function createConversation(conversation: Omit<Conversation, 'id' | 'created_at' | 'updated_at'>): Promise<Conversation> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseApp
       .from('conversations')
       .insert(conversation)
       .select()
@@ -329,7 +330,7 @@ export async function createConversation(conversation: Omit<Conversation, 'id' |
 // Chat message operations
 export async function getChatMessages(conversationId: string): Promise<ChatMessage[]> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseApp
       .from('chat_messages')
       .select('*')
       .eq('conversation_id', conversationId)
@@ -348,7 +349,7 @@ export async function getChatMessages(conversationId: string): Promise<ChatMessa
 
 export async function createChatMessage(message: Omit<ChatMessage, 'id' | 'created_at'>): Promise<ChatMessage> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseApp
       .from('chat_messages')
       .insert(message)
       .select()
@@ -368,7 +369,7 @@ export async function createChatMessage(message: Omit<ChatMessage, 'id' | 'creat
 // Job log operations
 export async function createJobLog(job: Omit<JobLog, 'id' | 'created_at' | 'completed_at'>): Promise<JobLog> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseApp
       .from('job_logs')
       .insert(job)
       .select()
@@ -387,7 +388,7 @@ export async function createJobLog(job: Omit<JobLog, 'id' | 'created_at' | 'comp
 
 export async function updateJobLog(jobId: string, updates: Partial<JobLog>): Promise<JobLog> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseApp
       .from('job_logs')
       .update(updates)
       .eq('id', jobId)

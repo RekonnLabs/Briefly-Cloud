@@ -5,13 +5,14 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse, validateFileUpload, formatFileSize } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { supabaseApp } from '@/app/lib/supabase-clients'
 import { logApiUsage } from '@/app/lib/logger'
-import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
+import { filesRepo, fileIngestRepo, usersRepo } from '@/app/lib/repos'
 import { createError } from '@/app/lib/api-errors'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
 import { logReq, logErr } from '@/app/lib/server/log'
+import { handleSchemaError, logSchemaError, extractSchemaContext, withSchemaErrorHandling } from '@/app/lib/errors/schema-errors'
 
 // Supported file types and their MIME types
 const SUPPORTED_FILE_TYPES = {
@@ -62,8 +63,6 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
   }
   
   try {
-    const supabase = supabaseAdmin
-    
     // Parse multipart form data
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -78,20 +77,30 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     let userProfile = cacheManager.get(userProfileKey)
     
     if (!userProfile) {
-      const { data, error: profileError } = await withApiPerformanceMonitoring(() =>
-        supabase
-          .from('users')
-          .select('subscription_tier, documents_uploaded, documents_limit, storage_used_bytes, storage_limit_bytes')
-          .eq('id', user.id)
-          .single()
+      const profileData = await withSchemaErrorHandling(
+        () => withApiPerformanceMonitoring(() => usersRepo.getUsageStats(user.id)),
+        {
+          schema: 'app',
+          operation: 'get_user_profile',
+          table: 'users',
+          userId: user.id,
+          correlationId,
+          ...extractSchemaContext(request, 'get_user_profile', 'app', 'users')
+        }
       )
       
-      if (profileError) {
-        console.error('Profile fetch error:', profileError, { correlationId, userId: user.id })
+      if (!profileData) {
+        console.error('Profile fetch error: User not found', { correlationId, userId: user.id })
         return ApiResponse.serverError('Failed to fetch user profile', 'PROFILE_FETCH_ERROR', correlationId)
       }
       
-      userProfile = data
+      userProfile = {
+        subscription_tier: profileData.subscription_tier,
+        documents_uploaded: profileData.documents_uploaded,
+        documents_limit: profileData.documents_limit,
+        storage_used_bytes: profileData.storage_used_bytes,
+        storage_limit_bytes: profileData.storage_limit_bytes
+      }
       // Cache user profile for 5 minutes
       cacheManager.set(userProfileKey, userProfile, 1000 * 60 * 5)
     }
@@ -147,8 +156,8 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     // Convert File to ArrayBuffer for Supabase Storage
     const fileBuffer = await file.arrayBuffer()
     
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Upload to Supabase Storage using app schema client
+    const { data: uploadData, error: uploadError } = await supabaseApp.storage
       .from('documents')
       .upload(fileName, fileBuffer, {
         contentType: file.type,
@@ -166,7 +175,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     }
     
     // Get the public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = supabaseApp.storage
       .from('documents')
       .getPublicUrl(fileName)
 
@@ -174,17 +183,36 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
 
     let createdFile
     try {
-      createdFile = await filesRepo.create({
-        ownerId: user.id,
-        name: file.name,
-        path: fileName,
-        sizeBytes: file.size,
-        mimeType: file.type,
-        createdAt: new Date().toISOString(),
-      })
+      createdFile = await withSchemaErrorHandling(
+        () => filesRepo.create({
+          ownerId: user.id,
+          name: file.name,
+          path: fileName,
+          sizeBytes: file.size,
+          mimeType: file.type,
+          createdAt: new Date().toISOString(),
+        }),
+        {
+          schema: 'app',
+          operation: 'create_file_record',
+          table: 'files',
+          userId: user.id,
+          correlationId,
+          ...extractSchemaContext(request, 'create_file_record', 'app', 'files')
+        }
+      )
     } catch (metadataError) {
+      const schemaError = handleSchemaError(metadataError, {
+        schema: 'app',
+        operation: 'create_file_record',
+        table: 'files',
+        userId: user.id,
+        correlationId,
+        originalError: metadataError
+      })
+      logSchemaError(schemaError)
       console.error('Metadata insert error:', metadataError, { correlationId, userId: user.id, fileName: file.name })
-      await supabase.storage.from('documents').remove([fileName])
+      await supabaseApp.storage.from('documents').remove([fileName])
       return ApiResponse.serverError('Failed to save file metadata', 'METADATA_INSERT_ERROR', correlationId)
     }
 
@@ -246,19 +274,34 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       })
     }
     
-    // Update user usage statistics
-    const { error: usageError } = await withApiPerformanceMonitoring(() =>
-      supabase
-        .from('users')
-        .update({
-          documents_uploaded: currentFileCount + 1,
-          storage_used_bytes: currentStorage + file.size,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id)
-    )
-    
-    if (usageError) {
+    // Update user usage statistics using app schema repository
+    try {
+      await withSchemaErrorHandling(
+        () => withApiPerformanceMonitoring(() =>
+          usersRepo.updateUsage(user.id, {
+            documents_uploaded: currentFileCount + 1,
+            storage_used_bytes: currentStorage + file.size
+          })
+        ),
+        {
+          schema: 'app',
+          operation: 'update_user_usage',
+          table: 'users',
+          userId: user.id,
+          correlationId,
+          ...extractSchemaContext(request, 'update_user_usage', 'app', 'users')
+        }
+      )
+    } catch (usageError) {
+      const schemaError = handleSchemaError(usageError, {
+        schema: 'app',
+        operation: 'update_user_usage',
+        table: 'users',
+        userId: user.id,
+        correlationId,
+        originalError: usageError
+      })
+      logSchemaError(schemaError)
       console.error('Usage update error:', usageError, { correlationId, userId: user.id })
       // Don't fail the upload for this, just log it
     }
@@ -320,17 +363,21 @@ async function getUploadInfoHandler(request: Request, context: ApiContext): Prom
   }
   
   try {
-    const supabase = supabaseAdmin
+    // Get user's current usage from app schema
+    const userProfile = await withSchemaErrorHandling(
+      () => usersRepo.getUsageStats(user.id),
+      {
+        schema: 'app',
+        operation: 'get_user_usage_stats',
+        table: 'users',
+        userId: user.id,
+        correlationId,
+        ...extractSchemaContext(request, 'get_user_usage_stats', 'app', 'users')
+      }
+    )
     
-    // Get user's current usage
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('subscription_tier, documents_uploaded, documents_limit, storage_used_bytes, storage_limit_bytes')
-      .eq('id', user.id)
-      .single()
-    
-    if (profileError) {
-      console.error('Profile fetch error:', profileError, { correlationId, userId: user.id })
+    if (!userProfile) {
+      console.error('Profile fetch error: User not found', { correlationId, userId: user.id })
       return ApiResponse.serverError('Failed to fetch user profile', 'PROFILE_FETCH_ERROR', correlationId)
     }
     

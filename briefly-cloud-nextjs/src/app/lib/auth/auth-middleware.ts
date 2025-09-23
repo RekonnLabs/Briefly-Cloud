@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, getAuthenticatedUser, type AuthUser } from './supabase-auth'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { supabaseApp } from '@/app/lib/supabase-clients'
 
 export interface AuthContext {
   user: AuthUser
@@ -155,7 +155,7 @@ export function withOptionalAuth(
 export async function setTenantContext(userId: string): Promise<void> {
   try {
     // Set the tenant context in the database session
-    await supabaseAdmin.rpc('set_tenant', { tenant_id: userId })
+    await supabaseApp.rpc('set_tenant', { tenant_id: userId })
   } catch (error) {
     console.warn('Failed to set tenant context:', error)
     // Don't throw - RLS policies will still work with auth.uid()
@@ -167,7 +167,7 @@ export async function setTenantContext(userId: string): Promise<void> {
  */
 export async function clearTenantContext(): Promise<void> {
   try {
-    await supabaseAdmin.rpc('clear_tenant')
+    await supabaseApp.rpc('clear_tenant')
   } catch (error) {
     console.warn('Failed to clear tenant context:', error)
   }
@@ -204,8 +204,8 @@ export async function checkRateLimit(
     const windowStart = getWindowStart(windowType)
     const limit = getRateLimitForAction(action, windowType)
     
-    // Get current count for this window
-    const { data: rateLimit } = await supabaseAdmin
+    // Get current count for this window from app schema
+    const { data: rateLimit } = await supabaseApp
       .from('rate_limits')
       .select('count')
       .eq('user_id', userId)
@@ -221,8 +221,8 @@ export async function checkRateLimit(
       return { allowed: false, retryAfter }
     }
     
-    // Increment counter
-    await supabaseAdmin
+    // Increment counter in app schema
+    await supabaseApp
       .from('rate_limits')
       .upsert({
         user_id: userId,

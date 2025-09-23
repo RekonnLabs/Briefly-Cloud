@@ -8,10 +8,13 @@ import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
 import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '@/app/lib/openai'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { supabaseApp } from '@/app/lib/supabase-clients'
+import { usersRepo } from '@/app/lib/repos/users-repo'
+import { chunksRepo } from '@/app/lib/repos/chunks-repo'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
 import { logReq, logErr } from '@/app/lib/server/log'
+import { handleSchemaError, logSchemaError, extractSchemaContext, withSchemaErrorHandling } from '@/app/lib/errors/schema-errors'
 
 // Briefly Voice v1 imports
 import { buildMessages, buildDeveloper, type ContextSnippet } from '@/app/lib/prompt/promptBuilder'
@@ -45,29 +48,64 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   const { message, conversationId, stream, boost } = parsed.data
 
   try {
-    const supabase = supabaseAdmin
     const startTime = Date.now()
 
-  // Prepare conversation
-  let convoId = conversationId
-  if (!convoId) {
-    const { data } = await supabase
-      .from('conversations')
-      .insert({ user_id: user.id, title: message.slice(0, 80) })
-      .select('id')
-      .single()
-    convoId = data?.id
-  }
+    // Get user profile from app schema to determine tier
+    const userProfile = await withSchemaErrorHandling(
+      () => usersRepo.getById(user.id),
+      {
+        schema: 'app',
+        operation: 'get_user_profile',
+        table: 'users',
+        userId: user.id,
+        correlationId: rid,
+        ...extractSchemaContext(request, 'get_user_profile', 'app', 'users')
+      }
+    )
+    if (!userProfile) {
+      return ApiResponse.unauthorized('User profile not found')
+    }
 
-  // Save user message
-  if (convoId) {
-    await supabase
-      .from('chat_messages')
-      .insert({ conversation_id: convoId, role: 'user', content: message })
-  }
+    // Prepare conversation in app schema
+    let convoId = conversationId
+    if (!convoId) {
+      const { data } = await withSchemaErrorHandling(
+        () => supabaseApp
+          .from('conversations')
+          .insert({ user_id: user.id, title: message.slice(0, 80) })
+          .select('id')
+          .single(),
+        {
+          schema: 'app',
+          operation: 'create_conversation',
+          table: 'conversations',
+          userId: user.id,
+          correlationId: rid,
+          ...extractSchemaContext(request, 'create_conversation', 'app', 'conversations')
+        }
+      )
+      convoId = data?.id
+    }
 
-  // Get budget based on user tier
-  const tier = (user.subscription_tier || 'free') as UserTier
+    // Save user message in app schema
+    if (convoId) {
+      await withSchemaErrorHandling(
+        () => supabaseApp
+          .from('chat_messages')
+          .insert({ conversation_id: convoId, user_id: user.id, role: 'user', content: message }),
+        {
+          schema: 'app',
+          operation: 'save_user_message',
+          table: 'chat_messages',
+          userId: user.id,
+          correlationId: rid,
+          ...extractSchemaContext(request, 'save_user_message', 'app', 'chat_messages')
+        }
+      )
+    }
+
+    // Get budget based on user tier from app schema
+    const tier = userProfile.subscription_tier as UserTier
   const budgetType = getBudgetForTier(tier)
   const budget = BUDGETS[budgetType]
 
@@ -84,21 +122,32 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   if (shouldUseNeedMoreInfo) {
     const needMoreInfoResponse = generateNeedMoreInfoResponse(message)
     
-    // Save user message
+    // Save assistant message in app schema
     if (convoId) {
-      await supabase
-        .from('chat_messages')
-        .insert({ 
-          conversation_id: convoId, 
-          role: 'assistant', 
-          content: needMoreInfoResponse,
-          sources: [],
-          metadata: {
-            needMoreInfo: true,
-            retrievalStats,
-            modelRoute: 'need-more-info'
-          }
-        })
+      await withSchemaErrorHandling(
+        () => supabaseApp
+          .from('chat_messages')
+          .insert({ 
+            conversation_id: convoId,
+            user_id: user.id,
+            role: 'assistant', 
+            content: needMoreInfoResponse,
+            sources: [],
+            metadata: {
+              needMoreInfo: true,
+              retrievalStats,
+              modelRoute: 'need-more-info'
+            }
+          }),
+        {
+          schema: 'app',
+          operation: 'save_assistant_message',
+          table: 'chat_messages',
+          userId: user.id,
+          correlationId: rid,
+          ...extractSchemaContext(request, 'save_assistant_message', 'app', 'chat_messages')
+        }
+      )
     }
 
     return ApiResponse.success({
@@ -122,15 +171,26 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     })
   }
 
-  // Get conversation history summary (simplified for now)
+  // Get conversation history summary from app schema
   let historySummary: string | undefined
   if (convoId) {
-    const { data: recentMessages } = await supabase
-      .from('chat_messages')
-      .select('role, content')
-      .eq('conversation_id', convoId)
-      .order('created_at', { ascending: false })
-      .limit(4) // Last 2 exchanges
+    const { data: recentMessages } = await withSchemaErrorHandling(
+      () => supabaseApp
+        .from('chat_messages')
+        .select('role, content')
+        .eq('conversation_id', convoId)
+        .eq('user_id', user.id) // Ensure user isolation
+        .order('created_at', { ascending: false })
+        .limit(4), // Last 2 exchanges
+      {
+        schema: 'app',
+        operation: 'get_conversation_history',
+        table: 'chat_messages',
+        userId: user.id,
+        correlationId: rid,
+        ...extractSchemaContext(request, 'get_conversation_history', 'app', 'chat_messages')
+      }
+    )
     
     if (recentMessages && recentMessages.length > 0) {
       historySummary = recentMessages
@@ -212,28 +272,39 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     retrievalStats
   })
 
-  // Save assistant response
+  // Save assistant response in app schema
   if (convoId) {
-    await supabase
-      .from('chat_messages')
-      .insert({ 
-        conversation_id: convoId, 
-        role: 'assistant', 
-        content: finalResponse, 
-        sources: safeContextSnippets.map(snippet => ({ 
-          source: snippet.source,
-          content: snippet.content.substring(0, 200), // Truncate for storage
-          relevance_score: snippet.relevance 
-        })),
-        metadata: {
-          modelRoute: routing.model,
-          inputTokens,
-          outputTokens,
-          latency,
-          linterApplied: lintResult.rewritten,
-          retrievalStats
-        }
-      })
+    await withSchemaErrorHandling(
+      () => supabaseApp
+        .from('chat_messages')
+        .insert({ 
+          conversation_id: convoId,
+          user_id: user.id,
+          role: 'assistant', 
+          content: finalResponse, 
+          sources: safeContextSnippets.map(snippet => ({ 
+            source: snippet.source,
+            content: snippet.content.substring(0, 200), // Truncate for storage
+            relevance_score: snippet.relevance 
+          })),
+          metadata: {
+            modelRoute: routing.model,
+            inputTokens,
+            outputTokens,
+            latency,
+            linterApplied: lintResult.rewritten,
+            retrievalStats
+          }
+        }),
+      {
+        schema: 'app',
+        operation: 'save_final_assistant_message',
+        table: 'chat_messages',
+        userId: user.id,
+        correlationId: rid,
+        ...extractSchemaContext(request, 'save_final_assistant_message', 'app', 'chat_messages')
+      }
+    )
   }
 
   if (stream) {
@@ -280,6 +351,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   })
   
   } catch (error) {
+    // Handle schema-specific errors
+    if (error.name === 'SchemaError') {
+      logSchemaError(error)
+      logErr(rid, 'chat-handler-schema', error, { userId: user?.id, message: message?.slice(0, 100) })
+      return ApiResponse.serverError(`Chat processing failed: ${error.message}`, 'CHAT_SCHEMA_ERROR', rid)
+    }
+    
     logErr(rid, 'chat-handler', error, { userId: user?.id, message: message?.slice(0, 100) })
     return ApiResponse.serverError('Chat processing failed', 'CHAT_ERROR', rid)
   }

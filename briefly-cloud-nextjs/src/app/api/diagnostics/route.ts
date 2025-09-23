@@ -4,7 +4,8 @@ export const revalidate = 0
 import { NextResponse } from 'next/server'
 import { createPublicApiHandler, PublicApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-response'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { supabaseApp } from '@/app/lib/supabase-clients'
+import { handleSchemaError, logSchemaError } from '@/app/lib/errors/schema-errors'
 
 // Diagnostics handler
 async function diagnosticsHandler(_request: Request, _context: PublicApiContext): Promise<NextResponse> {
@@ -101,28 +102,71 @@ async function getRouteStatus() {
 
 // Check database connectivity
 async function checkDatabaseConnectivity() {
+  // Skip during build process when environment variables are not available
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      status: 'Environment not configured',
+      response_time_ms: null,
+      error: 'Missing environment variables during build',
+    }
+  }
+
   try {
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = supabaseAdmin
-    
     const startTime = Date.now()
-    const { error } = await supabase
+    const { error } = await supabaseApp
       .from('users')
       .select('count')
       .limit(1)
     
     const responseTime = Date.now() - startTime
     
+    if (error) {
+      const schemaError = handleSchemaError(error, {
+        schema: 'app',
+        operation: 'diagnostics_connectivity_check',
+        table: 'users',
+        correlationId: 'diagnostics'
+      })
+      logSchemaError(schemaError)
+      
+      return {
+        status: 'Schema Error',
+        response_time_ms: responseTime,
+        error: schemaError.message,
+        schema_context: {
+          schema: schemaError.schema,
+          operation: schemaError.operation,
+          code: schemaError.code,
+          isRetryable: schemaError.isRetryable
+        }
+      }
+    }
+    
     return {
-      status: error ? 'Error' : 'Connected',
+      status: 'Connected',
       response_time_ms: responseTime,
-      error: error?.message || null,
+      error: null,
     }
   } catch (error) {
+    const schemaError = handleSchemaError(error, {
+      schema: 'app',
+      operation: 'diagnostics_connectivity_check',
+      table: 'users',
+      correlationId: 'diagnostics',
+      originalError: error
+    })
+    logSchemaError(schemaError)
+    
     return {
-      status: 'Error',
+      status: 'Connection Error',
       response_time_ms: null,
-      error: String(error),
+      error: schemaError.message,
+      schema_context: {
+        schema: schemaError.schema,
+        operation: schemaError.operation,
+        code: schemaError.code,
+        isRetryable: schemaError.isRetryable
+      }
     }
   }
 }

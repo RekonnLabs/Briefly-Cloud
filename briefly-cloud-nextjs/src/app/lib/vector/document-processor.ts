@@ -10,10 +10,9 @@ import { createError } from '@/app/lib/api-errors'
 import { getVectorStore } from './vector-store-factory'
 import { generateEmbedding, generateEmbeddings } from '@/app/lib/embeddings'
 import { createTextChunks } from '@/app/lib/document-chunker'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { supabaseApp } from '@/app/lib/supabase-clients'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
-const FILES_TABLE = 'app.files'
-const CHUNKS_TABLE = 'app.document_chunks'
+import { chunksRepo } from '@/app/lib/repos/chunks-repo'
 
 import type {
   IDocumentProcessor,
@@ -88,19 +87,11 @@ export class DocumentProcessor implements IDocumentProcessor {
       // Step 4: Store vectors in the vector store
       await this.vectorStore.addDocuments(userId, vectorDocuments)
 
-      // Step 5: Update file processing status
-      await supabaseAdmin
-        .from(FILES_TABLE)
-        .update({
-          processed: true,
-          processing_status: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', fileId)
-        .eq('owner_id', userId)
+      // Step 5: Update file processing status using repository
+      await filesRepo.updateProcessingStatus(userId, fileId, 'completed')
 
-      // Step 6: Log usage for analytics
-      await supabaseAdmin
+      // Step 6: Log usage for analytics in app schema
+      await supabaseApp
         .from('usage_logs')
         .insert({
           user_id: userId,
@@ -132,17 +123,9 @@ export class DocumentProcessor implements IDocumentProcessor {
         fileName
       }, error as Error)
 
-      // Update file status to failed
+      // Update file status to failed using repository
       try {
-        await supabaseAdmin
-          .from(FILES_TABLE)
-          .update({
-            processed: false,
-            processing_status: 'failed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', fileId)
-          .eq('owner_id', userId)
+        await filesRepo.updateProcessingStatus(userId, fileId, 'failed')
       } catch (updateError) {
         logger.error('Failed to update file status after processing error', updateError as Error)
       }
@@ -176,8 +159,8 @@ export class DocumentProcessor implements IDocumentProcessor {
         options
       )
 
-      // Step 3: Log search usage
-      await supabaseAdmin
+      // Step 3: Log search usage in app schema
+      await supabaseApp
         .from('usage_logs')
         .insert({
           user_id: userId,
@@ -221,19 +204,11 @@ export class DocumentProcessor implements IDocumentProcessor {
       // Step 1: Delete vectors from vector store
       await this.vectorStore.deleteUserDocuments(userId, fileId)
 
-      // Step 2: Delete file metadata (this will cascade to chunks via foreign key)
-      const { error } = await supabaseAdmin
-        .from(FILES_TABLE)
-        .delete()
-        .eq('id', fileId)
-        .eq('owner_id', userId)
+      // Step 2: Delete file metadata using repository (this will cascade to chunks via foreign key)
+      await filesRepo.delete(userId, fileId)
 
-      if (error) {
-        throw error
-      }
-
-      // Step 3: Log deletion
-      await supabaseAdmin
+      // Step 3: Log deletion in app schema
+      await supabaseApp
         .from('usage_logs')
         .insert({
           user_id: userId,
@@ -272,25 +247,19 @@ export class DocumentProcessor implements IDocumentProcessor {
       const processedDocuments = ingestRecords.filter(record => record.status === 'ready').length
       const failedDocuments = ingestRecords.filter(record => record.status === 'error').length
 
-      // Get chunk statistics
-      const { count: totalChunks, error: chunkError } = await supabaseAdmin
-        .from(CHUNKS_TABLE)
-        .select('*', { count: 'exact', head: true })
-        .eq('owner_id', userId)
-
-      if (chunkError) {
-        throw chunkError
-      }
+      // Get chunk statistics using repository
+      const chunkStats = await chunksRepo.getChunkStats(userId)
+      const totalChunks = chunkStats.totalChunks
 
       const averageChunksPerDocument = processedDocuments > 0 
-        ? Math.round((totalChunks || 0) / processedDocuments * 100) / 100
+        ? Math.round(totalChunks / processedDocuments * 100) / 100
         : 0
 
       return {
         totalDocuments,
         processedDocuments,
         failedDocuments,
-        totalChunks: totalChunks || 0,
+        totalChunks,
         averageChunksPerDocument
       }
 

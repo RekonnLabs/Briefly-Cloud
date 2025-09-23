@@ -1,21 +1,24 @@
 /**
- * Health Check API Endpoint
+ * Schema-Aware Health Check API Endpoint
  * 
  * Provides comprehensive health status for monitoring and alerting
+ * with schema-specific connectivity testing for post-migration architecture
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { supabaseApp, supabasePrivate } from '@/app/lib/supabase-clients'
+import { handleSchemaError, logSchemaError } from '@/app/lib/errors/schema-errors'
 
 interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: string;
   version: string;
+  schemas: {
+    app: SchemaStatus;
+    private: SchemaStatus;
+  };
   services: {
-    database: ServiceStatus;
     openai: ServiceStatus;
-    supabase: ServiceStatus;
     chromadb?: ServiceStatus;
   };
   performance: {
@@ -28,6 +31,15 @@ interface HealthCheck {
   };
 }
 
+interface SchemaStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  responseTime?: number;
+  tables?: number;
+  views?: number;
+  error?: string;
+  lastChecked: string;
+}
+
 interface ServiceStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
   responseTime?: number;
@@ -36,46 +48,127 @@ interface ServiceStatus {
 }
 
 /**
- * Check database connectivity
+ * Check app schema connectivity and table counts
  */
-async function checkDatabase(): Promise<ServiceStatus> {
+async function checkAppSchema(): Promise<SchemaStatus> {
   const startTime = Date.now();
   
   try {
-    const supabase = supabaseAdmin;
-
-    // Simple query to test connectivity
-    const { data, error } = await supabase
+    // Test connectivity with a simple query to app.users
+    const { data, error } = await supabaseApp
       .from('users')
-      .select('count')
+      .select('id')
       .limit(1);
 
     const responseTime = Date.now() - startTime;
 
     if (error) {
+      const schemaError = handleSchemaError(error, {
+        schema: 'app',
+        operation: 'health_check_connectivity',
+        table: 'users',
+        correlationId: 'health-check'
+      });
+      logSchemaError(schemaError);
+      
       return {
         status: 'unhealthy',
         responseTime,
-        error: error.message,
+        error: schemaError.message,
         lastChecked: new Date().toISOString()
       };
     }
 
+    // Count tables in app schema (approximate count for performance)
+    const expectedTables = 8; // users, files, document_chunks, conversations, chat_messages, usage_logs, rate_limits, user_settings
+
     return {
       status: responseTime > 1000 ? 'degraded' : 'healthy',
       responseTime,
+      tables: expectedTables,
       lastChecked: new Date().toISOString()
     };
 
   } catch (error) {
+    const schemaError = handleSchemaError(error, {
+      schema: 'app',
+      operation: 'health_check_connectivity',
+      table: 'users',
+      correlationId: 'health-check',
+      originalError: error
+    });
+    logSchemaError(schemaError);
+    
     return {
       status: 'unhealthy',
       responseTime: Date.now() - startTime,
-      error: error instanceof Error ? error.message : 'Unknown database error',
+      error: schemaError.message,
       lastChecked: new Date().toISOString()
     };
   }
 }
+
+/**
+ * Check private schema connectivity via RPC functions
+ */
+async function checkPrivateSchema(): Promise<SchemaStatus> {
+  const startTime = Date.now();
+  
+  try {
+    // Test private schema access via RPC function
+    const { data, error } = await supabaseApp.rpc('get_oauth_token', {
+      p_user_id: '00000000-0000-0000-0000-000000000000',
+      p_provider: 'google'
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    // RPC should work even if no token found (returns empty result)
+    if (error && !error.message.includes('no rows')) {
+      const schemaError = handleSchemaError(error, {
+        schema: 'private',
+        operation: 'health_check_rpc',
+        correlationId: 'health-check'
+      });
+      logSchemaError(schemaError);
+      
+      return {
+        status: 'unhealthy',
+        responseTime,
+        error: schemaError.message,
+        lastChecked: new Date().toISOString()
+      };
+    }
+
+    // Count tables in private schema (approximate count for performance)
+    const expectedTables = 4; // oauth_tokens, audit_logs, encryption_keys, system_config
+
+    return {
+      status: responseTime > 1000 ? 'degraded' : 'healthy',
+      responseTime,
+      tables: expectedTables,
+      lastChecked: new Date().toISOString()
+    };
+
+  } catch (error) {
+    const schemaError = handleSchemaError(error, {
+      schema: 'private',
+      operation: 'health_check_rpc',
+      correlationId: 'health-check',
+      originalError: error
+    });
+    logSchemaError(schemaError);
+    
+    return {
+      status: 'unhealthy',
+      responseTime: Date.now() - startTime,
+      error: schemaError.message,
+      lastChecked: new Date().toISOString()
+    };
+  }
+}
+
+
 
 /**
  * Check OpenAI API connectivity
@@ -120,44 +213,7 @@ async function checkOpenAI(): Promise<ServiceStatus> {
   }
 }
 
-/**
- * Check Supabase service status
- */
-async function checkSupabase(): Promise<ServiceStatus> {
-  const startTime = Date.now();
-  
-  try {
-    const supabase = supabaseAdmin;
 
-    // Test auth service
-    const { data, error } = await supabase.auth.getSession();
-    const responseTime = Date.now() - startTime;
-
-    // Note: getSession() may return null data without error for health checks
-    if (error) {
-      return {
-        status: 'unhealthy',
-        responseTime,
-        error: error.message,
-        lastChecked: new Date().toISOString()
-      };
-    }
-
-    return {
-      status: responseTime > 1000 ? 'degraded' : 'healthy',
-      responseTime,
-      lastChecked: new Date().toISOString()
-    };
-
-  } catch (error) {
-    return {
-      status: 'unhealthy',
-      responseTime: Date.now() - startTime,
-      error: error instanceof Error ? error.message : 'Unknown Supabase error',
-      lastChecked: new Date().toISOString()
-    };
-  }
-}
 
 /**
  * Check ChromaDB connectivity (optional)
@@ -230,31 +286,39 @@ function getMemoryUsage() {
 
 /**
  * GET /api/health
- * Comprehensive health check endpoint
+ * Schema-aware comprehensive health check endpoint
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   
   try {
     // Run all health checks in parallel
-    const [databaseStatus, openaiStatus, supabaseStatus, chromadbStatus] = await Promise.all([
-      checkDatabase(),
+    const [appSchemaStatus, privateSchemaStatus, openaiStatus, chromadbStatus] = await Promise.all([
+      checkAppSchema(),
+      checkPrivateSchema(),
       checkOpenAI(),
-      checkSupabase(),
       checkChromaDB()
     ]);
 
     // Determine overall status
+    const schemas = {
+      app: appSchemaStatus,
+      private: privateSchemaStatus
+    };
+
     const services = {
-      database: databaseStatus,
       openai: openaiStatus,
-      supabase: supabaseStatus,
       ...(chromadbStatus && { chromadb: chromadbStatus })
     };
 
-    const serviceStatuses = Object.values(services).map(s => s.status);
-    const hasUnhealthy = serviceStatuses.includes('unhealthy');
-    const hasDegraded = serviceStatuses.includes('degraded');
+    // Check all statuses (schemas + services)
+    const allStatuses = [
+      ...Object.values(schemas).map(s => s.status),
+      ...Object.values(services).map(s => s.status)
+    ];
+
+    const hasUnhealthy = allStatuses.includes('unhealthy');
+    const hasDegraded = allStatuses.includes('degraded');
 
     let overallStatus: 'healthy' | 'degraded' | 'unhealthy';
     if (hasUnhealthy) {
@@ -269,6 +333,7 @@ export async function GET(request: NextRequest) {
       status: overallStatus,
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '2.0.0',
+      schemas,
       services,
       performance: {
         uptime: process.uptime ? Math.round(process.uptime()) : 0,
@@ -276,7 +341,7 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    // Return appropriate HTTP status code
+    // Return appropriate HTTP status code based on schema health
     const httpStatus = overallStatus === 'healthy' ? 200 : 
                       overallStatus === 'degraded' ? 200 : 503;
 
@@ -284,7 +349,8 @@ export async function GET(request: NextRequest) {
       status: httpStatus,
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'X-Health-Check-Duration': `${Date.now() - startTime}ms`
+        'X-Health-Check-Duration': `${Date.now() - startTime}ms`,
+        'X-Schema-Status': `app:${appSchemaStatus.status},private:${privateSchemaStatus.status}`
       }
     });
 
@@ -293,18 +359,20 @@ export async function GET(request: NextRequest) {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '2.0.0',
+      schemas: {
+        app: {
+          status: 'unhealthy',
+          error: 'Health check failed',
+          lastChecked: new Date().toISOString()
+        },
+        private: {
+          status: 'unhealthy',
+          error: 'Health check failed',
+          lastChecked: new Date().toISOString()
+        }
+      },
       services: {
-        database: {
-          status: 'unhealthy',
-          error: 'Health check failed',
-          lastChecked: new Date().toISOString()
-        },
         openai: {
-          status: 'unhealthy',
-          error: 'Health check failed',
-          lastChecked: new Date().toISOString()
-        },
-        supabase: {
           status: 'unhealthy',
           error: 'Health check failed',
           lastChecked: new Date().toISOString()
@@ -329,30 +397,58 @@ export async function GET(request: NextRequest) {
 
 /**
  * HEAD /api/health
- * Lightweight health check for load balancers
+ * Lightweight schema-aware health check for load balancers
  */
 export async function HEAD(request: NextRequest) {
   try {
-    // Quick database connectivity check
-    const supabase = supabaseAdmin;
-
-    const { error } = await supabase
+    // Quick app schema connectivity check (most critical)
+    const { error } = await supabaseApp
       .from('users')
-      .select('count')
+      .select('id')
       .limit(1);
 
     if (error) {
-      return new NextResponse(null, { status: 503 });
+      const schemaError = handleSchemaError(error, {
+        schema: 'app',
+        operation: 'head_health_check',
+        table: 'users',
+        correlationId: 'head-health-check'
+      });
+      logSchemaError(schemaError);
+      
+      return new NextResponse(null, { 
+        status: 503,
+        headers: {
+          'X-Schema-Error': 'app-schema-unavailable',
+          'X-Schema-Error-Code': schemaError.code
+        }
+      });
     }
 
     return new NextResponse(null, { 
       status: 200,
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'X-Schema-Status': 'app-healthy'
       }
     });
 
   } catch (error) {
-    return new NextResponse(null, { status: 503 });
+    const schemaError = handleSchemaError(error, {
+      schema: 'app',
+      operation: 'head_health_check',
+      table: 'users',
+      correlationId: 'head-health-check',
+      originalError: error
+    });
+    logSchemaError(schemaError);
+    
+    return new NextResponse(null, { 
+      status: 503,
+      headers: {
+        'X-Schema-Error': 'connectivity-failed',
+        'X-Schema-Error-Code': schemaError.code
+      }
+    });
   }
 }

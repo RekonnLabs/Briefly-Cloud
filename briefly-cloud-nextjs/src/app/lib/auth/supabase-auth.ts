@@ -8,7 +8,7 @@
 import { createServerClient, createBrowserClient, type CookieOptions } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { supabaseApp } from '@/app/lib/supabase-clients'
 
 // Subscription tier definitions
 export const TIER_LIMITS = {
@@ -178,7 +178,7 @@ export async function getAuthenticatedUser(): Promise<AuthUser> {
   }
 
   // Get full user profile from app.users table
-  const { data: userProfile, error: profileError } = await supabaseAdmin
+  const { data: userProfile, error: profileError } = await supabaseApp
     .from('users')
     .select(`
       id,
@@ -208,7 +208,7 @@ export async function getAuthenticatedUser(): Promise<AuthUser> {
   }
 
   // Update last login timestamp
-  await supabaseAdmin
+  await supabaseApp
     .from('users')
     .update({ last_login_at: new Date().toISOString() })
     .eq('id', user.id)
@@ -282,7 +282,7 @@ export async function createOrUpdateUserProfile(
   avatarUrl?: string
 ): Promise<AuthUser> {
   // Check if user exists
-  const { data: existingUser } = await supabaseAdmin
+  const { data: existingUser } = await supabaseApp
     .from('users')
     .select('id')
     .eq('id', userId)
@@ -325,7 +325,7 @@ export async function createOrUpdateUserProfile(
       analytics_consent: true
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await supabaseApp
       .from('users')
       .insert(newUser)
 
@@ -349,7 +349,7 @@ export async function createOrUpdateUserProfile(
     }
   } else {
     // Update existing user's login timestamp and profile info
-    const { data: updatedUser, error } = await supabaseAdmin
+    const { data: updatedUser, error } = await supabaseApp
       .from('users')
       .update({
         full_name: fullName || undefined,

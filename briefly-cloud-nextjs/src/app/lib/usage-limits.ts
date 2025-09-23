@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabase-admin'
+import { supabaseApp } from './supabase-clients'
 import type { User } from './supabase'
 import { getUserById, updateUser } from './supabase'
 
@@ -152,8 +152,8 @@ export async function incrementUsageCounter(
   eventData: Record<string, unknown> = {}
 ): Promise<boolean> {
   try {
-    // Try to use database function first (if available)
-    const { data, error } = await supabaseAdmin.rpc('increment_usage', {
+    // Try to use database function first (if available) in app schema
+    const { data, error } = await supabaseApp.rpc('increment_usage', {
       p_user_id: userId,
       p_event_type: eventType,
       p_resource_count: resourceCount,
@@ -266,7 +266,7 @@ export function getUpgradeMessage(tier: SubscriptionTier): string {
 
 export async function resetMonthlyUsage(): Promise<boolean> {
   try {
-    const { error } = await supabaseAdmin.rpc('reset_monthly_usage')
+    const { error } = await supabaseApp.rpc('reset_monthly_usage')
     if (error) {
       console.error('Error resetting monthly usage:', error)
       return false
@@ -281,7 +281,7 @@ export async function resetMonthlyUsage(): Promise<boolean> {
 
 export async function getUsageAnalytics(days: number = 30): Promise<unknown[]> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseApp
       .from('usage_analytics')
       .select('*')
       .limit(days * 10)
@@ -298,7 +298,7 @@ export async function getUsageAnalytics(days: number = 30): Promise<unknown[]> {
   }
 }
 
-// Usage logging for analytics
+// Usage logging for analytics in app schema
 export async function logUsage(
   userId: string,
   action: string,
@@ -306,7 +306,7 @@ export async function logUsage(
   costCents: number = 0
 ): Promise<boolean> {
   try {
-    const { error } = await supabaseAdmin
+    const { error } = await supabaseApp
       .from('usage_logs')
       .insert({
         user_id: userId,

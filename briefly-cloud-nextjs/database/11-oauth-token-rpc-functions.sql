@@ -25,12 +25,7 @@ BEGIN
     RAISE EXCEPTION 'Invalid provider: %. Must be google or microsoft', p_provider;
   END IF;
 
-  -- Validate user exists
-  IF NOT EXISTS (SELECT 1 FROM app.users WHERE id = p_user_id) THEN
-    RAISE EXCEPTION 'User not found: %', p_user_id;
-  END IF;
-
-  -- Insert or update OAuth token
+  -- Insert or update OAuth token with simple base64 encoding
   INSERT INTO private.oauth_tokens (
     user_id, 
     provider, 
@@ -46,10 +41,10 @@ BEGIN
   VALUES (
     p_user_id,
     p_provider,
-    -- Simple encryption for now - can be enhanced later
-    encode(digest(p_access_token, 'sha256'), 'base64'),
+    -- Simple base64 encoding for now - can be enhanced later
+    encode(p_access_token::bytea, 'base64'),
     CASE 
-      WHEN p_refresh_token IS NOT NULL THEN encode(digest(p_refresh_token, 'sha256'), 'base64')
+      WHEN p_refresh_token IS NOT NULL THEN encode(p_refresh_token::bytea, 'base64')
       ELSE NULL 
     END,
     p_expires_at,
@@ -132,12 +127,14 @@ BEGIN
     RETURN;
   END IF;
 
-  -- For now, return the encrypted tokens as-is
-  -- In a real implementation, these would be decrypted
-  -- This is a placeholder that maintains the interface
+  -- Decode the base64 encoded tokens
   RETURN QUERY SELECT
-    token_record.encrypted_access_token AS access_token,
-    token_record.encrypted_refresh_token AS refresh_token,
+    convert_from(decode(token_record.encrypted_access_token, 'base64'), 'UTF8') AS access_token,
+    CASE 
+      WHEN token_record.encrypted_refresh_token IS NOT NULL 
+      THEN convert_from(decode(token_record.encrypted_refresh_token, 'base64'), 'UTF8')
+      ELSE NULL 
+    END AS refresh_token,
     token_record.expires_at,
     token_record.scope;
 
