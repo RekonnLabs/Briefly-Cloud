@@ -34,16 +34,6 @@ jest.mock('@/app/lib/supabase-clients', () => ({
         }))
       }))
     }))
-  },
-  supabasePublic: {
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        limit: jest.fn(() => ({
-          data: [{ id: 'test-user' }],
-          error: null
-        }))
-      }))
-    }))
   }
 }))
 
@@ -107,7 +97,6 @@ describe('Schema Monitor', () => {
       
       expect(metrics.schemaMetrics).toHaveProperty('app')
       expect(metrics.schemaMetrics).toHaveProperty('private')
-      expect(metrics.schemaMetrics).toHaveProperty('public')
     })
 
     it('should track metrics over time', async () => {
