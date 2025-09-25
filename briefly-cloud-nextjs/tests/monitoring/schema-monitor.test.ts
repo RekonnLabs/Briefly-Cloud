@@ -12,27 +12,9 @@ import { alertingService } from '@/app/lib/monitoring/alerting'
 // Mock Supabase admin clients
 jest.mock('@/app/lib/auth/supabase-server-admin', () => ({
   supabaseAppAdmin: {
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        limit: jest.fn(() => ({
-          data: [{ id: 'test-user' }],
-          error: null
-        }))
-      }))
-    })),
     rpc: jest.fn(() => ({
-      data: [],
+      data: 'ok',
       error: null
-    }))
-  },
-  supabasePrivateAdmin: {
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        limit: jest.fn(() => ({
-          data: [{ id: 'test-token' }],
-          error: null
-        }))
-      }))
     }))
   }
 }))
@@ -96,7 +78,6 @@ describe('Schema Monitor', () => {
       expect(metrics).toHaveProperty('alerts')
       
       expect(metrics.schemaMetrics).toHaveProperty('app')
-      expect(metrics.schemaMetrics).toHaveProperty('private')
     })
 
     it('should track metrics over time', async () => {
@@ -116,15 +97,11 @@ describe('Schema Monitor', () => {
   describe('Alert Management', () => {
     it('should create alerts for unhealthy schemas', async () => {
       // Mock error response
-      const mockError = new Error('Connection failed')
+      const mockError = new Error('RPC function failed')
       const { supabaseAppAdmin } = await import('@/app/lib/auth/supabase-server-admin')
-      ;(supabaseAppAdmin.from as jest.MockedFunction<any>).mockReturnValue({
-        select: jest.fn(() => ({
-          limit: jest.fn(() => ({
-            data: null,
-            error: mockError
-          }))
-        }))
+      ;(supabaseAppAdmin.rpc as jest.MockedFunction<any>).mockReturnValue({
+        data: null,
+        error: mockError
       })
 
       schemaMonitor.startMonitoring(100)
@@ -175,9 +152,9 @@ describe('Schema Monitor', () => {
 
   describe('Error Handling', () => {
     it('should handle schema connection errors gracefully', async () => {
-      const mockError = new Error('Database connection failed')
+      const mockError = new Error('RPC function failed')
       const { supabaseAppAdmin } = await import('@/app/lib/auth/supabase-server-admin')
-      ;(supabaseAppAdmin.from as jest.MockedFunction<any>).mockImplementation(() => {
+      ;(supabaseAppAdmin.rpc as jest.MockedFunction<any>).mockImplementation(() => {
         throw mockError
       })
 
@@ -191,33 +168,7 @@ describe('Schema Monitor', () => {
       
       expect(appMetrics.status).toBe('unhealthy')
       expect(appMetrics.errorCount).toBeGreaterThan(0)
-      expect(appMetrics.lastError).toContain('Database connection failed')
-      
-      schemaMonitor.stopMonitoring()
-    })
-
-    it('should handle private schema connection errors', async () => {
-      const mockError = new Error('Private schema connection failed')
-      const { supabasePrivateAdmin } = await import('@/app/lib/auth/supabase-server-admin')
-      ;(supabasePrivateAdmin.from as jest.MockedFunction<any>).mockReturnValue({
-        select: jest.fn(() => ({
-          limit: jest.fn(() => ({
-            data: null,
-            error: mockError
-          }))
-        }))
-      })
-
-      schemaMonitor.startMonitoring(100)
-      
-      // Wait for error handling
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
-      const metrics = schemaMonitor.getPerformanceMetrics()
-      const privateMetrics = metrics.schemaMetrics.private
-      
-      expect(privateMetrics.status).toBe('unhealthy')
-      expect(privateMetrics.errorCount).toBeGreaterThan(0)
+      expect(appMetrics.lastError).toContain('RPC function failed')
       
       schemaMonitor.stopMonitoring()
     })
@@ -227,16 +178,14 @@ describe('Schema Monitor', () => {
     it('should mark schemas as degraded for slow responses', async () => {
       // Mock slow response
       const { supabaseAppAdmin } = await import('@/app/lib/auth/supabase-server-admin')
-      ;(supabaseAppAdmin.from as jest.MockedFunction<any>).mockReturnValue({
-        select: jest.fn(() => ({
-          limit: jest.fn(() => new Promise(resolve => {
-            setTimeout(() => resolve({
-              data: [{ id: 'test-user' }],
-              error: null
-            }), 1500) // 1.5 second delay
-          }))
-        }))
-      })
+      ;(supabaseAppAdmin.rpc as jest.MockedFunction<any>).mockReturnValue(
+        new Promise(resolve => {
+          setTimeout(() => resolve({
+            data: 'ok',
+            error: null
+          }), 1500) // 1.5 second delay
+        })
+      )
 
       schemaMonitor.startMonitoring(100)
       
@@ -255,15 +204,11 @@ describe('Schema Monitor', () => {
 
   describe('Alert Integration', () => {
     it('should send alerts through alerting service', async () => {
-      const mockError = new Error('Critical failure')
+      const mockError = new Error('Critical RPC failure')
       const { supabaseAppAdmin } = await import('@/app/lib/auth/supabase-server-admin')
-      ;(supabaseAppAdmin.from as jest.MockedFunction<any>).mockReturnValue({
-        select: jest.fn(() => ({
-          limit: jest.fn(() => ({
-            data: null,
-            error: mockError
-          }))
-        }))
+      ;(supabaseAppAdmin.rpc as jest.MockedFunction<any>).mockReturnValue({
+        data: null,
+        error: mockError
       })
 
       schemaMonitor.startMonitoring(100)

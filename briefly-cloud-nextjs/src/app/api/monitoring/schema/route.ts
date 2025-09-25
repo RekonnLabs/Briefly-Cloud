@@ -11,35 +11,27 @@ import { createServerAdminClient } from '@/app/lib/auth/supabase-server-admin'
 
 export const runtime = 'nodejs'
 
+// Only monitor app schema (no private schema monitoring)
+const SCHEMAS = ['app']
+
 /**
  * Quick health check using admin client
  */
 async function quickHealthCheck() {
   const admin = createServerAdminClient()
+  const results: Record<string, 'ok' | string> = {}
   
-  try {
-    // Test app schema connectivity
-    const { error: appError } = await admin.from('users').select('id').limit(1)
-    
-    // Test private schema via RPC (admin client can call RPC functions)
-    const { error: privateError } = await admin.rpc('get_oauth_token', {
-      p_user_id: '00000000-0000-0000-0000-000000000000',
-      p_provider: 'google'
-    })
-
-    return {
-      app: appError ? 'error' : 'ok',
-      private: (privateError && !privateError.message.includes('no rows')) ? 'error' : 'ok',
-      appError: appError?.message,
-      privateError: (privateError && !privateError.message.includes('no rows')) ? privateError.message : null
-    }
-  } catch (error) {
-    return {
-      app: 'error',
-      private: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error'
+  for (const schema of SCHEMAS) {
+    try {
+      // Use RPC health check function for app schema
+      const { data, error } = await admin.rpc('monitoring_health_check')
+      results[schema] = error ? String(error.message) : (data ?? 'ok')
+    } catch (e: any) {
+      results[schema] = String(e?.message ?? e)
     }
   }
+  
+  return results
 }
 
 /**

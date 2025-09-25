@@ -5,12 +5,12 @@
  * and alerting for schema connectivity issues
  */
 
-import { supabaseAppAdmin, supabasePrivateAdmin } from '@/app/lib/auth/supabase-server-admin'
+import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin'
 import { handleSchemaError, logSchemaError } from '@/app/lib/errors/schema-errors'
 import { alertingService } from './alerting'
 
 export interface SchemaMetrics {
-  schema: 'app' | 'private'
+  schema: 'app'
   timestamp: string
   status: 'healthy' | 'degraded' | 'unhealthy'
   responseTime: number
@@ -31,7 +31,6 @@ export interface PerformanceMetrics {
   errorRate: number
   schemaMetrics: {
     app: SchemaMetrics
-    private: SchemaMetrics
   }
   alerts: Alert[]
 }
@@ -40,7 +39,7 @@ export interface Alert {
   id: string
   type: 'error_rate' | 'response_time' | 'connectivity' | 'schema_unavailable'
   severity: 'low' | 'medium' | 'high' | 'critical'
-  schema: 'app' | 'private' | 'all'
+  schema: 'app' | 'all'
   message: string
   timestamp: string
   resolved: boolean
@@ -100,28 +99,23 @@ class SchemaMonitor {
   }
 
   /**
-   * Collect metrics for all schemas
+   * Collect metrics for app schema only
    */
   private async collectMetrics(): Promise<void> {
     const timestamp = new Date().toISOString()
     
     try {
-      // Collect metrics for each schema in parallel
-      const [appMetrics, privateMetrics] = await Promise.all([
-        this.checkSchemaHealth('app'),
-        this.checkSchemaHealth('private')
-      ])
+      // Collect metrics for app schema only
+      const appMetrics = await this.checkSchemaHealth('app')
 
       // Store metrics
       this.storeMetrics('app', appMetrics)
-      this.storeMetrics('private', privateMetrics)
 
       // Check for alerts
-      this.checkAlerts(appMetrics, privateMetrics)
+      this.checkAlerts(appMetrics)
 
       console.log(`Schema metrics collected at ${timestamp}`, {
-        app: appMetrics.status,
-        private: privateMetrics.status
+        app: appMetrics.status
       })
 
     } catch (error) {
@@ -139,32 +133,19 @@ class SchemaMonitor {
   }
 
   /**
-   * Check health of a specific schema
+   * Check health of app schema using RPC function
    */
-  private async checkSchemaHealth(schema: 'app' | 'private'): Promise<SchemaMetrics> {
+  private async checkSchemaHealth(schema: 'app'): Promise<SchemaMetrics> {
     const startTime = Date.now()
     const timestamp = new Date().toISOString()
     
     try {
-      let client
-      let testQuery
-      
-      switch (schema) {
-        case 'app':
-          client = supabaseAppAdmin
-          testQuery = client.from('users').select('id').limit(1)
-          break
-        case 'private':
-          // Test private schema directly with admin client
-          client = supabasePrivateAdmin
-          testQuery = client.from('oauth_tokens').select('id').limit(1)
-          break
-      }
-
-      const { data, error } = await testQuery
+      // Use RPC health check function for app schema
+      const client = supabaseAppAdmin
+      const { data, error } = await client.rpc('monitoring_health_check')
       const responseTime = Date.now() - startTime
 
-      if (error && !(schema === 'private' && error.message.includes('no rows'))) {
+      if (error) {
         const schemaError = handleSchemaError(error, {
           schema,
           operation: 'monitoring_health_check',
@@ -244,11 +225,8 @@ class SchemaMonitor {
   /**
    * Check for alert conditions
    */
-  private checkAlerts(
-    appMetrics: SchemaMetrics,
-    privateMetrics: SchemaMetrics
-  ): void {
-    const allMetrics = [appMetrics, privateMetrics]
+  private checkAlerts(appMetrics: SchemaMetrics): void {
+    const allMetrics = [appMetrics]
 
     for (const metrics of allMetrics) {
       // Check for unhealthy status
@@ -398,8 +376,8 @@ class SchemaMonitor {
     const averageResponseTime = totalRequests > 0 ? totalResponseTime / allMetrics.length : 0
     const errorRate = totalRequests > 0 ? totalErrors / totalRequests : 0
 
-    // Get latest metrics for each schema
-    const getLatestMetrics = (schema: 'app' | 'private'): SchemaMetrics => {
+    // Get latest metrics for app schema
+    const getLatestMetrics = (schema: 'app'): SchemaMetrics => {
       const schemaMetrics = this.metrics.get(schema) || []
       return schemaMetrics[schemaMetrics.length - 1] || {
         schema,
@@ -418,8 +396,7 @@ class SchemaMonitor {
       averageResponseTime,
       errorRate,
       schemaMetrics: {
-        app: getLatestMetrics('app'),
-        private: getLatestMetrics('private')
+        app: getLatestMetrics('app')
       },
       alerts: this.alerts.filter(alert => !alert.resolved).slice(-10) // Last 10 unresolved alerts
     }
