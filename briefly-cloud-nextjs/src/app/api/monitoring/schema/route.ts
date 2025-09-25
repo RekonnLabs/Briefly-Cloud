@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { schemaMonitor } from '@/app/lib/monitoring/schema-monitor'
 import { createServerAdminClient } from '@/app/lib/auth/supabase-server-admin'
 
-export const runtime = 'nodejs'
+export const runtime = 'nodejs' // ensure server/Node
 
 // Only monitor app schema (no private schema monitoring)
 const SCHEMAS = ['app']
