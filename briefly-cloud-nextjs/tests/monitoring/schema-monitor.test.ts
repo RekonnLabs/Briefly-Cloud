@@ -9,9 +9,9 @@ import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals
 import { schemaMonitor } from '@/app/lib/monitoring/schema-monitor'
 import { alertingService } from '@/app/lib/monitoring/alerting'
 
-// Mock Supabase clients
-jest.mock('@/app/lib/supabase-clients', () => ({
-  supabaseApp: {
+// Mock Supabase admin clients
+jest.mock('@/app/lib/auth/supabase-server-admin', () => ({
+  supabaseAppAdmin: {
     from: jest.fn(() => ({
       select: jest.fn(() => ({
         limit: jest.fn(() => ({
@@ -25,11 +25,11 @@ jest.mock('@/app/lib/supabase-clients', () => ({
       error: null
     }))
   },
-  supabasePrivate: {
+  supabasePrivateAdmin: {
     from: jest.fn(() => ({
       select: jest.fn(() => ({
         limit: jest.fn(() => ({
-          data: [{ id: 'test-user' }],
+          data: [{ id: 'test-token' }],
           error: null
         }))
       }))
@@ -117,8 +117,8 @@ describe('Schema Monitor', () => {
     it('should create alerts for unhealthy schemas', async () => {
       // Mock error response
       const mockError = new Error('Connection failed')
-      const { supabaseApp } = await import('@/app/lib/supabase-clients')
-      ;(supabaseApp.from as jest.MockedFunction<any>).mockReturnValue({
+      const { supabaseAppAdmin } = await import('@/app/lib/auth/supabase-server-admin')
+      ;(supabaseAppAdmin.from as jest.MockedFunction<any>).mockReturnValue({
         select: jest.fn(() => ({
           limit: jest.fn(() => ({
             data: null,
@@ -176,8 +176,8 @@ describe('Schema Monitor', () => {
   describe('Error Handling', () => {
     it('should handle schema connection errors gracefully', async () => {
       const mockError = new Error('Database connection failed')
-      const { supabaseApp } = await import('@/app/lib/supabase-clients')
-      ;(supabaseApp.from as jest.MockedFunction<any>).mockImplementation(() => {
+      const { supabaseAppAdmin } = await import('@/app/lib/auth/supabase-server-admin')
+      ;(supabaseAppAdmin.from as jest.MockedFunction<any>).mockImplementation(() => {
         throw mockError
       })
 
@@ -196,12 +196,16 @@ describe('Schema Monitor', () => {
       schemaMonitor.stopMonitoring()
     })
 
-    it('should handle RPC function errors for private schema', async () => {
-      const mockError = new Error('RPC function not found')
-      const { supabaseApp } = await import('@/app/lib/supabase-clients')
-      ;(supabaseApp.rpc as jest.MockedFunction<any>).mockReturnValue({
-        data: null,
-        error: mockError
+    it('should handle private schema connection errors', async () => {
+      const mockError = new Error('Private schema connection failed')
+      const { supabasePrivateAdmin } = await import('@/app/lib/auth/supabase-server-admin')
+      ;(supabasePrivateAdmin.from as jest.MockedFunction<any>).mockReturnValue({
+        select: jest.fn(() => ({
+          limit: jest.fn(() => ({
+            data: null,
+            error: mockError
+          }))
+        }))
       })
 
       schemaMonitor.startMonitoring(100)
@@ -222,8 +226,8 @@ describe('Schema Monitor', () => {
   describe('Performance Thresholds', () => {
     it('should mark schemas as degraded for slow responses', async () => {
       // Mock slow response
-      const { supabaseApp } = await import('@/app/lib/supabase-clients')
-      ;(supabaseApp.from as jest.MockedFunction<any>).mockReturnValue({
+      const { supabaseAppAdmin } = await import('@/app/lib/auth/supabase-server-admin')
+      ;(supabaseAppAdmin.from as jest.MockedFunction<any>).mockReturnValue({
         select: jest.fn(() => ({
           limit: jest.fn(() => new Promise(resolve => {
             setTimeout(() => resolve({
@@ -252,8 +256,8 @@ describe('Schema Monitor', () => {
   describe('Alert Integration', () => {
     it('should send alerts through alerting service', async () => {
       const mockError = new Error('Critical failure')
-      const { supabaseApp } = await import('@/app/lib/supabase-clients')
-      ;(supabaseApp.from as jest.MockedFunction<any>).mockReturnValue({
+      const { supabaseAppAdmin } = await import('@/app/lib/auth/supabase-server-admin')
+      ;(supabaseAppAdmin.from as jest.MockedFunction<any>).mockReturnValue({
         select: jest.fn(() => ({
           limit: jest.fn(() => ({
             data: null,

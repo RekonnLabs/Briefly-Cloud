@@ -7,6 +7,40 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { schemaMonitor } from '@/app/lib/monitoring/schema-monitor'
+import { createServerAdminClient } from '@/app/lib/auth/supabase-server-admin'
+
+export const runtime = 'nodejs'
+
+/**
+ * Quick health check using admin client
+ */
+async function quickHealthCheck() {
+  const admin = createServerAdminClient()
+  
+  try {
+    // Test app schema connectivity
+    const { error: appError } = await admin.from('users').select('id').limit(1)
+    
+    // Test private schema via RPC (admin client can call RPC functions)
+    const { error: privateError } = await admin.rpc('get_oauth_token', {
+      p_user_id: '00000000-0000-0000-0000-000000000000',
+      p_provider: 'google'
+    })
+
+    return {
+      app: appError ? 'error' : 'ok',
+      private: (privateError && !privateError.message.includes('no rows')) ? 'error' : 'ok',
+      appError: appError?.message,
+      privateError: (privateError && !privateError.message.includes('no rows')) ? privateError.message : null
+    }
+  } catch (error) {
+    return {
+      app: 'error',
+      private: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
 
 /**
  * GET /api/monitoring/schema
@@ -17,6 +51,20 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const includeResolved = searchParams.get('includeResolved') === 'true'
     const format = searchParams.get('format') || 'json'
+    const quick = searchParams.get('quick') === 'true'
+
+    // Quick health check using admin client
+    if (quick) {
+      const healthStatus = await quickHealthCheck()
+      return NextResponse.json({
+        health: healthStatus,
+        timestamp: new Date().toISOString()
+      }, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      })
+    }
 
     // Get performance metrics
     const performanceMetrics = schemaMonitor.getPerformanceMetrics()

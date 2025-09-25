@@ -5,7 +5,7 @@
  * and alerting for schema connectivity issues
  */
 
-import { supabaseApp, supabasePrivate } from '@/app/lib/supabase-clients'
+import { supabaseAppAdmin, supabasePrivateAdmin } from '@/app/lib/auth/supabase-server-admin'
 import { handleSchemaError, logSchemaError } from '@/app/lib/errors/schema-errors'
 import { alertingService } from './alerting'
 
@@ -151,16 +151,13 @@ class SchemaMonitor {
       
       switch (schema) {
         case 'app':
-          client = supabaseApp
+          client = supabaseAppAdmin
           testQuery = client.from('users').select('id').limit(1)
           break
         case 'private':
-          // Test private schema via RPC
-          client = supabaseApp
-          testQuery = client.rpc('get_oauth_token', {
-            p_user_id: '00000000-0000-0000-0000-000000000000',
-            p_provider: 'google'
-          })
+          // Test private schema directly with admin client
+          client = supabasePrivateAdmin
+          testQuery = client.from('oauth_tokens').select('id').limit(1)
           break
       }
 
