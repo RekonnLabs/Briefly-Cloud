@@ -11,6 +11,12 @@ import { getOAuthScopes, getOAuthSettings } from '@/app/lib/oauth/security-confi
 import { constructRedirectUri } from '@/app/lib/oauth/redirect-validation'
 import { FlowSeparationMonitor } from '@/app/lib/oauth/flow-separation-monitor'
 
+function isAllowlisted(email: string | null | undefined) {
+  const raw = process.env.STORAGE_OAUTH_TEST_EMAILS ?? '';
+  const set = new Set(raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+  return !!email && set.has(email.toLowerCase());
+}
+
 function getCookieFromReq(req: Request, name: string) {
   const raw = req.headers.get('cookie') || ''
   const hit = raw.split(';').map(s => s.trim()).find(s => s.startsWith(name + '='))
@@ -59,15 +65,35 @@ async function handler(req: NextRequest) {
     loginUrl.searchParams.set('returnTo', '/briefly/app/dashboard?tab=storage')
     return NextResponse.redirect(loginUrl)
   }
-  // Check plan access using supabase client
-  const { data: access } = await supabase
-    .from('v_user_access')
-    .select('trial_active, paid_active')
-    .eq('user_id', user.id)
-    .single()
+  // Check plan access using supabase client (with allowlist bypass)
+  if (!isAllowlisted(user.email)) {
+    const { data: access } = await supabase
+      .from('v_user_access')
+      .select('trial_active, paid_active')
+      .eq('user_id', user.id)
+      .single()
 
-  if (!(access?.trial_active || access?.paid_active)) {
-    return ApiResponse.forbidden('Plan required', 'PLAN_REQUIRED')
+    if (!(access?.trial_active || access?.paid_active)) {
+      // Log plan restriction for monitoring (this is business logic, not OAuth flow issue)
+      OAuthLogger.logError('microsoft', 'start', new Error('Plan required for storage OAuth'), {
+        operation: 'plan_check',
+        userId: user.id,
+        userAgent: req.headers.get('user-agent'),
+        referer: req.headers.get('referer'),
+        trialActive: access?.trial_active || false,
+        paidActive: access?.paid_active || false,
+        errorType: 'business_logic_restriction'
+      })
+      
+      return ApiResponse.forbidden('Plan required', 'PLAN_REQUIRED')
+    }
+  } else {
+    // Log allowlist bypass for monitoring
+    OAuthLogger.logStart('microsoft', user.id, generateCorrelationId(), {
+      operation: 'allowlist_bypass',
+      email: user.email,
+      userAgent: req.headers.get('user-agent')
+    })
   }
   const correlationId = generateCorrelationId()
   

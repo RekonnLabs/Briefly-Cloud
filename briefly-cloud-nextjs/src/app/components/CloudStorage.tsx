@@ -19,7 +19,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, Download, ExternalLink, RefreshCw, AlertCircle, Play, Pause, X, CheckCircle, XCircle, Clock, Folder, FolderOpen } from 'lucide-react';
+import { Cloud, Download, ExternalLink, RefreshCw, AlertCircle, Play, Pause, X, CheckCircle, XCircle, Clock, Folder, FolderOpen, CreditCard } from 'lucide-react';
 import { Breadcrumb, type BreadcrumbItem } from './ui/Breadcrumb';
 import { useToast } from './ui/toast';
 import { GooglePicker } from './GooglePicker';
@@ -104,6 +104,14 @@ interface CloudStorageProps {
   userId?: string;
 }
 
+interface PlanStatus {
+  trialActive: boolean;
+  paidActive: boolean;
+  trialEndsAt: string | null;
+  hasStorageAccess: boolean;
+  subscriptionTier: string;
+}
+
 export function CloudStorage({ userId }: CloudStorageProps = {}) {
   const { showSuccess, showError } = useToast();
   
@@ -136,15 +144,36 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
   const [batchJobs, setBatchJobs] = useState<Map<string, ImportJob>>(new Map());
   const [showJobDetails, setShowJobDetails] = useState<string | null>(null);
   const [isProcessingPickerFiles, setIsProcessingPickerFiles] = useState(false);
+  const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
+  const [showPlanBanner, setShowPlanBanner] = useState(true);
 
   // Function to refresh connection status
   const refreshConnectionStatus = useCallback(async () => {
     await checkConnectionStatus();
   }, []);
 
+  // Function to check plan status
+  const checkPlanStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/plan/status', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const { data } = await response.json();
+        setPlanStatus(data);
+      } else {
+        console.error('Failed to fetch plan status');
+      }
+    } catch (error) {
+      console.error('Error checking plan status:', error);
+    }
+  }, []);
+
   useEffect(() => {
-    // Check connection status on mount
+    // Check connection status and plan status on mount
     checkConnectionStatus();
+    checkPlanStatus();
     
     // Check for OAuth success/error indicators in URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -175,7 +204,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       newUrl.searchParams.delete('error');
       window.history.replaceState({}, '', newUrl.toString());
     }
-  }, [showSuccess, showError, refreshConnectionStatus]);
+  }, [showSuccess, showError, refreshConnectionStatus, checkPlanStatus]);
 
   // Function to map error codes to user-friendly messages
   const getErrorMessage = (errorCode: string): string => {
@@ -259,6 +288,13 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         logAuthenticationViolation(attemptedRoute, 'CloudStorage')
         
         window.location.href = `/auth/signin?next=${encodeURIComponent('/briefly/app/dashboard?tab=storage')}`
+        return
+      }
+
+      // Check if user has storage access (unless allowlisted)
+      if (planStatus && !planStatus.hasStorageAccess) {
+        // Navigate to billing instead of attempting OAuth
+        window.location.href = '/briefly/app/billing?reason=cloud-storage'
         return
       }
 
@@ -778,6 +814,35 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         <p className="text-gray-300">Connect your cloud storage accounts to import documents</p>
       </div>
 
+      {/* Plan Access Banner */}
+      {planStatus && !planStatus.hasStorageAccess && showPlanBanner && (
+        <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-3">
+              <CreditCard className="w-5 h-5 text-yellow-500 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-yellow-200 mb-1">Cloud Storage Requires Subscription</h4>
+                <p className="text-yellow-100/80 mb-3">
+                  Connect Google Drive and OneDrive to import your documents. This feature is available with our Pro plans.
+                </p>
+                <a 
+                  href="/briefly/app/billing?reason=cloud-storage" 
+                  className="inline-flex items-center px-3 py-1.5 bg-yellow-500 text-black rounded-lg hover:bg-yellow-400 transition-colors font-medium"
+                >
+                  Upgrade or Start Trial →
+                </a>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowPlanBanner(false)}
+              className="text-yellow-400 hover:text-yellow-300 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {providers.map((provider) => (
         <div key={provider.id} className="bg-gray-900/80 backdrop-blur-sm border border-gray-700/50 rounded-2xl shadow-xl p-6">
           <div className="flex items-center justify-between mb-4">
@@ -832,10 +897,15 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
               ) : (
                 <button
                   onClick={() => connectProvider(provider.id)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg"
+                  disabled={planStatus && !planStatus.hasStorageAccess}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-colors shadow-lg ${
+                    planStatus && !planStatus.hasStorageAccess
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
                 >
                   <Cloud className="w-4 h-4" />
-                  <span>Connect</span>
+                  <span>{planStatus && !planStatus.hasStorageAccess ? 'Requires Subscription' : 'Connect'}</span>
                 </button>
               )}
             </div>
@@ -880,7 +950,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                     <GooglePicker
                       onFilesSelected={handleGoogleFilesSelected}
                       onError={handlePickerError}
-                      disabled={isProcessingPickerFiles}
+                      disabled={isProcessingPickerFiles || (planStatus && !planStatus.hasStorageAccess)}
                       userId={userId}
                     />
                   </div>

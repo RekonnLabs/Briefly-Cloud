@@ -5,12 +5,34 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseServerClient } from '@/app/lib/auth/supabase-server'
+import { createServerClient } from '@supabase/ssr'
 import { getErrorMonitoring } from '@/app/lib/error-monitoring'
+
+function getCookie(req: Request, name: string) {
+  const cookieHeader = req.headers.get('cookie')
+  if (!cookieHeader) return undefined
+  
+  const cookies = cookieHeader
+    .split(';')
+    .map(s => s.trim())
+    .find(s => s.startsWith(name + '='))
+  
+  return cookies?.split('=').slice(1).join('=')
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseServerClient()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get: (name) => getCookie(request, name),
+          set: () => {},
+          remove: () => {},
+        },
+      }
+    )
     
     // Check if user is authenticated and has admin permissions
     const { data: { session }, error: authError } = await supabase.auth.getSession()
@@ -136,7 +158,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseServerClient()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get: (name) => getCookie(request, name),
+          set: () => {},
+          remove: () => {},
+        },
+      }
+    )
     
     // Check if user is authenticated
     const { data: { session }, error: authError } = await supabase.auth.getSession()
