@@ -67,6 +67,17 @@ async function handler(req: NextRequest) {
     .single()
 
   if (!(access?.trial_active || access?.paid_active)) {
+    // Log plan restriction for monitoring (this is business logic, not OAuth flow issue)
+    OAuthLogger.logError('google', 'start', new Error('Plan required for storage OAuth'), {
+      operation: 'plan_check',
+      userId: user.id,
+      userAgent: req.headers.get('user-agent'),
+      referer: req.headers.get('referer'),
+      trialActive: access?.trial_active || false,
+      paidActive: access?.paid_active || false,
+      errorType: 'business_logic_restriction'
+    })
+    
     return ApiResponse.forbidden('Plan required', 'PLAN_REQUIRED')
   }
   const correlationId = generateCorrelationId()

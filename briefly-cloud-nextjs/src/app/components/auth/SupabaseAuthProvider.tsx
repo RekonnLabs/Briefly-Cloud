@@ -1,8 +1,18 @@
 /**
- * Supabase Authentication Provider
+ * Supabase Authentication Provider - Main User Authentication
  * 
  * This component provides authentication context for the entire application
- * using Supabase Auth instead of NextAuth.
+ * using Supabase Auth for user login/signup flows.
+ * 
+ * OAUTH FLOW SEPARATION:
+ * - Main Authentication: Uses `/auth/start?provider=...` routes (handled by Supabase Auth)
+ * - Storage Connection: Uses `/api/storage/{provider}/start` routes (custom OAuth implementation)
+ * 
+ * IMPORTANT: This component should ONLY handle main authentication flows:
+ * - User Login/Signup: `/auth/start?provider=google` or `/auth/start?provider=azure`
+ * 
+ * DO NOT use `/api/storage/google/start` or `/api/storage/microsoft/start` here.
+ * Those routes are reserved for cloud storage connections after users are authenticated.
  */
 
 'use client'
@@ -10,6 +20,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { getSupabaseBrowserClient } from '@/app/lib/auth/supabase-browser'
 import type { User, Session } from '@supabase/supabase-js'
+import { logMainAuthRoute, logOAuthFlowCompletion } from '@/app/lib/oauth-flow-monitoring'
 
 // Define AuthUser type here since it's client-side
 interface AuthUser {
@@ -82,10 +93,21 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
         if (session?.user?.email && session.access_token) {
           setSession(session)
           setUser(createAuthUser(session.user))
+          
+          // Log successful authentication for monitoring
+          if (event === 'SIGNED_IN') {
+            // Determine provider from user metadata
+            const provider = session.user.app_metadata?.provider || 'unknown'
+            const mappedProvider = provider === 'azure' ? 'azure' : provider === 'google' ? 'google' : 'microsoft'
+            logOAuthFlowCompletion('main_auth', mappedProvider as any, true, session.user.id)
+          }
         } else {
           console.warn('Invalid session data received:', { hasUser: !!session?.user, hasToken: !!session?.access_token })
           setSession(null)
           setUser(null)
+          
+          // Log authentication failure for monitoring
+          logOAuthFlowCompletion('main_auth', 'unknown', false, undefined, undefined, 'Invalid session data')
         }
         setLoading(false)
       } else if (event === 'SIGNED_OUT') {
@@ -100,6 +122,9 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
         } else if (session) {
           console.warn('Invalid initial session, signing out')
           await supabase.auth.signOut()
+          
+          // Log authentication failure for monitoring
+          logOAuthFlowCompletion('main_auth', 'unknown', false, undefined, undefined, 'Invalid initial session')
         }
         setLoading(false)
       }
@@ -139,14 +164,28 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
     }
   }, [supabase.auth])
 
-  // Sign in with OAuth provider - navigate to server-side route
+  /**
+   * Sign in with OAuth provider using main authentication routes
+   * 
+   * OAUTH FLOW SEPARATION: This function uses main authentication routes:
+   * - Google: /auth/start?provider=google
+   * - Microsoft: /auth/start?provider=azure
+   * 
+   * These routes are DIFFERENT from storage OAuth routes (/api/storage/{provider}/start)
+   * which are used for connecting cloud storage accounts after authentication.
+   */
   const signIn = async (provider: 'google' | 'microsoft') => {
     try {
       const next = encodeURIComponent('/briefly/app/dashboard')
       const authProvider = provider === 'microsoft' ? 'azure' : provider
+      
+      // Use main authentication routes (NOT storage OAuth routes)
       const startUrl = `/auth/start?provider=${authProvider}&next=${next}`
       
-      // Navigate to server-side OAuth start route
+      // Log OAuth route usage for monitoring
+      logMainAuthRoute(provider, 'SupabaseAuthProvider')
+      
+      // Navigate to server-side OAuth start route for user authentication
       window.location.href = startUrl
     } catch (error) {
       console.error('Sign in error:', error)

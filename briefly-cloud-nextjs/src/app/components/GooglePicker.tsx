@@ -1,3 +1,18 @@
+/**
+ * GooglePicker Component - Google Drive File Selection
+ * 
+ * This component uses Google's Picker API to allow users to select files from Google Drive.
+ * It integrates with the storage OAuth system for authentication.
+ * 
+ * OAUTH FLOW SEPARATION:
+ * - This component uses storage OAuth tokens obtained via `/api/storage/google/picker-token`
+ * - It does NOT use main authentication tokens from Supabase Auth
+ * - The picker token is specifically scoped for Google Drive file access
+ * 
+ * IMPORTANT: This component requires the user to have already connected Google Drive
+ * via the CloudStorage component using `/api/storage/google/start` route.
+ */
+
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
@@ -5,17 +20,17 @@ import { Button } from '@/app/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog'
 import { FileIcon, LoaderIcon, AlertTriangleIcon, RefreshCwIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { 
-  handleTokenError, 
-  handlePickerError, 
+import {
+  handleTokenError,
+  handlePickerError,
   createErrorContext,
   logPickerError,
   PickerErrorInfo,
   getErrorGuidance
 } from '@/app/lib/google-picker/error-handling'
-import { 
-  withRetry, 
-  canRetryOperation, 
+import {
+  withRetry,
+  canRetryOperation,
   getRetryInfo,
   cancelRetry
 } from '@/app/lib/google-picker/retry-service'
@@ -102,7 +117,7 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
         size: doc.sizeBytes ? parseInt(doc.sizeBytes) : 0,
         downloadUrl: doc.downloadUrl
       }))
-      
+
       // Log successful file selection for audit
       if (userId) {
         logFileSelectionSuccess(
@@ -117,7 +132,7 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
           currentTokenId
         )
       }
-      
+
       onFilesSelected(selectedFiles)
     } else if (data.action === window.google!.picker.Action.CANCEL) {
       // Log cancellation for audit
@@ -137,15 +152,15 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
 
     return new Promise<void>((resolve, reject) => {
       const context = createErrorContext('load_picker_api', userId)
-      
+
       // Load the Google APIs script first
       const script = document.createElement('script')
       script.src = 'https://apis.google.com/js/api.js'
-      
+
       const timeout = setTimeout(() => {
         reject(new Error('Timeout loading Google APIs script'))
       }, 15000) // 15 second timeout
-      
+
       script.onload = () => {
         clearTimeout(timeout)
         // Once the main API is loaded, load the picker API
@@ -162,7 +177,7 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
           }
         })
       }
-      
+
       script.onerror = () => {
         clearTimeout(timeout)
         const error = new Error('Failed to load Google APIs script')
@@ -170,7 +185,7 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
         logPickerError(errorInfo, context)
         reject(error)
       }
-      
+
       document.head.appendChild(script)
     })
   }, [userId])
@@ -179,18 +194,19 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
     const operationId = `picker-open-${Date.now()}`
     setIsLoading(true)
     setCurrentError(null)
-    
+
     try {
       await withRetry(operationId, async () => {
         const context = createErrorContext('open_picker', userId, { retryCount })
-        
+
         try {
           // Load Picker API if not already loaded
           if (!pickerLoaded) {
             await loadPickerAPI()
           }
 
-          // Get picker token from our API
+          // Get picker token from storage OAuth API (NOT main auth API)
+          // This uses the stored Google Drive OAuth token from storage connection
           const tokenResponse = await fetch('/api/storage/google/picker-token', {
             credentials: 'include'
           })
@@ -203,7 +219,7 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
             } catch {
               throw new Error(`HTTP ${tokenResponse.status}: ${errorText}`)
             }
-            
+
             // Handle token-specific errors
             if (errorData.error && typeof errorData.error === 'object') {
               const tokenError = errorData.error
@@ -211,7 +227,7 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
               logPickerError(errorInfo, context)
               throw Object.assign(new Error(errorInfo.userMessage), { type: errorInfo.type })
             }
-            
+
             throw new Error(errorData.message || 'Failed to get picker token')
           }
 
@@ -247,31 +263,31 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
             .build()
 
           picker.setVisible(true)
-          
+
         } catch (error) {
           // Handle different types of errors
           if (error instanceof Error && 'type' in error) {
             // Already processed error
             throw error
           }
-          
+
           const errorInfo = handlePickerError(error as Error, context)
           logPickerError(errorInfo, context)
           throw Object.assign(error as Error, { type: errorInfo.type })
         }
       })
-      
+
       // Success - clear any previous errors
       setCurrentError(null)
       setRetryCount(0)
-      
+
     } catch (error) {
       console.error('Failed to open Google Picker:', error)
-      
+
       // Create error info for display
       const context = createErrorContext('open_picker_final', userId, { retryCount })
       let errorInfo: PickerErrorInfo
-      
+
       if (error instanceof Error && 'type' in error) {
         // Token error
         errorInfo = handleTokenError(error as any, context)
@@ -279,10 +295,10 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
         // Generic picker error
         errorInfo = handlePickerError(error as Error, context)
       }
-      
+
       setCurrentError(errorInfo)
       setRetryCount(prev => prev + 1)
-      
+
       // Log failure for audit
       if (userId) {
         logFileSelectionFailure(userId, sessionId, errorInfo.type, currentTokenId)
@@ -292,7 +308,7 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
       const guidance = getErrorGuidance(errorInfo)
       toast.error(guidance.message)
       onError(errorInfo.userMessage)
-      
+
       // Show recovery dialog for auth errors
       if (errorInfo.requiresReauth) {
         setShowRecovery(true)
@@ -351,10 +367,10 @@ export function GooglePicker({ onFilesSelected, onError, disabled, userId }: Goo
           ) : (
             <FileIcon className="h-4 w-4" />
           )}
-          {isLoading 
-            ? 'Loading...' 
-            : currentError 
-              ? 'Try Again' 
+          {isLoading
+            ? 'Loading...'
+            : currentError
+              ? 'Try Again'
               : 'Add files from Google Drive'
           }
         </Button>

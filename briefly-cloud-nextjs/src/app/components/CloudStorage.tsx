@@ -1,3 +1,21 @@
+/**
+ * CloudStorage Component - Cloud Storage OAuth Integration
+ * 
+ * This component handles cloud storage connections (Google Drive, OneDrive) using
+ * dedicated storage OAuth routes. It is SEPARATE from main authentication flows.
+ * 
+ * OAUTH FLOW SEPARATION:
+ * - Main Authentication: Uses `/auth/start?provider=...` routes (handled by Supabase Auth)
+ * - Storage Connection: Uses `/api/storage/{provider}/start` routes (custom OAuth implementation)
+ * 
+ * IMPORTANT: This component should ONLY use storage OAuth routes:
+ * - Google Drive: `/api/storage/google/start` → `/api/storage/google/callback`
+ * - OneDrive: `/api/storage/microsoft/start` → `/api/storage/microsoft/callback`
+ * 
+ * DO NOT use `/auth/start?provider=google` or `/auth/start?provider=microsoft` here.
+ * Those routes are reserved for user authentication (login/signup) only.
+ */
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -5,6 +23,7 @@ import { Cloud, Download, ExternalLink, RefreshCw, AlertCircle, Play, Pause, X, 
 import { Breadcrumb, type BreadcrumbItem } from './ui/Breadcrumb';
 import { useToast } from './ui/toast';
 import { GooglePicker } from './GooglePicker';
+import { logStorageOAuthRoute, logOAuthFlowCompletion, logAuthenticationViolation } from '@/app/lib/oauth-flow-monitoring';
 
 interface CloudFile {
   id: string;
@@ -214,22 +233,42 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     }
   };
 
+  /**
+   * Connect to cloud storage provider using dedicated storage OAuth routes
+   * 
+   * OAUTH FLOW SEPARATION: This function uses storage-specific OAuth routes:
+   * - Google Drive: /api/storage/google/start
+   * - OneDrive: /api/storage/microsoft/start
+   * 
+   * These routes are DIFFERENT from main authentication routes (/auth/start?provider=...)
+   * which are used for user login/signup via Supabase Auth.
+   */
   const connectProvider = async (providerId: 'google' | 'microsoft') => {
     try {
       // Import browser client at runtime to avoid SSR issues
       const { getSupabaseBrowser } = await import('@/app/lib/supabase-browser')
       const supabase = getSupabaseBrowser()
       
-      // Hard stop if user isn't logged in
+      // Hard stop if user isn't logged in - storage connections require authentication
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
+        // Log authentication violation for monitoring
+        const attemptedRoute = providerId === 'google' 
+          ? '/api/storage/google/start'
+          : '/api/storage/microsoft/start';
+        logAuthenticationViolation(attemptedRoute, 'CloudStorage')
+        
         window.location.href = `/auth/signin?next=${encodeURIComponent('/briefly/app/dashboard?tab=storage')}`
         return
       }
 
+      // Use storage-specific OAuth routes (NOT main auth routes)
       const startUrl = providerId === 'google' 
-        ? '/api/storage/google/start'
-        : '/api/storage/microsoft/start';
+        ? '/api/storage/google/start'    // Storage OAuth route for Google Drive
+        : '/api/storage/microsoft/start'; // Storage OAuth route for OneDrive
+      
+      // Log OAuth route usage for monitoring
+      logStorageOAuthRoute(providerId, 'CloudStorage', session.user.id)
       
       const response = await fetch(startUrl, {
         credentials: 'include'
@@ -245,8 +284,38 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       window.location.href = url;
     } catch (error) {
       console.error('OAuth initiation failed:', error);
+      
+      // Log OAuth flow failure for monitoring
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      // Determine error type based on the error
+      let errorType: 'oauth_flow_violation' | 'authentication_failure' | 'business_logic_restriction' | 'technical_error' = 'technical_error'
+      if (error instanceof Error) {
+        if (error.message.includes('Plan required') || error.message.includes('PLAN_REQUIRED')) {
+          errorType = 'business_logic_restriction'
+        } else if (error.message.includes('Authentication') || error.message.includes('auth')) {
+          errorType = 'authentication_failure'
+        }
+      }
+      
+      logOAuthFlowCompletion(
+        'storage_oauth',
+        providerId,
+        false,
+        session?.user?.id,
+        undefined,
+        error instanceof Error ? error.message : 'Unknown error',
+        errorType
+      )
+      
       const providerName = providerId === 'google' ? 'Google Drive' : 'OneDrive';
-      showError(`Failed to connect ${providerName}`, 'Please try again or check your internet connection.');
+      
+      // Provide specific error messages based on error type
+      if (error instanceof Error && (error.message.includes('Plan required') || error.message.includes('PLAN_REQUIRED'))) {
+        showError(`${providerName} connection requires subscription`, 'Please upgrade your plan to connect cloud storage accounts.');
+      } else {
+        showError(`Failed to connect ${providerName}`, 'Please try again or check your internet connection.');
+      }
     }
   };
 
