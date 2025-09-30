@@ -149,6 +149,12 @@ export class DocumentProcessor implements IDocumentProcessor {
         options
       })
 
+      // Check if vector store is available
+      if (!this.vectorStore.isConnected()) {
+        logger.warn('Vector store not connected, returning empty results', { userId })
+        return []
+      }
+
       // Step 1: Generate embedding for the query
       const embeddingResult = await generateEmbedding(query)
 
@@ -160,20 +166,25 @@ export class DocumentProcessor implements IDocumentProcessor {
       )
 
       // Step 3: Log search usage in app schema
-      await supabaseApp
-        .from('usage_logs')
-        .insert({
-          user_id: userId,
-          action: 'document_search',
-          resource_type: 'search',
-          quantity: 1,
-          metadata: {
-            query_length: query.length,
-            results_count: results.length,
-            embedding_model: embeddingResult.model,
-            search_options: options
-          }
-        })
+      try {
+        await supabaseApp
+          .from('usage_logs')
+          .insert({
+            user_id: userId,
+            action: 'document_search',
+            resource_type: 'search',
+            quantity: 1,
+            metadata: {
+              query_length: query.length,
+              results_count: results.length,
+              embedding_model: embeddingResult.model,
+              search_options: options
+            }
+          })
+      } catch (logError) {
+        // Don't fail the search if logging fails
+        logger.warn('Failed to log search usage', { userId }, logError as Error)
+      }
 
       logger.info('Document search completed', {
         userId,
@@ -185,12 +196,14 @@ export class DocumentProcessor implements IDocumentProcessor {
       return results
 
     } catch (error) {
-      logger.error('Document search failed', {
+      logger.error('Document search failed, returning empty results', {
         userId,
-        queryLength: query.length
-      }, error as Error)
+        queryLength: query.length,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
 
-      throw createError.searchError('Document search failed', error as Error)
+      // Graceful fallback - return empty results instead of throwing
+      return []
     }
   }
 

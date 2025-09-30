@@ -89,6 +89,11 @@ export async function generateChatCompletion(
   tier: SubscriptionTier,
   userApiKey?: string
 ): Promise<string> {
+  // Validate API key availability
+  if (!process.env.OPENAI_API_KEY && !userApiKey) {
+    throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable or provide a user API key.')
+  }
+
   const client = userApiKey ? createUserOpenAIClient(userApiKey) : openai
   const model = resolveChatModel(tier)
   
@@ -103,7 +108,21 @@ export async function generateChatCompletion(
     return response.choices[0]?.message?.content || 'No response generated'
   } catch (error) {
     console.error('Error generating chat completion:', error)
-    throw new Error('Failed to generate chat response')
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        throw new Error('Invalid OpenAI API key. Please check your API key configuration.')
+      }
+      if (error.message.includes('quota')) {
+        throw new Error('OpenAI API quota exceeded. Please check your billing and usage limits.')
+      }
+      if (error.message.includes('model')) {
+        throw new Error(`OpenAI model "${model}" not available. Please check your API access.`)
+      }
+    }
+    
+    throw new Error('Failed to generate chat response. Please try again.')
   }
 }
 
@@ -113,6 +132,11 @@ export async function streamChatCompletion(
   tier: SubscriptionTier,
   userApiKey?: string
 ) {
+  // Validate API key availability
+  if (!process.env.OPENAI_API_KEY && !userApiKey) {
+    throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable or provide a user API key.')
+  }
+
   const client = userApiKey ? createUserOpenAIClient(userApiKey) : openai
   const model = resolveChatModel(tier)
   
@@ -128,6 +152,20 @@ export async function streamChatCompletion(
     return stream
   } catch (error) {
     console.error('Error streaming chat completion:', error)
-    throw new Error('Failed to stream chat response')
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        throw new Error('Invalid OpenAI API key. Please check your API key configuration.')
+      }
+      if (error.message.includes('quota')) {
+        throw new Error('OpenAI API quota exceeded. Please check your billing and usage limits.')
+      }
+      if (error.message.includes('model')) {
+        throw new Error(`OpenAI model "${model}" not available. Please check your API access.`)
+      }
+    }
+    
+    throw new Error('Failed to stream chat response. Please try again.')
   }
 }
