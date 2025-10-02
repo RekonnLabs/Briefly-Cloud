@@ -48,6 +48,9 @@ export default function RootLayout({
             {children}
           </div>
         </Providers>
+        {/* Apideck Vault Script */}
+        <script src="https://vault.apideck.com/vault.js" async />
+        
         {/* OAuth Console Helpers - Development Only */}
         {process.env.NODE_ENV === 'development' && (
           <script src="/oauth-console-helpers.js" async />

@@ -1,19 +1,25 @@
 /**
- * CloudStorage Component - Cloud Storage OAuth Integration
+ * CloudStorage Component - Unified Cloud Storage Integration
  * 
  * This component handles cloud storage connections (Google Drive, OneDrive) using
- * dedicated storage OAuth routes. It is SEPARATE from main authentication flows.
+ * either Apideck Vault (unified) or legacy OAuth routes based on feature flag.
  * 
- * OAUTH FLOW SEPARATION:
- * - Main Authentication: Uses `/auth/start?provider=...` routes (handled by Supabase Auth)
- * - Storage Connection: Uses `/api/storage/{provider}/start` routes (custom OAuth implementation)
+ * INTEGRATION MODES:
+ * - Apideck Mode (APIDECK_ENABLED=true): Uses Apideck Vault for unified OAuth
+ * - Legacy Mode (APIDECK_ENABLED=false): Uses dedicated storage OAuth routes
  * 
- * IMPORTANT: This component should ONLY use storage OAuth routes:
+ * APIDECK INTEGRATION:
+ * - Connection: Opens Apideck Vault modal for all providers
+ * - Session: `/api/integrations/apideck/session` → Vault → `/api/integrations/apideck/callback`
+ * - File Operations: Uses Apideck unified API via `/api/storage/{provider}/list` etc.
+ * 
+ * LEGACY OAUTH (Fallback):
  * - Google Drive: `/api/storage/google/start` → `/api/storage/google/callback`
  * - OneDrive: `/api/storage/microsoft/start` → `/api/storage/microsoft/callback`
  * 
- * DO NOT use `/auth/start?provider=google` or `/auth/start?provider=microsoft` here.
- * Those routes are reserved for user authentication (login/signup) only.
+ * OAUTH FLOW SEPARATION:
+ * This component is SEPARATE from main authentication flows (`/auth/start?provider=...`)
+ * which are used for user login/signup via Supabase Auth.
  */
 
 "use client";
@@ -24,6 +30,7 @@ import { Breadcrumb, type BreadcrumbItem } from './ui/Breadcrumb';
 import { useToast } from './ui/toast';
 import { GooglePicker } from './GooglePicker';
 import { logStorageOAuthRoute, logOAuthFlowCompletion, logAuthenticationViolation } from '@/app/lib/oauth-flow-monitoring';
+import { useVault } from './integrations/useVault';
 
 interface CloudFile {
   id: string;
@@ -146,6 +153,8 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
   const [isProcessingPickerFiles, setIsProcessingPickerFiles] = useState(false);
   const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
   const [showPlanBanner, setShowPlanBanner] = useState(true);
+  const [isApideckEnabled, setIsApideckEnabled] = useState(false);
+  const { openVault, isLoading: isVaultLoading, error: vaultError } = useVault();
 
   // Function to refresh connection status
   const refreshConnectionStatus = useCallback(async () => {
@@ -170,10 +179,29 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     }
   }, []);
 
+  // Function to check if Apideck is enabled
+  const checkApideckStatus = useCallback(async () => {
+    try {
+      // Try to create a session to see if Apideck is enabled
+      const response = await fetch('/api/integrations/apideck/session', {
+        credentials: 'include'
+      });
+      
+      // If we get a 503, Apideck is disabled
+      // If we get 200, Apideck is enabled
+      // If we get 401, user not authenticated but Apideck is enabled
+      setIsApideckEnabled(response.status !== 503);
+    } catch (error) {
+      console.error('Error checking Apideck status:', error);
+      setIsApideckEnabled(false);
+    }
+  }, []);
+
   useEffect(() => {
-    // Check connection status and plan status on mount
+    // Check connection status, plan status, and Apideck status on mount
     checkConnectionStatus();
     checkPlanStatus();
+    checkApideckStatus();
     
     // Check for OAuth success/error indicators in URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -181,8 +209,12 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     const errorCode = urlParams.get('error');
     
     if (connectedProvider) {
-      const providerName = connectedProvider === 'google' ? 'Google Drive' : 'OneDrive';
-      showSuccess(`${providerName} connected successfully!`, 'You can now import files from your cloud storage.');
+      if (connectedProvider === 'apideck') {
+        showSuccess('Cloud storage connected successfully!', 'You can now import files from your connected providers.');
+      } else {
+        const providerName = connectedProvider === 'google' ? 'Google Drive' : 'OneDrive';
+        showSuccess(`${providerName} connected successfully!`, 'You can now import files from your cloud storage.');
+      }
       
       // Clean up URL parameters
       const newUrl = new URL(window.location.href);
@@ -204,7 +236,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       newUrl.searchParams.delete('error');
       window.history.replaceState({}, '', newUrl.toString());
     }
-  }, [showSuccess, showError, refreshConnectionStatus, checkPlanStatus]);
+  }, [showSuccess, showError, refreshConnectionStatus, checkPlanStatus, checkApideckStatus]);
 
   // Function to map error codes to user-friendly messages
   const getErrorMessage = (errorCode: string): string => {
@@ -298,6 +330,16 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         return
       }
 
+      // Use Apideck Vault if enabled, otherwise use legacy OAuth
+      if (isApideckEnabled) {
+        console.log('[connect] Using Apideck Vault for connection');
+        await openVault();
+        return;
+      }
+
+      // Legacy OAuth flow
+      console.log('[connect] Using legacy OAuth for', providerId);
+      
       // Use storage-specific OAuth routes (NOT main auth routes)
       const startUrl = providerId === 'google' 
         ? '/api/storage/google/start'    // Storage OAuth route for Google Drive
@@ -897,15 +939,28 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
               ) : (
                 <button
                   onClick={() => connectProvider(provider.id)}
-                  disabled={planStatus && !planStatus.hasStorageAccess}
+                  disabled={(planStatus && !planStatus.hasStorageAccess) || isVaultLoading}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-colors shadow-lg ${
-                    planStatus && !planStatus.hasStorageAccess
+                    (planStatus && !planStatus.hasStorageAccess) || isVaultLoading
                       ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                 >
-                  <Cloud className="w-4 h-4" />
-                  <span>{planStatus && !planStatus.hasStorageAccess ? 'Requires Subscription' : 'Connect'}</span>
+                  {isVaultLoading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Cloud className="w-4 h-4" />
+                  )}
+                  <span>
+                    {isVaultLoading 
+                      ? 'Opening...' 
+                      : planStatus && !planStatus.hasStorageAccess 
+                        ? 'Requires Subscription' 
+                        : isApideckEnabled 
+                          ? 'Connect via Vault'
+                          : 'Connect'
+                    }
+                  </span>
                 </button>
               )}
             </div>
