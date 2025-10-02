@@ -51,6 +51,9 @@ Object.defineProperty(global, 'crypto', {
   }
 })
 
+// Mock fetch for API calls
+global.fetch = jest.fn()
+
 // Mock window and navigator for browser environment tests
 // Note: Jest setup already provides window and navigator objects
 
@@ -62,6 +65,7 @@ describe('SignoutService', () => {
   let mockAuditUserAction: any
   let mockLogger: any
   let mockRecordSignoutEvent: any
+  let mockFetch: jest.MockedFunction<typeof fetch>
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -86,6 +90,7 @@ describe('SignoutService', () => {
     mockAuditUserAction = require('@/app/lib/audit/comprehensive-audit-logger').auditUserAction
     mockLogger = require('@/app/lib/logger').logger
     mockRecordSignoutEvent = require('../signout-monitoring').recordSignoutEvent
+    mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
 
     require('@/app/lib/auth/supabase-browser').getSupabaseBrowserClient.mockReturnValue(mockSupabaseBrowser)
     require('@/app/lib/auth/supabase-auth').createSupabaseServerClient.mockReturnValue(mockSupabaseServer)
@@ -111,6 +116,12 @@ describe('SignoutService', () => {
     mockConnectionManager.disconnectMicrosoft.mockResolvedValue(undefined)
     mockAuditUserAction.mockResolvedValue(undefined)
     mockRecordSignoutEvent.mockResolvedValue(undefined)
+    
+    // Mock fetch to return successful responses
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true })
+    } as Response)
   })
 
   describe('singleton pattern', () => {
@@ -139,36 +150,64 @@ describe('SignoutService', () => {
       expect(result.cleanup.sessionData).toBe(true)
       expect(result.cleanup.errors).toEqual([])
 
-      // Verify cleanup tasks were called
-      expect(mockCleanupPickerTokens).toHaveBeenCalledWith('test-user-id')
-      expect(mockConnectionManager.disconnectGoogle).toHaveBeenCalledWith('test-user-id', {
-        revokeAtProvider: false,
-        cancelRunningJobs: false
+      // Verify cleanup API calls were made
+      expect(mockFetch).toHaveBeenCalledWith('/api/picker/cleanup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: 'test-user-id' })
       })
-      expect(mockConnectionManager.disconnectMicrosoft).toHaveBeenCalledWith('test-user-id', {
-        revokeAtProvider: false,
-        cancelRunningJobs: false
+      expect(mockFetch).toHaveBeenCalledWith('/api/storage/disconnect/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: 'test-user-id',
+          options: {
+            revokeAtProvider: false,
+            cancelRunningJobs: false
+          }
+        })
+      })
+      expect(mockFetch).toHaveBeenCalledWith('/api/storage/disconnect/microsoft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: 'test-user-id',
+          options: {
+            revokeAtProvider: false,
+            cancelRunningJobs: false
+          }
+        })
       })
 
       // Verify Supabase signout was called
       expect(mockSupabaseBrowser.auth.signOut).toHaveBeenCalled()
 
-      // Verify audit logging
-      expect(mockAuditUserAction).toHaveBeenCalledWith(
-        'user.logout',
-        'test-user-id',
-        true,
-        'test-correlation-id-123',
-        expect.objectContaining({
-          timestamp: expect.any(String),
-          cleanupTasks: {
-            pickerTokens: true,
-            storageCredentials: true,
-            sessionData: true
-          }
-        }),
-        'low'
-      )
+      // Verify audit logging via API call (should be the 4th call)
+      expect(mockFetch).toHaveBeenNthCalledWith(4, '/api/audit/signout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: expect.stringContaining('"action":"user.logout"')
+      })
+      
+      // Verify the audit call contains the expected data
+      const auditCall = mockFetch.mock.calls[3]
+      const auditBody = JSON.parse(auditCall[1].body)
+      expect(auditBody.action).toBe('user.logout')
+      expect(auditBody.userId).toBe('test-user-id')
+      expect(auditBody.success).toBe(true)
+      expect(auditBody.correlationId).toBe('test-correlation-id-123')
+      expect(auditBody.metadata.cleanupTasks.pickerTokens).toBe(true)
+      expect(auditBody.metadata.cleanupTasks.storageCredentials).toBe(true)
+      expect(auditBody.metadata.cleanupTasks.sessionData).toBe(true)
+      expect(auditBody.severity).toBe('low')
 
       // Verify monitoring
       expect(mockRecordSignoutEvent).toHaveBeenCalledWith(
@@ -193,13 +232,31 @@ describe('SignoutService', () => {
       const result = await signoutService.signOut(options)
 
       expect(result.success).toBe(true)
-      expect(mockConnectionManager.disconnectGoogle).toHaveBeenCalledWith('test-user-id', {
-        revokeAtProvider: true,
-        cancelRunningJobs: true
+      expect(mockFetch).toHaveBeenCalledWith('/api/storage/disconnect/google', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: 'test-user-id',
+          options: {
+            revokeAtProvider: true,
+            cancelRunningJobs: true
+          }
+        })
       })
-      expect(mockConnectionManager.disconnectMicrosoft).toHaveBeenCalledWith('test-user-id', {
-        revokeAtProvider: true,
-        cancelRunningJobs: true
+      expect(mockFetch).toHaveBeenCalledWith('/api/storage/disconnect/microsoft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: 'test-user-id',
+          options: {
+            revokeAtProvider: true,
+            cancelRunningJobs: true
+          }
+        })
       })
     })
 
@@ -235,7 +292,7 @@ describe('SignoutService', () => {
       const result = await signoutService.signOut()
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Client-side signout failed: Network connection failed')
+      expect(result.error).toBe('Signout failed: Network connection failed')
       expect(result.cleanup.sessionData).toBe(false)
 
       // Verify error logging
@@ -243,21 +300,28 @@ describe('SignoutService', () => {
         'Signout failed',
         expect.objectContaining({
           correlationId: 'test-correlation-id-123',
-          error: 'Client-side signout failed: Network connection failed'
+          error: 'Signout failed: Network connection failed'
         })
       )
 
-      // Verify audit logging for failure
-      expect(mockAuditUserAction).toHaveBeenCalledWith(
-        'user.logout',
-        'test-user-id',
-        false,
-        'test-correlation-id-123',
-        expect.objectContaining({
-          error: 'Client-side signout failed: Network connection failed'
-        }),
-        'medium'
-      )
+      // Verify audit logging for failure via API call (should be the 4th call)
+      expect(mockFetch).toHaveBeenNthCalledWith(4, '/api/audit/signout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: expect.stringContaining('"action":"user.logout"')
+      })
+      
+      // Verify the audit call contains the expected data
+      const auditCall = mockFetch.mock.calls[3]
+      const auditBody = JSON.parse(auditCall[1].body)
+      expect(auditBody.action).toBe('user.logout')
+      expect(auditBody.userId).toBe('test-user-id')
+      expect(auditBody.success).toBe(false)
+      expect(auditBody.correlationId).toBe('test-correlation-id-123')
+      expect(auditBody.metadata.error).toBe('Signout failed: Network connection failed')
+      expect(auditBody.severity).toBe('medium')
     })
 
     it('should force redirect on error when forceRedirect is true', async () => {
@@ -271,39 +335,43 @@ describe('SignoutService', () => {
       const result = await signoutService.signOut(options)
 
       expect(result.success).toBe(true) // Should be true to allow redirect
-      expect(result.error).toBe('Client-side signout failed: Network connection failed')
+      expect(result.error).toBe('Signout failed: Network connection failed')
 
       // Verify warning log for forced redirect
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'Forcing redirect despite signout error',
         expect.objectContaining({
           correlationId: 'test-correlation-id-123',
-          error: 'Client-side signout failed: Network connection failed'
+          error: 'Signout failed: Network connection failed'
         })
       )
     })
 
     it('should handle cleanup errors gracefully', async () => {
-      const pickerError = new Error('Picker cleanup failed')
-      const googleError = new Error('Google disconnect failed')
-      
-      mockCleanupPickerTokens.mockRejectedValue(pickerError)
-      mockConnectionManager.disconnectGoogle.mockRejectedValue(googleError)
+      // Mock fetch to fail for some calls
+      mockFetch
+        .mockRejectedValueOnce(new Error('Picker cleanup failed'))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true })
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true })
+        } as Response)
 
       const result = await signoutService.signOut()
 
       expect(result.success).toBe(true) // Should still succeed overall
       expect(result.cleanup.pickerTokens).toBe(false)
-      expect(result.cleanup.storageCredentials).toBe(true) // Microsoft succeeded even though Google failed
+      expect(result.cleanup.storageCredentials).toBe(true) // Storage cleanup succeeded
       expect(result.cleanup.sessionData).toBe(true)
       expect(result.cleanup.errors.length).toBeGreaterThan(0) // Should have some errors
 
       // Verify cleanup was attempted
-      expect(mockCleanupPickerTokens).toHaveBeenCalledWith('test-user-id')
-      expect(mockConnectionManager.disconnectGoogle).toHaveBeenCalledWith('test-user-id', {
-        revokeAtProvider: false,
-        cancelRunningJobs: false
-      })
+      expect(mockFetch).toHaveBeenCalledWith('/api/picker/cleanup', expect.any(Object))
+      expect(mockFetch).toHaveBeenCalledWith('/api/storage/disconnect/google', expect.any(Object))
+      expect(mockFetch).toHaveBeenCalledWith('/api/storage/disconnect/microsoft', expect.any(Object))
     })
 
     it('should handle missing user gracefully', async () => {
@@ -317,9 +385,7 @@ describe('SignoutService', () => {
       expect(result.cleanup.sessionData).toBe(true)
 
       // Should not attempt cleanup without user ID
-      expect(mockCleanupPickerTokens).not.toHaveBeenCalled()
-      expect(mockConnectionManager.disconnectGoogle).not.toHaveBeenCalled()
-      expect(mockConnectionManager.disconnectMicrosoft).not.toHaveBeenCalled()
+      expect(mockFetch).not.toHaveBeenCalled()
 
       // Should not attempt audit logging without user ID
       expect(mockAuditUserAction).not.toHaveBeenCalled()
@@ -376,17 +442,20 @@ describe('SignoutService', () => {
     })
 
     it('should handle audit logging failures gracefully', async () => {
-      const auditError = new Error('Audit service unavailable')
-      mockAuditUserAction.mockRejectedValue(auditError)
+      // Mock fetch to fail for audit endpoint
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) } as Response) // picker cleanup
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) } as Response) // google storage
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) } as Response) // microsoft storage
+        .mockRejectedValueOnce(new Error('Audit service unavailable')) // audit endpoint
 
       const result = await signoutService.signOut()
 
       expect(result.success).toBe(true) // Should not fail overall
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to log signout event',
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Failed to send audit event to API',
         expect.objectContaining({
           correlationId: 'test-correlation-id-123',
-          userId: 'test-user-id',
           error: 'Audit service unavailable'
         })
       )

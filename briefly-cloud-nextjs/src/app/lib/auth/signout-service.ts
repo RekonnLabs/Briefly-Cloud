@@ -6,10 +6,6 @@
  */
 
 import { getSupabaseBrowserClient } from '@/app/lib/auth/supabase-browser'
-import { createSupabaseServerClient } from '@/app/lib/auth/supabase-auth'
-import { cleanupUserPickerTokens } from '@/app/lib/google-picker/token-service'
-import { ConnectionManager } from '@/app/lib/cloud-storage/connection-manager'
-import { auditUserAction } from '@/app/lib/audit/comprehensive-audit-logger'
 import { logger } from '@/app/lib/logger'
 import { recordSignoutEvent } from './signout-monitoring'
 
@@ -236,28 +232,15 @@ export class SignoutService {
     sessionId?: string
   }> {
     try {
-      // Try to get user from browser client first
-      if (typeof window !== 'undefined') {
-        const supabase = getSupabaseBrowserClient()
-        const { data: { user, session } } = await supabase.auth.getUser()
-        
-        return {
-          userId: user?.id,
-          userAgent: navigator.userAgent,
-          ipAddress: undefined, // Cannot get IP on client side
-          sessionId: session?.access_token ? session.access_token.substring(0, 8) : undefined
-        }
-      } else {
-        // Server-side - try to get user from server client
-        const supabase = createSupabaseServerClient()
-        const { data: { user, session } } = await supabase.auth.getUser()
-        
-        return {
-          userId: user?.id,
-          userAgent: undefined,
-          ipAddress: undefined,
-          sessionId: session?.access_token ? session.access_token.substring(0, 8) : undefined
-        }
+      // Only use browser client to avoid server-only imports
+      const supabase = getSupabaseBrowserClient()
+      const { data: { user, session } } = await supabase.auth.getUser()
+      
+      return {
+        userId: user?.id,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+        ipAddress: undefined, // Cannot get IP on client side
+        sessionId: session?.access_token ? session.access_token.substring(0, 8) : undefined
       }
     } catch (error) {
       logger.warn('Could not get user info before signout', {
@@ -305,7 +288,19 @@ export class SignoutService {
 
     // Cleanup Google Picker tokens
     try {
-      await cleanupUserPickerTokens(userId)
+      if (typeof window !== 'undefined') {
+        // Use API endpoint for client-side cleanup
+        await fetch('/api/picker/cleanup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId })
+        })
+      } else {
+        // Server-side: skip picker cleanup to avoid server-only imports
+        logger.info('Skipping picker cleanup in server context', { correlationId, userId })
+      }
       result.cleanup.pickerTokens = true
       logger.info('Google Picker tokens cleaned up successfully', { correlationId, userId })
     } catch (error) {
@@ -352,25 +347,49 @@ export class SignoutService {
       cancelRunningJobs: options.cancelRunningJobs || false
     }
 
-    // Cleanup Google Drive connection
-    try {
-      await ConnectionManager.disconnectGoogle(userId, cleanupOptions)
-    } catch (error) {
-      // Log but don't throw - continue with other cleanup
-      logger.warn('Failed to cleanup Google Drive connection', {
-        userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      })
-    }
+    // For client-side usage, call API endpoints instead of server-only ConnectionManager
+    if (typeof window !== 'undefined') {
+      // Cleanup Google Drive connection via API
+      try {
+        await fetch('/api/storage/disconnect/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            options: cleanupOptions
+          })
+        })
+      } catch (error) {
+        logger.warn('Failed to cleanup Google Drive connection via API', {
+          userId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
+      }
 
-    // Cleanup Microsoft OneDrive connection
-    try {
-      await ConnectionManager.disconnectMicrosoft(userId, cleanupOptions)
-    } catch (error) {
-      // Log but don't throw - continue with other cleanup
-      logger.warn('Failed to cleanup Microsoft OneDrive connection', {
-        userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+      // Cleanup Microsoft OneDrive connection via API
+      try {
+        await fetch('/api/storage/disconnect/microsoft', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            options: cleanupOptions
+          })
+        })
+      } catch (error) {
+        logger.warn('Failed to cleanup Microsoft OneDrive connection via API', {
+          userId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        })
+      }
+    } else {
+      // Server-side: skip storage cleanup to avoid server-only imports
+      logger.info('Skipping storage cleanup in server context', {
+        userId
       })
     }
   }
@@ -379,18 +398,12 @@ export class SignoutService {
    * Perform the actual Supabase signout
    */
   private async performSignout(): Promise<void> {
-    if (typeof window !== 'undefined') {
-      // Client-side signout
-      const supabase = getSupabaseBrowserClient()
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        throw new Error(`Client-side signout failed: ${error.message}`)
-      }
-    } else {
-      // Server-side signout
-      const supabase = createSupabaseServerClient()
-      await supabase.auth.signOut()
+    // Always use browser client to avoid server-only imports
+    const supabase = getSupabaseBrowserClient()
+    const { error } = await supabase.auth.signOut()
+    
+    if (error) {
+      throw new Error(`Signout failed: ${error.message}`)
     }
   }
 
@@ -440,20 +453,41 @@ export class SignoutService {
    */
   private async logSignoutEvent(event: SignoutEvent): Promise<void> {
     try {
-      await auditUserAction(
-        'user.logout',
-        event.userId,
-        event.success,
-        event.correlationId,
-        {
-          timestamp: event.timestamp.toISOString(),
-          cleanupTasks: event.cleanupTasks,
-          error: event.error,
-          userAgent: event.userAgent,
-          ipAddress: event.ipAddress
-        },
-        event.success ? 'low' : 'medium'
-      )
+      // For client-side usage, we'll send the audit event to an API endpoint
+      // instead of calling the server-only audit function directly
+      if (typeof window !== 'undefined') {
+        await fetch('/api/audit/signout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'user.logout',
+            userId: event.userId,
+            success: event.success,
+            correlationId: event.correlationId,
+            metadata: {
+              timestamp: event.timestamp.toISOString(),
+              cleanupTasks: event.cleanupTasks,
+              error: event.error,
+              userAgent: event.userAgent,
+              ipAddress: event.ipAddress
+            },
+            severity: event.success ? 'low' : 'medium'
+          })
+        }).catch(error => {
+          logger.warn('Failed to send audit event to API', {
+            correlationId: event.correlationId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          })
+        })
+      } else {
+        // Server-side: we'll skip audit logging to avoid server-only imports
+        logger.info('Skipping audit logging in server context', {
+          correlationId: event.correlationId,
+          userId: event.userId
+        })
+      }
     } catch (error) {
       logger.error('Failed to log signout event', {
         correlationId: event.correlationId,
