@@ -21,6 +21,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { getSupabaseBrowserClient } from '@/app/lib/auth/supabase-browser'
 import type { User, Session } from '@supabase/supabase-js'
 import { logMainAuthRoute, logOAuthFlowCompletion } from '@/app/lib/oauth-flow-monitoring'
+import { signoutService, type SignoutOptions, type SignoutResult } from '@/app/lib/auth/signout-service'
 
 // Define AuthUser type here since it's client-side
 interface AuthUser {
@@ -38,7 +39,7 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   signIn: (provider: 'google' | 'microsoft') => Promise<void>
-  signOut: () => Promise<void>
+  signOut: (options?: SignoutOptions) => Promise<SignoutResult>
   refreshUser: () => Promise<void>
 }
 
@@ -193,19 +194,77 @@ export function SupabaseAuthProvider({ children }: SupabaseAuthProviderProps) {
     }
   }
 
-  // Sign out
-  const signOut = async () => {
+  /**
+   * Enhanced signout method using centralized SignoutService
+   * 
+   * Integrates with the new SignoutService for consistent signout behavior
+   * while maintaining backward compatibility with existing code.
+   * 
+   * @param options - Optional signout configuration
+   * @returns Promise<SignoutResult> - Result of signout operation
+   */
+  const signOut = async (options?: SignoutOptions): Promise<SignoutResult> => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        throw error
+      // Use the centralized SignoutService for consistent behavior
+      const result = await signoutService.signOut({
+        showLoading: true,
+        forceRedirect: false,
+        ...options // Allow caller to override defaults
+      })
+
+      // Update local state based on signout result
+      if (result.success || result.cleanup.sessionData) {
+        // Clear local state if signout was successful or session was cleared
+        setUser(null)
+        setSession(null)
       }
-      
-      setUser(null)
-      setSession(null)
+
+      return result
     } catch (error) {
-      console.error('Sign out error:', error)
-      throw error
+      console.error('SupabaseAuthProvider signout error:', error)
+      
+      // Fallback to direct Supabase signout for backward compatibility
+      try {
+        const { error: supabaseError } = await supabase.auth.signOut()
+        if (supabaseError) {
+          throw supabaseError
+        }
+        
+        // Clear local state on successful fallback
+        setUser(null)
+        setSession(null)
+        
+        // Return a basic success result for backward compatibility
+        return {
+          success: true,
+          redirectUrl: '/auth/signin',
+          cleanup: {
+            pickerTokens: false,
+            storageCredentials: false,
+            sessionData: true,
+            errors: []
+          }
+        }
+      } catch (fallbackError) {
+        // If both SignoutService and fallback fail, still clear local state
+        // to prevent users from being stuck in a logged-in state
+        setUser(null)
+        setSession(null)
+        
+        const errorMessage = fallbackError instanceof Error ? fallbackError.message : 'Unknown signout error'
+        
+        return {
+          success: false,
+          error: errorMessage,
+          redirectUrl: '/auth/signin',
+          cleanup: {
+            pickerTokens: false,
+            storageCredentials: false,
+            sessionData: true, // We cleared it locally
+            errors: [errorMessage]
+          }
+        }
+      }
     }
   }
 

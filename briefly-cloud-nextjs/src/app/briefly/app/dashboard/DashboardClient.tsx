@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useSearchParams } from "next/navigation";
+import { Loader2, AlertCircle } from "lucide-react";
 import { ChatInterface } from "@/app/components/ChatInterface";
 import { FileUpload } from "@/app/components/FileUpload";
 import { CloudStorage } from "@/app/components/CloudStorage";
@@ -11,6 +12,7 @@ import { Sidebar } from "@/app/components/Sidebar";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import type { CompleteUserData, UserDataError } from "@/app/lib/user-data-types";
 import { getUserDataErrorMessage, isValidUserData } from "@/app/lib/user-data-types";
+import { useSignout } from "@/app/lib/auth/use-signout";
 import DashboardLoading from "./DashboardLoading";
 
 interface DashboardClientProps {
@@ -201,6 +203,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<UserDataError | null>(null);
   const isMountedRef = useRef(true);
+  const { signOut, isSigningOut, error: signoutError, clearError } = useSignout();
 
   useEffect(() => {
     return () => {
@@ -341,6 +344,18 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     fetchUserData();
   }, [fetchUserData]);
 
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut({
+        showLoading: true,
+        forceRedirect: true
+      });
+    } catch (err) {
+      // Error is already handled by the useSignout hook
+      console.error('Signout failed:', err);
+    }
+  }, [signOut]);
+
   if (loading) {
     return <DashboardLoading />;
   }
@@ -473,14 +488,39 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                     <div className="text-xs text-gray-400 truncate max-w-[12rem]">{userData.email}</div>
                   </div>
                 </div>
-                <form action="/auth/signout" method="post">
+                <div className="flex flex-col items-end space-y-2">
+                  {signoutError && (
+                    <div className="flex items-center space-x-2 text-xs text-red-400 bg-red-900/20 rounded-lg px-2 py-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate max-w-[12rem]">{signoutError}</span>
+                      <button
+                        onClick={clearError}
+                        className="text-red-300 hover:text-red-200 ml-auto"
+                        title="Dismiss error"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
                   <button
-                    type="submit"
-                    className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1 rounded border border-gray-600 hover:border-gray-500"
+                    onClick={handleSignOut}
+                    disabled={isSigningOut}
+                    className={`text-sm transition-colors px-3 py-1 rounded border flex items-center space-x-2 ${
+                      isSigningOut
+                        ? 'text-gray-500 border-gray-700 cursor-not-allowed'
+                        : 'text-gray-400 hover:text-white border-gray-600 hover:border-gray-500'
+                    }`}
                   >
-                    Sign out
+                    {isSigningOut ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Signing out...</span>
+                      </>
+                    ) : (
+                      <span>Sign out</span>
+                    )}
                   </button>
-                </form>
+                </div>
               </div>
             </div>
           </div>

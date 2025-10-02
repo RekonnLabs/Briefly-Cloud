@@ -3,34 +3,63 @@
 import { useState, useEffect } from 'react'
 import { OAUTH_ERROR_MESSAGES, DEFAULT_POST_LOGIN_PATH } from '@/app/lib/auth/constants'
 
+type MessageType = 'signout_success' | 'signout_error' | null
+
 export default function SignInPage() {
   const [busy, setBusy] = useState<'google' | 'azure' | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [correlationId, setCorrelationId] = useState<string | null>(null)
+  const [feedbackMessage, setFeedbackMessage] = useState<MessageType>(null)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
 
   useEffect(() => {
     // Check for error parameters in URL
     const urlParams = new URLSearchParams(window.location.search)
     const error = urlParams.get('error')
     const corrId = urlParams.get('correlationId')
+    const message = urlParams.get('message') as MessageType
+    const feedbackErr = urlParams.get('feedbackError')
     
+    // Handle OAuth errors
     if (error && error in OAUTH_ERROR_MESSAGES) {
       setErrorMessage(OAUTH_ERROR_MESSAGES[error as keyof typeof OAUTH_ERROR_MESSAGES])
       setCorrelationId(corrId)
     }
     
-    // Clear error from URL without page reload
-    if (error) {
+    // Handle feedback messages (signout success/error)
+    if (message === 'signout_success' || message === 'signout_error') {
+      setFeedbackMessage(message)
+      if (message === 'signout_error' && feedbackErr) {
+        setFeedbackError(feedbackErr)
+      }
+    }
+    
+    // Clear parameters from URL without page reload
+    if (error || message) {
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.delete('error')
       newUrl.searchParams.delete('correlationId')
+      newUrl.searchParams.delete('message')
+      newUrl.searchParams.delete('feedbackError')
       window.history.replaceState({}, '', newUrl.toString())
     }
   }, [])
 
+  // Auto-dismiss success messages after 5 seconds
+  useEffect(() => {
+    if (feedbackMessage === 'signout_success') {
+      const timer = setTimeout(() => {
+        setFeedbackMessage(null)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [feedbackMessage])
+
   const go = (provider: 'google' | 'azure') => {
     setBusy(provider)
     setErrorMessage(null) // Clear any previous errors
+    setFeedbackMessage(null) // Clear any feedback messages
+    setFeedbackError(null)
     const next = new URLSearchParams(window.location.search).get('next') || DEFAULT_POST_LOGIN_PATH
     window.location.href = `/auth/start?provider=${provider}&next=${encodeURIComponent(next)}`
   }
@@ -56,7 +85,67 @@ export default function SignInPage() {
               </p>
             </div>
 
-            {/* Error Message Display */}
+            {/* Success Message Display */}
+            {feedbackMessage === 'signout_success' && (
+              <div className="bg-green-900/50 border border-green-700/50 rounded-xl p-4 mb-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-green-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-green-300 mb-1">
+                      Successfully Signed Out
+                    </h3>
+                    <p className="text-sm text-green-200">
+                      You have been securely signed out of your account.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFeedbackMessage(null)}
+                    className="flex-shrink-0 text-green-400 hover:text-green-300 transition-colors"
+                    aria-label="Dismiss message"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Signout Error Message Display */}
+            {feedbackMessage === 'signout_error' && (
+              <div className="bg-red-900/50 border border-red-700/50 rounded-xl p-4 mb-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-red-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-red-300 mb-1">
+                      Signout Error
+                    </h3>
+                    <p className="text-sm text-red-200">
+                      {feedbackError || 'There was an issue signing you out. You have been logged out locally for security.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFeedbackMessage(null)}
+                    className="flex-shrink-0 text-red-400 hover:text-red-300 transition-colors"
+                    aria-label="Dismiss message"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* OAuth Error Message Display */}
             {errorMessage && (
               <div className="bg-red-900/50 border border-red-700/50 rounded-xl p-4 mb-4">
                 <div className="flex items-start space-x-3">

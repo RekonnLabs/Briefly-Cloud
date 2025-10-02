@@ -7,9 +7,12 @@ import {
   Cloud,
   Settings,
   LogOut,
-  User
+  User,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { CompleteUserData } from '@/app/lib/user-data-types';
+import { useSignout } from '@/app/lib/auth/use-signout';
 
 interface SidebarProps {
   activeTab: 'chat' | 'files' | 'storage';
@@ -18,14 +21,20 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
-  const handleSignOut = () => {
-    const form = document.createElement('form');
-    form.method = 'post';
-    form.action = '/auth/signout';
-    document.body.appendChild(form);
-    form.submit();
-  };
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const { signOut, isSigningOut, error, clearError } = useSignout();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut({
+        showLoading: true,
+        forceRedirect: true
+      });
+    } catch (err) {
+      // Error is already handled by the useSignout hook
+      console.error('Signout failed:', err);
+    }
+  };
 
   // Handle case where user data is not available
   if (!user) {
@@ -153,15 +162,42 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
                   <Settings className="w-4 h-4" />
                   <span>Settings</span>
                 </button>
+                
+                {/* Error message display */}
+                {error && (
+                  <div className="px-3 py-2 mb-1">
+                    <div className="flex items-center space-x-2 text-xs text-red-400 bg-red-900/20 rounded-lg px-2 py-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">{error}</span>
+                      <button
+                        onClick={clearError}
+                        className="text-red-300 hover:text-red-200 ml-auto"
+                        title="Dismiss error"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 <button
                   onClick={() => {
                     setShowUserMenu(false);
                     handleSignOut();
                   }}
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 rounded-lg transition-colors"
+                  disabled={isSigningOut}
+                  className={`w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors ${
+                    isSigningOut
+                      ? 'text-gray-500 bg-gray-700/30 cursor-not-allowed'
+                      : 'text-red-400 hover:bg-red-900/20 hover:text-red-300'
+                  }`}
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span>Sign Out</span>
+                  {isSigningOut ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <LogOut className="w-4 h-4" />
+                  )}
+                  <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
                 </button>
               </div>
             </div>
