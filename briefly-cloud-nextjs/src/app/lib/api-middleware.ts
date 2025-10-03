@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { ApiResponse, ApiErrorCode } from './api-response'
 import { logger } from './logger'
 import { ErrorHandler } from './error-handler'
@@ -17,6 +18,25 @@ import {
   validateEnvironment
 } from './security'
 import { SchemaError, handleSchemaError, logSchemaError, extractSchemaContext } from './errors/schema-errors'
+
+/**
+ * Create server-side Supabase client that reads from Next.js cookies
+ * This avoids database queries and uses JWT validation only
+ */
+function getServerSupabase() {
+  const cookieStore = cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+      },
+    }
+  )
+}
 
 function getCookieFromReq(req: Request, name: string) {
   const raw = req.headers.get('cookie') || ''
@@ -34,7 +54,7 @@ export interface SchemaOperationMetrics {
 }
 
 export interface ApiContext {
-  user: { id: string; email?: string | null }
+  user: { id: string } | null
   supabase: ReturnType<typeof createServerClient>
   correlationId: string
   startTime: number
@@ -194,6 +214,7 @@ function determinePrimarySchema(pathname: string): 'app' | 'private' | 'public' 
 
 /**
  * Enhanced API handler with comprehensive middleware
+ * Uses JWT-based authentication to avoid database queries and RLS issues
  */
 export function createProtectedApiHandler(
   handler: (request: Request, context: ApiContext) => Promise<Response> | Response,
@@ -207,23 +228,17 @@ export function createProtectedApiHandler(
       // Initialize security validation
       validateEnvironment()
 
-      // Create Supabase client that can read cookies from request
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            get: (name: string) => getCookieFromReq(request, name),
-            set: () => {},    // no-ops; start endpoints must not mutate cookies
-            remove: () => {},
-          },
-        }
-      )
+      // Create Supabase client using Next.js cookies (JWT-based, no DB queries)
+      const supabase = getServerSupabase()
 
-      // Authentication handling
-      const { data, error } = await supabase.auth.getUser()
-      if (error || !data?.user) {
-        return ApiResponse.unauthorized('Authentication failed', ApiErrorCode.UNAUTHORIZED, correlationId)
+      // Authentication handling - uses JWT from cookies, no DB lookup
+      const { data: { user }, error } = await supabase.auth.getUser()
+      
+      // Check if authentication is required
+      if (config.requireAuth !== false) {
+        if (error || !user) {
+          return ApiResponse.unauthorized('Authentication failed', ApiErrorCode.UNAUTHORIZED, correlationId)
+        }
       }
 
       // Determine primary schema based on request path
@@ -231,10 +246,10 @@ export function createProtectedApiHandler(
       const primarySchema = determinePrimarySchema(url.pathname)
 
       // Create enhanced context with schema awareness
-      const schemaContext = createSchemaContext(correlationId, data.user.id, primarySchema)
+      const schemaContext = createSchemaContext(correlationId, user?.id, primarySchema)
       
       const context: ApiContext = {
-        user: data.user,
+        user: user ? { id: user.id } : null,
         supabase,
         correlationId,
         startTime,

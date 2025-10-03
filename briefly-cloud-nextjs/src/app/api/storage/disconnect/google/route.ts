@@ -2,35 +2,35 @@
  * API endpoint for disconnecting Google Drive storage
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { createProtectedApiHandler } from '@/app/lib/api-middleware'
 import { ConnectionManager } from '@/app/lib/cloud-storage/connection-manager'
-import { logger } from '@/app/lib/logger'
+import { ApiResponse, ApiErrorCode } from '@/app/lib/api-response'
 
-export async function POST(request: NextRequest) {
+export const POST = createProtectedApiHandler(async (request, context) => {
   try {
     const body = await request.json()
     const { userId, options } = body
 
     // Validate required fields
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      )
+      return ApiResponse.badRequest('Missing userId', ApiErrorCode.VALIDATION_ERROR, context.correlationId)
+    }
+
+    // Verify the userId matches the authenticated user
+    if (context.user?.id !== userId) {
+      return ApiResponse.forbidden('Cannot disconnect storage for other users', ApiErrorCode.FORBIDDEN, context.correlationId)
     }
 
     // Call the server-side ConnectionManager
     await ConnectionManager.disconnectGoogle(userId, options || {})
 
-    return NextResponse.json({ success: true })
+    return ApiResponse.success({ success: true }, context.correlationId)
   } catch (error) {
-    logger.error('Failed to disconnect Google Drive', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    })
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    return ApiResponse.serverError(
+      'Failed to disconnect Google Drive',
+      ApiErrorCode.INTERNAL_ERROR,
+      undefined,
+      context.correlationId
     )
   }
-}
+})

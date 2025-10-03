@@ -2,21 +2,23 @@
  * API endpoint for client-side audit logging of signout events
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { createProtectedApiHandler } from '@/app/lib/api-middleware'
 import { auditUserAction } from '@/app/lib/audit/comprehensive-audit-logger'
-import { logger } from '@/app/lib/logger'
+import { ApiResponse, ApiErrorCode } from '@/app/lib/api-response'
 
-export async function POST(request: NextRequest) {
+export const POST = createProtectedApiHandler(async (request, context) => {
   try {
     const body = await request.json()
     const { action, userId, success, correlationId, metadata, severity } = body
 
     // Validate required fields
     if (!action || !userId || typeof success !== 'boolean' || !correlationId) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+      return ApiResponse.badRequest('Missing required fields', ApiErrorCode.VALIDATION_ERROR, context.correlationId)
+    }
+
+    // Verify the userId matches the authenticated user
+    if (context.user?.id !== userId) {
+      return ApiResponse.forbidden('Cannot audit events for other users', ApiErrorCode.FORBIDDEN, context.correlationId)
     }
 
     // Call the server-side audit function
@@ -29,15 +31,13 @@ export async function POST(request: NextRequest) {
       severity || 'low'
     )
 
-    return NextResponse.json({ success: true })
+    return ApiResponse.success({ success: true }, context.correlationId)
   } catch (error) {
-    logger.error('Failed to process audit event', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    })
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    return ApiResponse.serverError(
+      'Failed to process audit event',
+      ApiErrorCode.INTERNAL_ERROR,
+      undefined,
+      context.correlationId
     )
   }
-}
+})
