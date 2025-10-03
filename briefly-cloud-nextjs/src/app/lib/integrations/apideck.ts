@@ -5,7 +5,7 @@
 const API = process.env.APIDECK_API_BASE_URL!;
 const VAULT = process.env.APIDECK_VAULT_BASE_URL!;
 const APP_ID = process.env.APIDECK_APP_ID!;
-const APP_UID = process.env.APIDECK_APP_UID!;
+const APP_UID = process.env.APIDECK_APP_UID; // optional
 const KEY = process.env.APIDECK_API_KEY!;
 
 type HeadersBase = Record<string,string>;
@@ -22,11 +22,14 @@ export function isApideckEnabled() {
 }
 
 export function validateApideckConfig() {
-  const req = [
-    'APIDECK_API_KEY','APIDECK_APP_ID','APIDECK_APP_UID',
-    'APIDECK_API_BASE_URL','APIDECK_VAULT_BASE_URL','APIDECK_REDIRECT_URL'
+  const required = [
+    'APIDECK_API_KEY',
+    'APIDECK_APP_ID',
+    'APIDECK_API_BASE_URL',
+    'APIDECK_VAULT_BASE_URL',
+    'APIDECK_REDIRECT_URL'
   ];
-  const missing = req.filter(k => !process.env[k]);
+  const missing = required.filter(k => !process.env[k]);
   if (missing.length) throw new Error(`Missing Apideck env: ${missing.join(', ')}`);
 }
 
@@ -44,10 +47,16 @@ export interface ListFilesParams {
 
 export const Apideck = {
   async createVaultSession(consumerId: string, redirect: string) {
+    const payload: any = {
+      unified_api: 'file-storage',
+      redirect_uri: redirect
+    };
+    if (APP_UID) payload.application_id = APP_UID; // only add if present
+
     const res = await fetch(`${VAULT}/sessions`, {
       method: 'POST',
       headers: apideckHeaders(consumerId),
-      body: JSON.stringify({ application_id: APP_UID, unified_api: 'file-storage', redirect_uri: redirect })
+      body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error(`Vault session failed: ${res.status} ${await res.text()}`);
     return res.json();
