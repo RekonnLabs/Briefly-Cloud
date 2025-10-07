@@ -23,8 +23,8 @@ import { SchemaError, handleSchemaError, logSchemaError, extractSchemaContext } 
  * Create server-side Supabase client that reads from Next.js cookies
  * This avoids database queries and uses JWT validation only
  */
-function getServerSupabase() {
-  const cookieStore = cookies()
+async function getServerSupabase() {
+  const cookieStore = await cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -229,7 +229,7 @@ export function createProtectedApiHandler(
       validateEnvironment()
 
       // Create Supabase client using Next.js cookies (JWT-based, no DB queries)
-      const supabase = getServerSupabase()
+      const supabase = await getServerSupabase()
 
       // Authentication handling - uses JWT from cookies, no DB lookup
       const { data: { user }, error } = await supabase.auth.getUser()
@@ -286,7 +286,7 @@ export function createProtectedApiHandler(
             operation: error.operation,
             message: error.message,
             code: error.code,
-            userId: data.user.id
+            userId: user?.id
           })
           
           return ApiResponse.serverError(
