@@ -30,8 +30,7 @@ Add these to your `.env.local` and Vercel environment:
 # Apideck Integration
 APIDECK_ENABLED=true
 APIDECK_API_KEY=sk_xxx               # from Apideck Dashboard → API Keys
-APIDECK_APP_ID=app_xxx               # Apideck App ID
-APIDECK_APP_UID=app_uid_xxx          # Vault application_id (optional)
+APIDECK_APP_ID=app_xxx               # Apideck App ID (UUID, used as application_id)
 APIDECK_API_BASE_URL=https://unify.apideck.com
 APIDECK_VAULT_BASE_URL=https://vault.apideck.com
 APIDECK_REDIRECT_URL=http://localhost:3000/api/integrations/apideck/callback
@@ -127,8 +126,7 @@ Run the migration to create the `app.apideck_connections` table:
 # Add environment variables to .env.local
 APIDECK_ENABLED=true
 APIDECK_API_KEY=sk_your_key_here
-APIDECK_APP_ID=app_your_id_here
-APIDECK_APP_UID=app_uid_your_uid_here  # optional
+APIDECK_APP_ID=app_your_id_here       # UUID from dashboard, used as application_id
 # ... other variables
 ```
 

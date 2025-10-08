@@ -30,7 +30,7 @@ describe('Apideck Integration', () => {
   })
 
   describe('validateApideckConfig', () => {
-    it('should pass validation without APIDECK_APP_UID', () => {
+    it('should pass validation with all required env vars', () => {
       const { validateApideckConfig } = require('../apideck')
       
       expect(() => validateApideckConfig()).not.toThrow()
@@ -53,10 +53,7 @@ describe('Apideck Integration', () => {
       })
     })
 
-    it('should create session without APP_UID', async () => {
-      // Ensure APP_UID is not set
-      delete process.env.APIDECK_APP_UID
-      
+    it('should create session with APP_ID as application_id', async () => {
       const { Apideck } = require('../apideck')
       
       await Apideck.createVaultSession('test-consumer', 'https://redirect.com')
@@ -65,43 +62,29 @@ describe('Apideck Integration', () => {
         'https://vault.test.com/sessions',
         expect.objectContaining({
           method: 'POST',
+          headers: {
+            'Authorization': 'Bearer test-key',
+            'x-apideck-app-id': 'test-app-id',
+            'x-apideck-consumer-id': 'test-consumer',
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
+            application_id: 'test-app-id',  // Uses APP_ID as application_id
             unified_api: 'file-storage',
             redirect_uri: 'https://redirect.com'
-            // Note: no application_id field
           })
         })
       )
     })
 
-    it('should create session with APP_UID when provided', async () => {
-      // Set APP_UID
-      process.env.APIDECK_APP_UID = 'test-app-uid'
-      
+    it('should use direct headers instead of apideckHeaders function', async () => {
       const { Apideck } = require('../apideck')
       
       await Apideck.createVaultSession('test-consumer', 'https://redirect.com')
       
+      // Verify headers are set directly in the createVaultSession method
       expect(global.fetch).toHaveBeenCalledWith(
         'https://vault.test.com/sessions',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({
-            unified_api: 'file-storage',
-            redirect_uri: 'https://redirect.com',
-            application_id: 'test-app-uid'
-          })
-        })
-      )
-    })
-
-    it('should include correct headers', async () => {
-      const { Apideck } = require('../apideck')
-      
-      await Apideck.createVaultSession('test-consumer', 'https://redirect.com')
-      
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.any(String),
         expect.objectContaining({
           headers: {
             'Authorization': 'Bearer test-key',
