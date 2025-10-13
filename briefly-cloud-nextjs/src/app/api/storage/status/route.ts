@@ -11,25 +11,34 @@ import { ApiResponse } from '@/app/lib/api-response'
 import { TokenStore } from '@/app/lib/oauth/token-store'
 import { isApideckEnabled } from '@/app/lib/integrations/apideck'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { getConnectionStatus } from '@/app/lib/integrations/apideck-health-check'
 
 async function getStorageStatusApideck(userId: string) {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('app.apideck_connections')
-      .select('provider, status, updated_at')
-      .eq('user_id', userId);
-    if (error) throw error;
-
-    const list = data || [];
-    const google = list.find(x => x.provider === 'google');
-    const microsoft = list.find(x => x.provider === 'microsoft');
-
+    // Use the enhanced connection status check that includes health information
+    const status = await getConnectionStatus(userId);
+    
     return {
-      google:    { connected: google?.status === 'connected',    lastSync: google?.updated_at || null,    status: google?.status || 'disconnected' },
-      microsoft: { connected: microsoft?.status === 'connected', lastSync: microsoft?.updated_at || null, status: microsoft?.status || 'disconnected' }
+      google: status.google ? {
+        connected: status.google.connected,
+        lastSync: status.google.lastSync || null,
+        status: status.google.status || 'disconnected',
+        needsRefresh: status.google.needsRefresh || false
+      } : { connected: false, status: 'disconnected' },
+      
+      microsoft: status.microsoft ? {
+        connected: status.microsoft.connected,
+        lastSync: status.microsoft.lastSync || null,
+        status: status.microsoft.status || 'disconnected',
+        needsRefresh: status.microsoft.needsRefresh || false
+      } : { connected: false, status: 'disconnected' }
     };
   } catch (e) {
-    console.error('[apideck:status]', e);
+    console.error('[apideck:status:error]', {
+      userId,
+      error: e instanceof Error ? e.message : 'Unknown error',
+      stack: e instanceof Error ? e.stack : undefined
+    });
     return {
       google:    { connected: false, error: 'Failed to check connection' },
       microsoft: { connected: false, error: 'Failed to check connection' }

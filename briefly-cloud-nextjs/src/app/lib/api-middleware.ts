@@ -20,6 +20,248 @@ import {
 import { SchemaError, handleSchemaError, logSchemaError, extractSchemaContext } from './errors/schema-errors'
 
 /**
+ * Enhanced JWT token extraction from cookies with fallback mechanisms
+ * Supports both Next.js cookies API and direct header parsing for edge cases
+ */
+function extractJwtFromCookies(request: Request): string | null {
+  try {
+    // Method 1: Try to extract from cookie header directly (most reliable for API routes)
+    const cookieHeader = request.headers.get('cookie')
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').map(c => c.trim())
+      
+      // Look for Supabase auth tokens (multiple possible names)
+      const authCookieNames = [
+        'sb-access-token',
+        'sb-refresh-token', 
+        'supabase-auth-token',
+        'supabase.auth.token'
+      ]
+      
+      for (const cookieName of authCookieNames) {
+        const cookie = cookies.find(c => c.startsWith(`${cookieName}=`))
+        if (cookie) {
+          const token = cookie.split('=')[1]
+          if (token && token !== 'undefined' && token !== 'null') {
+            return decodeURIComponent(token)
+          }
+        }
+      }
+      
+      // Look for any cookie that looks like a JWT (contains dots and base64-like content)
+      for (const cookie of cookies) {
+        const [name, value] = cookie.split('=')
+        if (value && value.includes('.') && value.split('.').length === 3) {
+          // Basic JWT structure validation (header.payload.signature)
+          try {
+            const parts = value.split('.')
+            if (parts.length === 3 && parts.every(part => part.length > 0)) {
+              return decodeURIComponent(value)
+            }
+          } catch {
+            // Continue to next cookie if this one fails validation
+          }
+        }
+      }
+    }
+    
+    return null
+  } catch (error) {
+    console.warn('[auth:jwt-extraction] Failed to extract JWT from cookies:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      hasCookieHeader: !!request.headers.get('cookie')
+    })
+    return null
+  }
+}
+
+/**
+ * Enhanced user context extraction with comprehensive error handling
+ * Validates JWT tokens and extracts user information with detailed logging
+ */
+async function extractUserContext(request: Request, correlationId: string): Promise<{
+  user: { id: string } | null
+  supabase: ReturnType<typeof createServerClient>
+  authError?: {
+    code: string
+    message: string
+    details?: Record<string, unknown>
+  }
+}> {
+  try {
+    // Create Supabase client using Next.js cookies (JWT-based, no DB queries)
+    const supabase = await getServerSupabase()
+    
+    // Extract JWT token for debugging
+    const jwtToken = extractJwtFromCookies(request)
+    
+    // Log authentication context for debugging
+    const authContext = createAuthDebugContext(
+      request,
+      correlationId,
+      'JWT_EXTRACTION',
+      undefined,
+      !!jwtToken,
+      jwtToken?.length
+    )
+    logAuthenticationContext(authContext)
+    
+    // Get user from Supabase (validates JWT internally)
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    if (error) {
+      const authError = {
+        code: 'SUPABASE_AUTH_ERROR',
+        message: error.message,
+        details: {
+          supabaseError: error,
+          hasJwtToken: !!jwtToken
+        }
+      }
+      
+      // Log authentication error with detailed context
+      logAuthenticationError(correlationId, authError, request)
+      
+      // Log authentication context for debugging
+      const authContext = createAuthDebugContext(
+        request,
+        correlationId,
+        'SUPABASE_ERROR',
+        undefined,
+        !!jwtToken,
+        jwtToken?.length
+      )
+      logAuthenticationContext(authContext)
+      
+      return {
+        user: null,
+        supabase,
+        authError
+      }
+    }
+    
+    if (!user) {
+      const authError = {
+        code: 'NO_USER_IN_TOKEN',
+        message: 'No user found in authentication token',
+        details: {
+          hasJwtToken: !!jwtToken
+        }
+      }
+      
+      // Log authentication error with detailed context
+      logAuthenticationError(correlationId, authError, request)
+      
+      // Log authentication context for debugging
+      const authContext = createAuthDebugContext(
+        request,
+        correlationId,
+        'NO_USER_FOUND',
+        undefined,
+        !!jwtToken,
+        jwtToken?.length
+      )
+      logAuthenticationContext(authContext)
+      
+      return {
+        user: null,
+        supabase,
+        authError
+      }
+    }
+    
+    // Validate user ID format (should be UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(user.id)) {
+      const authError = {
+        code: 'INVALID_USER_ID',
+        message: 'Invalid user ID format',
+        details: {
+          userId: user.id
+        }
+      }
+      
+      // Log authentication error with detailed context
+      logAuthenticationError(correlationId, authError, request)
+      
+      // Log authentication context for debugging
+      const authContext = createAuthDebugContext(
+        request,
+        correlationId,
+        'INVALID_USER_ID',
+        { id: user.id },
+        !!jwtToken,
+        jwtToken?.length
+      )
+      logAuthenticationContext(authContext)
+      
+      return {
+        user: null,
+        supabase,
+        authError
+      }
+    }
+    
+    // Log successful authentication with detailed context
+    const successContext = createAuthDebugContext(
+      request,
+      correlationId,
+      'AUTH_SUCCESS',
+      { id: user.id },
+      !!jwtToken,
+      jwtToken?.length
+    )
+    logAuthenticationContext(successContext)
+    
+    console.info('[auth:user-details]', {
+      correlationId,
+      userId: user.id,
+      userEmail: user.email,
+      hasJwtToken: !!jwtToken,
+      jwtTokenLength: jwtToken?.length,
+      timestamp: new Date().toISOString()
+    })
+    
+    return {
+      user: { id: user.id },
+      supabase
+    }
+    
+  } catch (error) {
+    const authError = {
+      code: 'AUTH_EXTRACTION_ERROR',
+      message: 'Failed to extract user context',
+      details: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      }
+    }
+    
+    // Log authentication error with detailed context
+    logAuthenticationError(correlationId, authError, request)
+    
+    // Log authentication context for debugging
+    const authContext = createAuthDebugContext(
+      request,
+      correlationId,
+      'EXTRACTION_ERROR',
+      undefined,
+      false
+    )
+    logAuthenticationContext(authContext)
+    
+    // Create a fallback Supabase client for error responses
+    const fallbackSupabase = await getServerSupabase()
+    
+    return {
+      user: null,
+      supabase: fallbackSupabase,
+      authError
+    }
+  }
+}
+
+/**
  * Create server-side Supabase client that reads from Next.js cookies
  * This avoids database queries and uses JWT validation only
  */
@@ -101,10 +343,229 @@ export interface MiddlewareConfig {
 }
 
 /**
- * Generate correlation ID for request tracking
+ * Generate correlation ID for request tracking with OAuth flow support
  */
 function generateCorrelationId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+/**
+ * Generate OAuth flow correlation ID for tracking OAuth sessions
+ */
+export function generateOAuthCorrelationId(): string {
+  return `oauth_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+/**
+ * Authentication debugging context interface
+ */
+interface AuthDebugContext {
+  correlationId: string
+  userId?: string
+  endpoint: string
+  method: string
+  userAgent?: string
+  origin?: string
+  referer?: string
+  hasJwtToken: boolean
+  jwtTokenLength?: number
+  authStep: string
+  timestamp: string
+}
+
+/**
+ * Log authentication context for debugging OAuth flows and API access
+ */
+function logAuthenticationContext(context: AuthDebugContext): void {
+  const logLevel = context.userId ? 'info' : 'warn'
+  const message = context.userId 
+    ? `[AUTH:SUCCESS] User authenticated successfully`
+    : `[AUTH:FAILURE] Authentication failed`
+  
+  console[logLevel](message, {
+    correlationId: context.correlationId,
+    userId: context.userId,
+    endpoint: context.endpoint,
+    method: context.method,
+    authStep: context.authStep,
+    timestamp: context.timestamp,
+    hasJwtToken: context.hasJwtToken,
+    jwtTokenLength: context.jwtTokenLength,
+    userAgent: context.userAgent?.substring(0, 100), // Truncate for logs
+    origin: context.origin,
+    referer: context.referer
+  })
+}
+
+/**
+ * Log OAuth flow step for debugging callback processing
+ */
+export function logOAuthFlowStep(
+  correlationId: string,
+  step: string,
+  details: Record<string, unknown>,
+  userId?: string
+): void {
+  console.info(`[OAUTH:${step.toUpperCase()}]`, {
+    correlationId,
+    userId,
+    step,
+    timestamp: new Date().toISOString(),
+    ...details
+  })
+}
+
+/**
+ * Log authentication error with detailed context
+ */
+function logAuthenticationError(
+  correlationId: string,
+  error: {
+    code: string
+    message: string
+    details?: Record<string, unknown>
+  },
+  request: Request
+): void {
+  console.error('[AUTH:ERROR]', {
+    correlationId,
+    errorCode: error.code,
+    errorMessage: error.message,
+    endpoint: new URL(request.url).pathname,
+    method: request.method,
+    timestamp: new Date().toISOString(),
+    userAgent: request.headers.get('user-agent'),
+    origin: request.headers.get('origin'),
+    referer: request.headers.get('referer'),
+    details: error.details
+  })
+}
+
+/**
+ * Validate user context and return standardized validation result
+ */
+export interface UserValidationResult {
+  isValid: boolean
+  user: { id: string } | null
+  error?: {
+    code: string
+    message: string
+    httpStatus: number
+  }
+}
+
+/**
+ * Helper function for consistent user validation across API routes
+ */
+export function validateUserContext(
+  user: { id: string } | null,
+  correlationId: string,
+  requireAuth: boolean = true
+): UserValidationResult {
+  if (!requireAuth) {
+    return {
+      isValid: true,
+      user
+    }
+  }
+  
+  if (!user) {
+    return {
+      isValid: false,
+      user: null,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Authentication required',
+        httpStatus: 401
+      }
+    }
+  }
+  
+  if (!user.id) {
+    return {
+      isValid: false,
+      user: null,
+      error: {
+        code: 'INVALID_USER_ID',
+        message: 'Invalid user ID in authentication context',
+        httpStatus: 401
+      }
+    }
+  }
+  
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  if (!uuidRegex.test(user.id)) {
+    console.error('[AUTH:INVALID-UUID]', {
+      correlationId,
+      userId: user.id,
+      message: 'User ID is not a valid UUID'
+    })
+    
+    return {
+      isValid: false,
+      user: null,
+      error: {
+        code: 'INVALID_USER_ID',
+        message: 'Invalid user ID format',
+        httpStatus: 401
+      }
+    }
+  }
+  
+  return {
+    isValid: true,
+    user
+  }
+}
+
+/**
+ * Helper function to extract and validate user from API context
+ */
+export function requireAuthenticatedUser(context: ApiContext): { id: string } {
+  const validation = validateUserContext(context.user, context.correlationId, true)
+  
+  if (!validation.isValid || !validation.user) {
+    throw new Error(`Authentication required: ${validation.error?.message || 'Unknown error'}`)
+  }
+  
+  return validation.user
+}
+
+/**
+ * Helper function to get user ID safely from context
+ */
+export function getUserIdFromContext(context: ApiContext): string | null {
+  const validation = validateUserContext(context.user, context.correlationId, false)
+  return validation.user?.id || null
+}
+
+/**
+ * Create authentication debug context for logging
+ */
+function createAuthDebugContext(
+  request: Request,
+  correlationId: string,
+  authStep: string,
+  user?: { id: string } | null,
+  hasJwtToken?: boolean,
+  jwtTokenLength?: number
+): AuthDebugContext {
+  const url = new URL(request.url)
+  
+  return {
+    correlationId,
+    userId: user?.id,
+    endpoint: url.pathname,
+    method: request.method,
+    userAgent: request.headers.get('user-agent') || undefined,
+    origin: request.headers.get('origin') || undefined,
+    referer: request.headers.get('referer') || undefined,
+    hasJwtToken: hasJwtToken || false,
+    jwtTokenLength,
+    authStep,
+    timestamp: new Date().toISOString()
+  }
 }
 
 /**
@@ -228,17 +689,61 @@ export function createProtectedApiHandler(
       // Initialize security validation
       validateEnvironment()
 
-      // Create Supabase client using Next.js cookies (JWT-based, no DB queries)
-      const supabase = await getServerSupabase()
-
-      // Authentication handling - uses JWT from cookies, no DB lookup
-      const { data: { user }, error } = await supabase.auth.getUser()
+      // Enhanced user context extraction with comprehensive error handling
+      const { user, supabase, authError } = await extractUserContext(request, correlationId)
       
       // Check if authentication is required
       if (config.requireAuth !== false) {
-        if (error || !user) {
-          return ApiResponse.unauthorized('Authentication failed', ApiErrorCode.UNAUTHORIZED, correlationId)
+        const validation = validateUserContext(user, correlationId, true)
+        
+        if (!validation.isValid) {
+          // Log authentication failure with detailed context
+          console.warn('[api:auth-failure]', {
+            correlationId,
+            authError: authError?.message || validation.error?.message,
+            authCode: authError?.code || validation.error?.code,
+            requireAuth: config.requireAuth,
+            url: request.url,
+            method: request.method,
+            timestamp: new Date().toISOString()
+          })
+          
+          // Return specific error based on auth failure type
+          if (authError?.code === 'SUPABASE_AUTH_ERROR') {
+            return ApiResponse.unauthorized(
+              'Invalid authentication token', 
+              ApiErrorCode.INVALID_TOKEN, 
+              correlationId
+            )
+          } else if (authError?.code === 'NO_USER_IN_TOKEN') {
+            return ApiResponse.unauthorized(
+              'Authentication token does not contain user information', 
+              ApiErrorCode.INVALID_TOKEN, 
+              correlationId
+            )
+          } else if (authError?.code === 'INVALID_USER_ID') {
+            return ApiResponse.unauthorized(
+              'Invalid user ID in authentication token', 
+              ApiErrorCode.INVALID_TOKEN, 
+              correlationId
+            )
+          } else {
+            return ApiResponse.unauthorized(
+              validation.error?.message || 'Authentication failed', 
+              ApiErrorCode.UNAUTHORIZED, 
+              correlationId
+            )
+          }
         }
+        
+        // Log successful authentication for protected endpoints
+        console.info('[api:auth-success]', {
+          correlationId,
+          userId: user?.id,
+          endpoint: new URL(request.url).pathname,
+          method: request.method,
+          timestamp: new Date().toISOString()
+        })
       }
 
       // Determine primary schema based on request path

@@ -31,8 +31,7 @@ Add these to your `.env.local` and Vercel environment:
 APIDECK_ENABLED=true
 APIDECK_API_KEY=sk_xxx               # from Apideck Dashboard → API Keys
 APIDECK_APP_ID=app_xxx               # Apideck App ID (UUID, used as application_id)
-APIDECK_API_BASE_URL=https://unify.apideck.com
-APIDECK_VAULT_BASE_URL=https://vault.apideck.com
+APIDECK_API_BASE_URL=https://unify.apideck.comAPIDECK_VAULT_BASE_URL=https://unify.apideck.com/vault
 APIDECK_REDIRECT_URL=http://localhost:3000/api/integrations/apideck/callback
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```

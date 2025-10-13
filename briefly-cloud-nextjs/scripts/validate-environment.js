@@ -41,13 +41,26 @@ class EnvironmentValidator {
       'MS_DRIVE_CLIENT_SECRET'
     ];
     
+    this.apideckVars = [
+      'APIDECK_ENABLED',
+      'APIDECK_API_KEY',
+      'APIDECK_APP_ID',
+      'APIDECK_APP_UID',
+      'APIDECK_API_BASE_URL',
+      'APIDECK_VAULT_BASE_URL',
+      'APIDECK_REDIRECT_URL'
+    ];
+    
     this.securityPatterns = {
       'SUPABASE_SERVICE_ROLE_KEY': /^eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/,
       'OPENAI_API_KEY': /^sk-[a-zA-Z0-9]{20,}$/,
       'STRIPE_SECRET_KEY': /^sk_(test_|live_)[a-zA-Z0-9]{10,}$/,
       'NEXTAUTH_SECRET': /^.{32,}$/, // At least 32 characters
       'ENCRYPTION_KEY': /^.{32,}$/, // At least 32 characters
-      'JWT_SECRET': /^.{32,}$/      // At least 32 characters
+      'JWT_SECRET': /^.{32,}$/,      // At least 32 characters
+      'APIDECK_API_KEY': /^sk_[a-zA-Z0-9_-]{10,}$/, // Apideck API key format
+      'APIDECK_APP_ID': /^app_[a-zA-Z0-9_-]{10,}$/, // Apideck App ID format
+      'APIDECK_APP_UID': /^app_uid_[a-zA-Z0-9_-]{10,}$/ // Apideck App UID format
     };
     
     this.errors = [];
@@ -64,6 +77,7 @@ class EnvironmentValidator {
     this.validateURLs();
     this.checkSecurityHeaders();
     this.validateProductionToggles();
+    this.validateApideckConfiguration();
     this.checkForSecrets();
     
     this.printResults();
@@ -273,6 +287,140 @@ class EnvironmentValidator {
       Object.entries(devRecommendations).forEach(([varName, message]) => {
         if (!process.env[varName]) {
           this.warnings.push(message);
+        }
+      });
+    }
+  }
+
+  validateApideckConfiguration() {
+    const apideckEnabled = process.env.APIDECK_ENABLED;
+    
+    // If Apideck is disabled, skip validation
+    if (apideckEnabled === 'false' || !apideckEnabled) {
+      this.warnings.push('Apideck integration is disabled - skipping Apideck validation');
+      return;
+    }
+    
+    console.log('🔗 Validating Apideck configuration...');
+    
+    // Check required Apideck variables
+    this.apideckVars.forEach(varName => {
+      const value = process.env[varName];
+      
+      if (!value) {
+        this.errors.push(`Missing required Apideck environment variable: ${varName}`);
+      } else if (value.trim() === '') {
+        this.errors.push(`Empty Apideck environment variable: ${varName}`);
+      } else if (value.includes('xxx') || value === 'your_value_here') {
+        this.errors.push(`Placeholder value detected for Apideck variable: ${varName}`);
+      }
+    });
+    
+    // Validate Apideck URLs
+    const apiBaseUrl = process.env.APIDECK_API_BASE_URL;
+    const vaultBaseUrl = process.env.APIDECK_VAULT_BASE_URL;
+    const redirectUrl = process.env.APIDECK_REDIRECT_URL;
+    
+    if (apiBaseUrl) {
+      try {
+        const url = new URL(apiBaseUrl);
+        if (!url.hostname.includes('apideck.com')) {
+          this.warnings.push(`APIDECK_API_BASE_URL should use apideck.com domain: ${apiBaseUrl}`);
+        }
+        if (url.protocol !== 'https:') {
+          this.errors.push(`APIDECK_API_BASE_URL must use HTTPS: ${apiBaseUrl}`);
+        }
+      } catch (error) {
+        this.errors.push(`Invalid APIDECK_API_BASE_URL format: ${apiBaseUrl}`);
+      }
+    }
+    
+    if (vaultBaseUrl) {
+      try {
+        const url = new URL(vaultBaseUrl);
+        if (!url.hostname.includes('apideck.com')) {
+          this.warnings.push(`APIDECK_VAULT_BASE_URL should use apideck.com domain: ${vaultBaseUrl}`);
+        }
+        if (url.protocol !== 'https:') {
+          this.errors.push(`APIDECK_VAULT_BASE_URL must use HTTPS: ${vaultBaseUrl}`);
+        }
+        // Validate that vault URL includes /vault path
+        if (!url.pathname.includes('/vault')) {
+          this.warnings.push(`APIDECK_VAULT_BASE_URL should include /vault path: ${vaultBaseUrl}`);
+        }
+      } catch (error) {
+        this.errors.push(`Invalid APIDECK_VAULT_BASE_URL format: ${vaultBaseUrl}`);
+      }
+    }
+    
+    if (redirectUrl) {
+      try {
+        const url = new URL(redirectUrl);
+        
+        // Check for HTTPS in production
+        if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+          this.errors.push(`APIDECK_REDIRECT_URL must use HTTPS in production: ${redirectUrl}`);
+        }
+        
+        // Check for localhost in production
+        if (process.env.NODE_ENV === 'production' && 
+            (url.hostname === 'localhost' || url.hostname === '127.0.0.1')) {
+          this.errors.push(`APIDECK_REDIRECT_URL cannot use localhost in production: ${redirectUrl}`);
+        }
+        
+        // Validate callback path
+        if (!url.pathname.includes('/api/integrations/apideck/callback')) {
+          this.warnings.push(`APIDECK_REDIRECT_URL should point to callback endpoint: ${redirectUrl}`);
+        }
+        
+        // Check that redirect URL matches site URL domain
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+        if (siteUrl) {
+          try {
+            const siteUrlObj = new URL(siteUrl);
+            if (url.hostname !== siteUrlObj.hostname) {
+              this.warnings.push(`APIDECK_REDIRECT_URL domain should match NEXT_PUBLIC_SITE_URL domain`);
+            }
+          } catch (error) {
+            // Site URL validation will be handled elsewhere
+          }
+        }
+        
+      } catch (error) {
+        this.errors.push(`Invalid APIDECK_REDIRECT_URL format: ${redirectUrl}`);
+      }
+    }
+    
+    // Validate Apideck credentials format
+    const apiKey = process.env.APIDECK_API_KEY;
+    const appId = process.env.APIDECK_APP_ID;
+    const appUid = process.env.APIDECK_APP_UID;
+    
+    if (apiKey && !this.securityPatterns.APIDECK_API_KEY.test(apiKey)) {
+      this.errors.push('APIDECK_API_KEY format is invalid - should start with "sk_"');
+    }
+    
+    if (appId && !this.securityPatterns.APIDECK_APP_ID.test(appId)) {
+      this.errors.push('APIDECK_APP_ID format is invalid - should start with "app_"');
+    }
+    
+    if (appUid && !this.securityPatterns.APIDECK_APP_UID.test(appUid)) {
+      this.errors.push('APIDECK_APP_UID format is invalid - should start with "app_uid_"');
+    }
+    
+    // Check for consistency between development and production URLs
+    const nodeEnv = process.env.NODE_ENV;
+    if (nodeEnv === 'production') {
+      const prodDomains = ['localhost', '127.0.0.1', 'ngrok.io'];
+      const urlsToCheck = [redirectUrl, process.env.NEXT_PUBLIC_SITE_URL];
+      
+      urlsToCheck.forEach((url, index) => {
+        if (url) {
+          const urlObj = new URL(url);
+          if (prodDomains.some(domain => urlObj.hostname.includes(domain))) {
+            const varName = index === 0 ? 'APIDECK_REDIRECT_URL' : 'NEXT_PUBLIC_SITE_URL';
+            this.errors.push(`${varName} uses development domain in production: ${url}`);
+          }
         }
       });
     }

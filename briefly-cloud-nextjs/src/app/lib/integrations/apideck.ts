@@ -7,6 +7,35 @@ const VAULT = process.env.APIDECK_VAULT_BASE_URL!;
 const APP_ID = process.env.APIDECK_APP_ID!;
 const KEY = process.env.APIDECK_API_KEY!;
 
+function buildVaultSessionEndpoint(base: string): string {
+  let normalized = base.trim();
+
+  if (!normalized) {
+    throw new Error('APIDECK_VAULT_BASE_URL is empty');
+  }
+
+  if (!normalized.includes('://')) {
+    normalized = `https://${normalized}`;
+  }
+
+  if (/^https:\/\/vault\.apideck\.com\/?$/i.test(normalized)) {
+    normalized = 'https://unify.apideck.com/vault';
+  }
+
+  // Ensure we only have a single trailing slash for concatenation
+  normalized = normalized.replace(/\/+$/, '');
+
+  if (!/\/vault($|\/)/i.test(new URL(normalized).pathname)) {
+    normalized = `${normalized}/vault`;
+  }
+
+  if (!normalized.endsWith('/sessions')) {
+    normalized = `${normalized}/sessions`;
+  }
+
+  return normalized;
+}
+
 type HeadersBase = Record<string,string>;
 
 export const apideckHeaders = (consumerId: string): HeadersBase => ({
@@ -48,7 +77,8 @@ export const Apideck = {
   async createVaultSession(consumerId: string, redirect: string) {
     // App ID is required in the BODY for Vault sessions
     const applicationId = process.env.APIDECK_APP_ID!;
-    const res = await fetch(`${process.env.APIDECK_VAULT_BASE_URL!}/sessions`, {
+    const sessionEndpoint = buildVaultSessionEndpoint(process.env.APIDECK_VAULT_BASE_URL!);
+    const res = await fetch(sessionEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.APIDECK_API_KEY!}`,
@@ -65,6 +95,11 @@ export const Apideck = {
 
     if (!res.ok) {
       const text = await res.text();
+      console.error('[apideck:vault-session] Failed to create session', {
+        status: res.status,
+        endpoint: sessionEndpoint,
+        body: text
+      });
       throw new Error(`Vault session failed: ${res.status} ${text}`);
     }
     return res.json();

@@ -12,12 +12,31 @@ async function listGoogleFilesApideck(req: Request, ctx: ApiContext) {
   const cursor   = url.searchParams.get('cursor') || undefined;
   const limit    = url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : 100;
 
-  const { data, error } = await supabaseAdmin.from('app.apideck_connections')
+  const { data, error } = await supabaseAdmin.from('apideck_connections')
     .select('consumer_id, connection_id')
     .eq('user_id', ctx.user.id)
     .eq('provider', 'google')
     .maybeSingle();
-  if (error || !data?.connection_id) return NextResponse.json({ error: 'not_connected' }, { status: 400 });
+  
+  if (error) {
+    console.error('[google:list:connection-lookup-error]', {
+      userId: ctx.user.id,
+      correlationId: ctx.correlationId,
+      error: error.message,
+      code: error.code,
+      details: error.details
+    });
+    return NextResponse.json({ error: 'connection_lookup_failed' }, { status: 500 });
+  }
+  
+  if (!data?.connection_id) {
+    console.log('[google:list:not-connected]', {
+      userId: ctx.user.id,
+      correlationId: ctx.correlationId,
+      hasData: !!data
+    });
+    return NextResponse.json({ error: 'not_connected' }, { status: 400 });
+  }
 
   const resp = await Apideck.listFiles(data.consumer_id, data.connection_id, { folder_id: folderId, cursor, limit });
 

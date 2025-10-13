@@ -59,7 +59,7 @@ describe('Apideck Integration', () => {
       await Apideck.createVaultSession('test-consumer', 'https://redirect.com')
       
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://vault.test.com/sessions',
+        'https://vault.test.com/vault/sessions',
         expect.objectContaining({
           method: 'POST',
           headers: {
@@ -84,7 +84,7 @@ describe('Apideck Integration', () => {
       
       // Verify headers are set directly in the createVaultSession method
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://vault.test.com/sessions',
+        'https://vault.test.com/vault/sessions',
         expect.objectContaining({
           headers: {
             'Authorization': 'Bearer test-key',
@@ -93,6 +93,18 @@ describe('Apideck Integration', () => {
             'Content-Type': 'application/json'
           }
         })
+      )
+    })
+
+    it('should normalise legacy vault host to the unify endpoint', async () => {
+      process.env.APIDECK_VAULT_BASE_URL = 'https://vault.apideck.com'
+
+      const { Apideck } = require('../apideck')
+      await Apideck.createVaultSession('legacy-consumer', 'https://redirect.com')
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://unify.apideck.com/vault/sessions',
+        expect.any(Object)
       )
     })
   })
