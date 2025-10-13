@@ -27,6 +27,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Cloud, Download, ExternalLink, RefreshCw, AlertCircle, Play, Pause, X, CheckCircle, XCircle, Clock, Folder, FolderOpen, CreditCard } from 'lucide-react';
 import { Breadcrumb, type BreadcrumbItem } from './ui/Breadcrumb';
+import { Button } from './ui/button';
 import { useToast } from './ui/toast';
 import { GooglePicker } from './GooglePicker';
 import { logStorageOAuthRoute, logOAuthFlowCompletion, logAuthenticationViolation } from '@/app/lib/oauth-flow-monitoring';
@@ -897,6 +898,57 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                 />
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Debug Section - Development Only */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-gray-900/60 border border-gray-700/40 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-white">Debug Information</h3>
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/integrations/apideck/test');
+                  const result = await response.json();
+                  console.log('Apideck Test Results:', result);
+                  alert(`Test completed. Check console for details. Status: ${result.status}`);
+                } catch (error) {
+                  console.error('Test failed:', error);
+                  alert('Test failed. Check console for details.');
+                }
+              }}
+              className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Run Apideck Test
+            </button>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Apideck Enabled:</span>
+              <span className={isApideckEnabled ? 'text-green-400' : 'text-red-400'}>
+                {isApideckEnabled ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Vault Loading:</span>
+              <span className={isVaultLoading ? 'text-yellow-400' : 'text-gray-400'}>
+                {isVaultLoading ? 'Yes' : 'No'}
+              </span>
+            </div>
+            {vaultError && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Vault Error:</span>
+                <span className="text-red-400 text-xs">{vaultError}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-400">Plan Access:</span>
+              <span className={planStatus?.hasStorageAccess ? 'text-green-400' : 'text-red-400'}>
+                {planStatus?.hasStorageAccess ? 'Yes' : 'No'}
+              </span>
+            </div>
           </div>
         </div>
       )}
