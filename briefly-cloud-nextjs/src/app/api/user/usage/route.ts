@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse, parsePaginationParams, createPaginatedResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
+import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin'
 import { logApiUsage } from '@/app/lib/logger'
 
 // Tier limits for reference
@@ -36,7 +36,7 @@ async function getUserUsageHandler(request: Request, context: ApiContext): Promi
   }
   
   try {
-    const supabase = supabaseAdmin
+    const supabase = supabaseAppAdmin
     
     const url = new URL(request.url)
     const timeframe = url.searchParams.get('timeframe') || 'current_month'

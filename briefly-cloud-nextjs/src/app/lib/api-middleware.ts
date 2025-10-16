@@ -21,55 +21,69 @@ import { SchemaError, handleSchemaError, logSchemaError, extractSchemaContext } 
 
 /**
  * Enhanced JWT token extraction from cookies with fallback mechanisms
- * Supports both Next.js cookies API and direct header parsing for edge cases
+ * Supports Supabase SSR cookie patterns and direct header parsing
  */
 function extractJwtFromCookies(request: Request): string | null {
   try {
-    // Method 1: Try to extract from cookie header directly (most reliable for API routes)
     const cookieHeader = request.headers.get('cookie')
-    if (cookieHeader) {
-      const cookies = cookieHeader.split(';').map(c => c.trim())
-      
-      // Look for Supabase auth tokens (multiple possible names)
-      const authCookieNames = [
-        'sb-access-token',
-        'sb-refresh-token', 
-        'supabase-auth-token',
-        'supabase.auth.token'
-      ]
-      
-      for (const cookieName of authCookieNames) {
-        const cookie = cookies.find(c => c.startsWith(`${cookieName}=`))
-        if (cookie) {
-          const token = cookie.split('=')[1]
-          if (token && token !== 'undefined' && token !== 'null') {
-            return decodeURIComponent(token)
-          }
+    if (!cookieHeader) {
+      return null
+    }
+
+    const cookies = cookieHeader.split(';').map(c => c.trim())
+
+    // Extract project reference from Supabase URL for cookie name
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const projectRef = supabaseUrl?.split('//')[1]?.split('.')[0]
+
+    // Supabase SSR uses project-specific cookie names
+    const possibleCookieNames = [
+      // Standard Supabase SSR cookie names
+      `sb-${projectRef}-auth-token`,
+      `sb-${projectRef}-auth-token.0`,
+      `sb-${projectRef}-auth-token.1`,
+      // Legacy cookie names
+      'sb-access-token',
+      'sb-refresh-token',
+      'supabase-auth-token',
+      'supabase.auth.token'
+    ]
+
+    // Look for Supabase auth cookies
+    for (const cookieName of possibleCookieNames) {
+      const cookie = cookies.find(c => c.startsWith(`${cookieName}=`))
+      if (cookie) {
+        const token = cookie.split('=')[1]
+        if (token && token !== 'undefined' && token !== 'null' && token.length > 10) {
+          return decodeURIComponent(token)
         }
       }
-      
-      // Look for any cookie that looks like a JWT (contains dots and base64-like content)
-      for (const cookie of cookies) {
-        const [name, value] = cookie.split('=')
-        if (value && value.includes('.') && value.split('.').length === 3) {
-          // Basic JWT structure validation (header.payload.signature)
+    }
+
+    // Look for any cookie that starts with 'sb-' and might contain auth data
+    for (const cookie of cookies) {
+      const [name, value] = cookie.split('=', 2)
+      if (name.startsWith('sb-') && name.includes('auth') && value) {
+        // Check if it looks like a JWT or auth token
+        if (value.includes('.') || value.length > 50) {
           try {
-            const parts = value.split('.')
-            if (parts.length === 3 && parts.every(part => part.length > 0)) {
-              return decodeURIComponent(value)
+            const decodedValue = decodeURIComponent(value)
+            if (decodedValue.includes('.') && decodedValue.split('.').length >= 2) {
+              return decodedValue
             }
           } catch {
-            // Continue to next cookie if this one fails validation
+            // Continue to next cookie if decoding fails
           }
         }
       }
     }
-    
+
     return null
   } catch (error) {
     console.warn('[auth:jwt-extraction] Failed to extract JWT from cookies:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      hasCookieHeader: !!request.headers.get('cookie')
+      hasCookieHeader: !!request.headers.get('cookie'),
+      cookieCount: request.headers.get('cookie')?.split(';').length || 0
     })
     return null
   }
@@ -91,10 +105,24 @@ async function extractUserContext(request: Request, correlationId: string): Prom
   try {
     // Create Supabase client using Next.js cookies (JWT-based, no DB queries)
     const supabase = await getServerSupabase()
-    
+
     // Extract JWT token for debugging
     const jwtToken = extractJwtFromCookies(request)
-    
+
+    // Debug cookie information
+    const cookieHeader = request.headers.get('cookie')
+    const cookieNames = cookieHeader?.split(';').map(c => c.trim().split('=')[0]) || []
+
+    console.debug('[auth:cookie-debug]', {
+      correlationId,
+      hasCookieHeader: !!cookieHeader,
+      cookieCount: cookieNames.length,
+      cookieNames: cookieNames.filter(name => name.startsWith('sb-')), // Only log Supabase cookies
+      hasJwtToken: !!jwtToken,
+      jwtTokenLength: jwtToken?.length,
+      endpoint: new URL(request.url).pathname
+    })
+
     // Log authentication context for debugging
     const authContext = createAuthDebugContext(
       request,
@@ -105,10 +133,10 @@ async function extractUserContext(request: Request, correlationId: string): Prom
       jwtToken?.length
     )
     logAuthenticationContext(authContext)
-    
+
     // Get user from Supabase (validates JWT internally)
     const { data: { user }, error } = await supabase.auth.getUser()
-    
+
     if (error) {
       const authError = {
         code: 'SUPABASE_AUTH_ERROR',
@@ -118,10 +146,10 @@ async function extractUserContext(request: Request, correlationId: string): Prom
           hasJwtToken: !!jwtToken
         }
       }
-      
+
       // Log authentication error with detailed context
       logAuthenticationError(correlationId, authError, request)
-      
+
       // Log authentication context for debugging
       const authContext = createAuthDebugContext(
         request,
@@ -132,14 +160,14 @@ async function extractUserContext(request: Request, correlationId: string): Prom
         jwtToken?.length
       )
       logAuthenticationContext(authContext)
-      
+
       return {
         user: null,
         supabase,
         authError
       }
     }
-    
+
     if (!user) {
       const authError = {
         code: 'NO_USER_IN_TOKEN',
@@ -148,10 +176,10 @@ async function extractUserContext(request: Request, correlationId: string): Prom
           hasJwtToken: !!jwtToken
         }
       }
-      
+
       // Log authentication error with detailed context
       logAuthenticationError(correlationId, authError, request)
-      
+
       // Log authentication context for debugging
       const authContext = createAuthDebugContext(
         request,
@@ -162,14 +190,14 @@ async function extractUserContext(request: Request, correlationId: string): Prom
         jwtToken?.length
       )
       logAuthenticationContext(authContext)
-      
+
       return {
         user: null,
         supabase,
         authError
       }
     }
-    
+
     // Validate user ID format (should be UUID)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(user.id)) {
@@ -180,10 +208,10 @@ async function extractUserContext(request: Request, correlationId: string): Prom
           userId: user.id
         }
       }
-      
+
       // Log authentication error with detailed context
       logAuthenticationError(correlationId, authError, request)
-      
+
       // Log authentication context for debugging
       const authContext = createAuthDebugContext(
         request,
@@ -194,14 +222,14 @@ async function extractUserContext(request: Request, correlationId: string): Prom
         jwtToken?.length
       )
       logAuthenticationContext(authContext)
-      
+
       return {
         user: null,
         supabase,
         authError
       }
     }
-    
+
     // Log successful authentication with detailed context
     const successContext = createAuthDebugContext(
       request,
@@ -212,7 +240,7 @@ async function extractUserContext(request: Request, correlationId: string): Prom
       jwtToken?.length
     )
     logAuthenticationContext(successContext)
-    
+
     console.info('[auth:user-details]', {
       correlationId,
       userId: user.id,
@@ -221,12 +249,12 @@ async function extractUserContext(request: Request, correlationId: string): Prom
       jwtTokenLength: jwtToken?.length,
       timestamp: new Date().toISOString()
     })
-    
+
     return {
       user: { id: user.id },
       supabase
     }
-    
+
   } catch (error) {
     const authError = {
       code: 'AUTH_EXTRACTION_ERROR',
@@ -236,10 +264,10 @@ async function extractUserContext(request: Request, correlationId: string): Prom
         stack: error instanceof Error ? error.stack : undefined
       }
     }
-    
+
     // Log authentication error with detailed context
     logAuthenticationError(correlationId, authError, request)
-    
+
     // Log authentication context for debugging
     const authContext = createAuthDebugContext(
       request,
@@ -249,10 +277,10 @@ async function extractUserContext(request: Request, correlationId: string): Prom
       false
     )
     logAuthenticationContext(authContext)
-    
+
     // Create a fallback Supabase client for error responses
     const fallbackSupabase = await getServerSupabase()
-    
+
     return {
       user: null,
       supabase: fallbackSupabase,
@@ -272,8 +300,12 @@ async function getServerSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          // Don't set cookies in API routes - read-only
+          // This prevents RSC cookie write warnings
         },
       },
     }
@@ -378,10 +410,10 @@ interface AuthDebugContext {
  */
 function logAuthenticationContext(context: AuthDebugContext): void {
   const logLevel = context.userId ? 'info' : 'warn'
-  const message = context.userId 
+  const message = context.userId
     ? `[AUTH:SUCCESS] User authenticated successfully`
     : `[AUTH:FAILURE] Authentication failed`
-  
+
   console[logLevel](message, {
     correlationId: context.correlationId,
     userId: context.userId,
@@ -468,7 +500,7 @@ export function validateUserContext(
       user
     }
   }
-  
+
   if (!user) {
     return {
       isValid: false,
@@ -480,7 +512,7 @@ export function validateUserContext(
       }
     }
   }
-  
+
   if (!user.id) {
     return {
       isValid: false,
@@ -492,7 +524,7 @@ export function validateUserContext(
       }
     }
   }
-  
+
   // Validate UUID format
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
   if (!uuidRegex.test(user.id)) {
@@ -501,7 +533,7 @@ export function validateUserContext(
       userId: user.id,
       message: 'User ID is not a valid UUID'
     })
-    
+
     return {
       isValid: false,
       user: null,
@@ -512,7 +544,7 @@ export function validateUserContext(
       }
     }
   }
-  
+
   return {
     isValid: true,
     user
@@ -524,11 +556,11 @@ export function validateUserContext(
  */
 export function requireAuthenticatedUser(context: ApiContext): { id: string } {
   const validation = validateUserContext(context.user, context.correlationId, true)
-  
+
   if (!validation.isValid || !validation.user) {
     throw new Error(`Authentication required: ${validation.error?.message || 'Unknown error'}`)
   }
-  
+
   return validation.user
 }
 
@@ -552,7 +584,7 @@ function createAuthDebugContext(
   jwtTokenLength?: number
 ): AuthDebugContext {
   const url = new URL(request.url)
-  
+
   return {
     correlationId,
     userId: user?.id,
@@ -601,9 +633,9 @@ function createSchemaContext(
         correlationId,
         originalError: error
       })
-      
+
       logSchemaError(schemaError)
-      
+
       // Track failed operation
       operations.push({
         schema,
@@ -613,7 +645,7 @@ function createSchemaContext(
         errorCode: schemaError.code,
         duration: Date.now()
       })
-      
+
       return schemaError
     }
   }
@@ -658,17 +690,17 @@ function determinePrimarySchema(pathname: string): 'app' | 'private' | 'public' 
   if (pathname.includes('/storage/') && pathname.includes('/callback')) {
     return 'private'
   }
-  
+
   // OAuth token endpoints use private schema
   if (pathname.includes('/auth/') || pathname.includes('/oauth/')) {
     return 'private'
   }
-  
+
   // Health checks may use public schema for compatibility views
   if (pathname.includes('/health')) {
     return 'public'
   }
-  
+
   // Most API endpoints use app schema for application data
   return 'app'
 }
@@ -691,11 +723,11 @@ export function createProtectedApiHandler(
 
       // Enhanced user context extraction with comprehensive error handling
       const { user, supabase, authError } = await extractUserContext(request, correlationId)
-      
+
       // Check if authentication is required
       if (config.requireAuth !== false) {
         const validation = validateUserContext(user, correlationId, true)
-        
+
         if (!validation.isValid) {
           // Log authentication failure with detailed context
           console.warn('[api:auth-failure]', {
@@ -707,35 +739,35 @@ export function createProtectedApiHandler(
             method: request.method,
             timestamp: new Date().toISOString()
           })
-          
+
           // Return specific error based on auth failure type
           if (authError?.code === 'SUPABASE_AUTH_ERROR') {
             return ApiResponse.unauthorized(
-              'Invalid authentication token', 
-              ApiErrorCode.INVALID_TOKEN, 
+              'Invalid authentication token',
+              ApiErrorCode.INVALID_TOKEN,
               correlationId
             )
           } else if (authError?.code === 'NO_USER_IN_TOKEN') {
             return ApiResponse.unauthorized(
-              'Authentication token does not contain user information', 
-              ApiErrorCode.INVALID_TOKEN, 
+              'Authentication token does not contain user information',
+              ApiErrorCode.INVALID_TOKEN,
               correlationId
             )
           } else if (authError?.code === 'INVALID_USER_ID') {
             return ApiResponse.unauthorized(
-              'Invalid user ID in authentication token', 
-              ApiErrorCode.INVALID_TOKEN, 
+              'Invalid user ID in authentication token',
+              ApiErrorCode.INVALID_TOKEN,
               correlationId
             )
           } else {
             return ApiResponse.unauthorized(
-              validation.error?.message || 'Authentication failed', 
-              ApiErrorCode.UNAUTHORIZED, 
+              validation.error?.message || 'Authentication failed',
+              ApiErrorCode.UNAUTHORIZED,
               correlationId
             )
           }
         }
-        
+
         // Log successful authentication for protected endpoints
         console.info('[api:auth-success]', {
           correlationId,
@@ -752,7 +784,7 @@ export function createProtectedApiHandler(
 
       // Create enhanced context with schema awareness
       const schemaContext = createSchemaContext(correlationId, user?.id, primarySchema)
-      
+
       const context: ApiContext = {
         user: user ? { id: user.id } : null,
         supabase,
@@ -773,7 +805,7 @@ export function createProtectedApiHandler(
       let response: Response
       try {
         response = await handler(request, context)
-        
+
         // Log successful completion
         schemaContext.addOperation({
           schema: primarySchema,
@@ -781,7 +813,7 @@ export function createProtectedApiHandler(
           success: true,
           duration: Date.now() - startTime
         })
-        
+
       } catch (error) {
         // Handle schema-specific errors
         if (error instanceof SchemaError) {
@@ -793,7 +825,7 @@ export function createProtectedApiHandler(
             code: error.code,
             userId: user?.id
           })
-          
+
           return ApiResponse.serverError(
             error.message,
             error.code as ApiErrorCode,
@@ -801,14 +833,14 @@ export function createProtectedApiHandler(
             correlationId
           )
         }
-        
+
         // Handle other errors with schema context
         const schemaError = schemaContext.logSchemaError(
           error,
           `${request.method} ${url.pathname}`,
           primarySchema
         )
-        
+
         return ApiResponse.serverError(
           'Internal server error',
           ApiErrorCode.INTERNAL_ERROR,
@@ -838,7 +870,7 @@ export function createProtectedApiHandler(
           timestamp: new Date().toISOString()
         }
       })
-      
+
       return ApiResponse.serverError('Internal server error', ApiErrorCode.INTERNAL_ERROR, undefined, correlationId)
     }
   }
@@ -847,7 +879,7 @@ export function createProtectedApiHandler(
 // Note: Error retry logic moved to ErrorHandler.isRetryableError()
 
 // ✨ keep your existing imports/exports
-export type PublicApiContext = { 
+export type PublicApiContext = {
   req: Request
   correlationId: string
   schemaContext: {
@@ -868,15 +900,15 @@ export function createPublicApiHandler(
   return async function wrapped(req: Request) {
     const startTime = Date.now()
     const correlationId = generateCorrelationId()
-    
+
     try {
       // Determine primary schema for public endpoints
       const url = new URL(req.url)
       const primarySchema = determinePrimarySchema(url.pathname)
-      
+
       // Create schema context for public endpoints
       const schemaContext = createSchemaContext(correlationId, undefined, primarySchema)
-      
+
       const context: PublicApiContext = {
         req,
         correlationId,
@@ -887,7 +919,7 @@ export function createPublicApiHandler(
       let response: Response
       try {
         response = await handler(req, context)
-        
+
         // Log successful completion
         schemaContext.addOperation({
           schema: primarySchema,
@@ -895,7 +927,7 @@ export function createPublicApiHandler(
           success: true,
           duration: Date.now() - startTime
         })
-        
+
       } catch (error) {
         // Handle schema-specific errors
         if (error instanceof SchemaError) {
@@ -906,7 +938,7 @@ export function createPublicApiHandler(
             message: error.message,
             code: error.code
           })
-          
+
           return ApiResponse.serverError(
             error.message,
             error.code as ApiErrorCode,
@@ -914,14 +946,14 @@ export function createPublicApiHandler(
             correlationId
           )
         }
-        
+
         // Handle other errors with schema context
         const schemaError = schemaContext.logSchemaError(
           error,
           `${req.method} ${url.pathname}`,
           primarySchema
         )
-        
+
         return ApiResponse.serverError(
           'Internal server error',
           ApiErrorCode.INTERNAL_ERROR,
@@ -935,7 +967,7 @@ export function createPublicApiHandler(
       }
 
       return response
-      
+
     } catch (error) {
       // Enhanced error logging for public endpoints
       console.error('[public-api:error]', {
@@ -951,7 +983,7 @@ export function createPublicApiHandler(
           timestamp: new Date().toISOString()
         }
       })
-      
+
       return ApiResponse.serverError('Internal server error', ApiErrorCode.INTERNAL_ERROR, undefined, correlationId)
     }
   }
