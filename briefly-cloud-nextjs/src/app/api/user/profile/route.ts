@@ -3,107 +3,92 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware';
+import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin';
 
-export async function GET(req: Request) {
-  const res = new NextResponse(null);
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get: (n) => (req as any).cookies?.get?.(n)?.value,
-        set: (n, v, o) =>
-          res.cookies.set(n, v, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "lax",
-            path: "/",
-            ...o,
-          }),
-        remove: (n, o) =>
-          res.cookies.set(n, "", {
-            httpOnly: true,
-            secure: true,
-            sameSite: "lax",
-            path: "/",
-            maxAge: 0,
-            ...o,
-          }),
-      },
-    }
-  );
-
-  const json = (body: any, init?: number | ResponseInit) => {
-    const status = typeof init === "number" ? init : init?.status ?? 200;
-    const response = new NextResponse(JSON.stringify(body), { status });
-    response.headers.set("content-type", "application/json; charset=utf-8");
-    res.headers.forEach((value, key) => {
-      response.headers.append(key, value);
-    });
-    return response;
-  };
-
-  const {
-    data: { user },
-    error: uerr,
-  } = await supabase.auth.getUser();
-
-  if (uerr || !user) {
-    return json(
+async function getUserProfileHandler(req: Request, context: ApiContext): Promise<NextResponse> {
+  const { user } = context;
+  
+  if (!user) {
+    return NextResponse.json(
       { ok: false, error: { code: "UNAUTHORIZED", message: "No user" } },
       { status: 401 }
     );
   }
 
-  let {
-    data: profile,
-    error,
-  } = await supabase
-    .schema("app")
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (error?.code === "PGRST116") {
-    const { data: upserted, error: insErr } = await supabase
-      .schema("app")
-      .from("profiles")
-      .insert({ id: user.id, email: user.email, plan: "free" })
+  try {
+    // Use admin client to bypass RLS and query app.users table
+    let { data: profile, error } = await supabaseAppAdmin
+      .from("users")
       .select("*")
+      .eq("id", user.id)
       .single();
 
-    if (insErr) {
-      return json(
+    if (error?.code === "PGRST116") {
+      // User doesn't exist in app.users, create them
+      const { data: upserted, error: insErr } = await supabaseAppAdmin
+        .from("users")
+        .insert({ 
+          id: user.id, 
+          email: user.email || `user-${user.id}@example.com`,
+          subscription_tier: "free",
+          subscription_status: "active"
+        })
+        .select("*")
+        .single();
+
+      if (insErr) {
+        console.error('Failed to create user profile:', insErr);
+        return NextResponse.json(
+          {
+            ok: false,
+            error: {
+              code: insErr.code ?? "INSERT_FAILED",
+              message: insErr.message,
+            },
+          },
+          { status: 500 }
+        );
+      }
+
+      profile = upserted;
+      error = null;
+    }
+
+    if (error) {
+      console.error('Failed to fetch user profile:', error);
+      return NextResponse.json(
         {
           ok: false,
           error: {
-            code: insErr.code ?? "INSERT_FAILED",
-            message: insErr.message,
+            code: error.code ?? "READ_FAILED",
+            message: error.message,
           },
         },
-        500
+        { status: 500 }
       );
     }
 
-    profile = upserted;
-    error = null;
-  }
+    return NextResponse.json({ 
+      ok: true, 
+      error: null, 
+      user: { id: user.id, email: user.email }, 
+      profile 
+    });
 
-  if (error) {
-    return json(
+  } catch (error) {
+    console.error('User profile API error:', error);
+    return NextResponse.json(
       {
         ok: false,
         error: {
-          code: error.code ?? "READ_FAILED",
-          message: error.message,
-        },
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch user profile"
+        }
       },
-      500
+      { status: 500 }
     );
   }
-
-  return json({ ok: true, error: null, user, profile });
 }
+
+export const GET = createProtectedApiHandler(getUserProfileHandler);

@@ -1,65 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
+import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin'
 
-function getCookie(req: Request, name: string) {
-  const cookieHeader = req.headers.get('cookie')
-  if (!cookieHeader) return undefined
+async function getPlanStatusHandler(req: Request, context: ApiContext): Promise<NextResponse> {
+  const { user } = context
   
-  const cookies = cookieHeader
-    .split(';')
-    .map(s => s.trim())
-    .find(s => s.startsWith(name + '='))
-  
-  return cookies?.split('=').slice(1).join('=')
-}
-
-export async function GET(req: NextRequest) {
-  try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get: (name) => getCookie(req, name),
-          set: () => {},
-          remove: () => {},
-        },
-      }
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: 'UNAUTHENTICATED' },
+      { status: 401 }
     )
+  }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'UNAUTHENTICATED' },
-        { status: 401 }
-      )
-    }
-
-    // Get user access status
-    const { data: access, error: accessError } = await supabase
-      .from('v_user_access')
-      .select('trial_active, paid_active, trial_ends_at')
-      .eq('user_id', user.id)
+  try {
+    // Use admin client to bypass RLS and query app schema directly
+    const { data: userProfile, error: profileError } = await supabaseAppAdmin
+      .from('users')
+      .select(`
+        subscription_tier,
+        subscription_status,
+        trial_end_date,
+        created_at
+      `)
+      .eq('id', user.id)
       .single()
 
-    if (accessError) {
-      console.error('Failed to fetch user access:', accessError)
+    if (profileError) {
+      console.error('Failed to fetch user profile:', profileError)
       return NextResponse.json(
         { success: false, error: 'FAILED_TO_CHECK_ACCESS' },
         { status: 500 }
       )
     }
 
-    // Shape consistently with what gates check
+    // Determine access status based on subscription
+    const now = new Date()
+    const trialEndDate = userProfile?.trial_end_date ? new Date(userProfile.trial_end_date) : null
+    const createdAt = new Date(userProfile?.created_at || now)
+    
+    // Default trial period (e.g., 14 days from signup)
+    const defaultTrialEnd = new Date(createdAt.getTime() + 14 * 24 * 60 * 60 * 1000)
+    const effectiveTrialEnd = trialEndDate || defaultTrialEnd
+    
+    const trialActive = now < effectiveTrialEnd && userProfile?.subscription_tier === 'free'
+    const paidActive = userProfile?.subscription_status === 'active' && 
+                      userProfile?.subscription_tier !== 'free'
+
     return NextResponse.json({
       success: true,
       data: {
-        trialActive: !!access?.trial_active,
-        paidActive: !!access?.paid_active,
-        trialEndsAt: access?.trial_ends_at ?? null,
-        hasStorageAccess: !!(access?.trial_active || access?.paid_active),
-        subscriptionTier: user.app_metadata?.subscription_tier || 'free'
+        trialActive,
+        paidActive,
+        trialEndsAt: effectiveTrialEnd.toISOString(),
+        hasStorageAccess: trialActive || paidActive,
+        subscriptionTier: userProfile?.subscription_tier || 'free',
+        subscriptionStatus: userProfile?.subscription_status || 'inactive'
       }
     })
 
@@ -71,3 +66,5 @@ export async function GET(req: NextRequest) {
     )
   }
 }
+
+export const GET = createProtectedApiHandler(getPlanStatusHandler)

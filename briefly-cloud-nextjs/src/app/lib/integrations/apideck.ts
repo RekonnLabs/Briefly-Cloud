@@ -75,32 +75,47 @@ export interface ListFilesParams {
 
 export const Apideck = {
   async createVaultSession(consumerId: string, redirect: string) {
-    // App ID is required in the BODY for Vault sessions
-    const applicationId = process.env.APIDECK_APP_ID!;
-    const sessionEndpoint = buildVaultSessionEndpoint(process.env.APIDECK_VAULT_BASE_URL!);
-    const res = await fetch(sessionEndpoint, {
+    const API_KEY = process.env.APIDECK_API_KEY!;
+    const APP_ID = process.env.APIDECK_APP_ID!;              // UUID from Apideck dashboard
+    const VAULT_URL = process.env.APIDECK_VAULT_BASE_URL!;   // must be https://vault.apideck.com
+    
+    // Validate that APP_ID is a UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(APP_ID)) {
+      throw new Error(`APIDECK_APP_ID must be a valid UUID, got: ${APP_ID}`);
+    }
+    
+    // Ensure correct Vault URL
+    if (!VAULT_URL.includes('vault.apideck.com')) {
+      throw new Error(`APIDECK_VAULT_BASE_URL must be https://vault.apideck.com, got: ${VAULT_URL}`);
+    }
+    
+    const res = await fetch(`${VAULT_URL}/sessions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.APIDECK_API_KEY!}`,
-        'x-apideck-app-id': applicationId,
-        'x-apideck-consumer-id': consumerId,
+        'Authorization': `Bearer ${API_KEY}`,
+        'x-apideck-app-id': APP_ID,              // header must match body
+        'x-apideck-consumer-id': consumerId,     // stable per Briefly user (use Supabase user.id)
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        application_id: applicationId,     // <-- this is the key bit
+        application_id: APP_ID,                  // REQUIRED and must be a UUID
         unified_api: 'file-storage',
-        redirect_uri: redirect
+        redirect_uri: redirect                   // e.g. https://briefly.rekonnlabs.com/api/integrations/apideck/callback
       })
     });
 
     if (!res.ok) {
-      const text = await res.text();
-      console.error('[apideck:vault-session] Failed to create session', {
-        status: res.status,
-        endpoint: sessionEndpoint,
-        body: text
+      const txt = await res.text();
+      console.error('[apideck:session]', { 
+        status: res.status, 
+        txt,
+        appId: APP_ID,
+        vaultUrl: VAULT_URL,
+        consumerId,
+        redirect
       });
-      throw new Error(`Vault session failed: ${res.status} ${text}`);
+      throw new Error(`Vault session failed: ${res.status} ${txt}`);
     }
     return res.json();
   },
