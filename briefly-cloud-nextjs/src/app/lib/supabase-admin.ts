@@ -26,7 +26,7 @@ export const supabaseAdmin = createClient(
       persistSession: false
     },
     db: {
-      schema: 'public'
+      schema: 'app'
     }
   }
 )

@@ -44,7 +44,7 @@ async function getUserUsageHandler(request: Request, context: ApiContext): Promi
     
     // Get current usage from user profile
     const { data: userProfile, error: profileError } = await supabase
-      .from('users')
+      .from('profiles')
       .select(`
         subscription_tier,
         chat_messages_count,

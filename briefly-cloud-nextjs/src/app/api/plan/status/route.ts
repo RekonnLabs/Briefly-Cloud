@@ -15,7 +15,7 @@ async function getPlanStatusHandler(req: Request, context: ApiContext): Promise<
   try {
     // Use admin client to bypass RLS and query app schema directly
     const { data: userProfile, error: profileError } = await supabaseAppAdmin
-      .from('users')
+      .from('profiles')
       .select(`
         subscription_tier,
         subscription_status,
