@@ -1,94 +1,24 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const runtime = 'nodejs'
 
-import { NextResponse } from "next/server";
-import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware';
-import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin';
+import { NextResponse } from 'next/server'
+import { createProtectedApiHandler } from '@/app/lib/api-middleware'
+import { supabaseAdmin } from '@/app/lib/supabase-admin' // uses SUPABASE_SERVICE_ROLE_KEY
 
-async function getUserProfileHandler(req: Request, context: ApiContext): Promise<NextResponse> {
-  const { user } = context;
-  
-  if (!user) {
-    return NextResponse.json(
-      { ok: false, error: { code: "UNAUTHORIZED", message: "No user" } },
-      { status: 401 }
-    );
+async function handler(_req: Request, ctx: { user: { id: string } | null }) {
+  if (!ctx.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  const { data, error } = await supabaseAdmin
+    .from('app.user_profile')
+    .select('*')
+    .eq('user_id', ctx.user.id)
+    .single()
+
+  if (error) {
+    console.error('[user/profile]', error)
+    return NextResponse.json({ error: 'db_error', detail: error.message }, { status: 500 })
   }
 
-  try {
-    // Use admin client to bypass RLS and query app.users table
-    let { data: profile, error } = await supabaseAppAdmin
-      .from("users")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
-    if (error?.code === "PGRST116") {
-      // User doesn't exist in app.users, create them
-      const { data: upserted, error: insErr } = await supabaseAppAdmin
-        .from("users")
-        .insert({ 
-          id: user.id, 
-          email: user.email || `user-${user.id}@example.com`,
-          subscription_tier: "free",
-          subscription_status: "active"
-        })
-        .select("*")
-        .single();
-
-      if (insErr) {
-        console.error('Failed to create user profile:', insErr);
-        return NextResponse.json(
-          {
-            ok: false,
-            error: {
-              code: insErr.code ?? "INSERT_FAILED",
-              message: insErr.message,
-            },
-          },
-          { status: 500 }
-        );
-      }
-
-      profile = upserted;
-      error = null;
-    }
-
-    if (error) {
-      console.error('Failed to fetch user profile:', error);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: {
-            code: error.code ?? "READ_FAILED",
-            message: error.message,
-          },
-        },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ 
-      ok: true, 
-      error: null, 
-      user: { id: user.id, email: user.email }, 
-      profile 
-    });
-
-  } catch (error) {
-    console.error('User profile API error:', error);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to fetch user profile"
-        }
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(data)
 }
 
-export const GET = createProtectedApiHandler(getUserProfileHandler);
+export const GET = createProtectedApiHandler(handler)
