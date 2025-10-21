@@ -14,8 +14,14 @@ async function handler(_req: Request, ctx: { user: { id: string } | null }) {
     .single()
 
   if (error) {
-    console.error('[user/profile]', error)
-    return NextResponse.json({ error: 'db_error', detail: error.message }, { status: 500 })
+    console.error('[user/profile] Error details:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      userId: ctx.user.id
+    })
+    return NextResponse.json({ error: 'db_error', detail: error.message, code: error.code }, { status: 500 })
   }
 
   return NextResponse.json(data)
