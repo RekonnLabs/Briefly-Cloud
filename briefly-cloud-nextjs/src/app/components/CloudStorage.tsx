@@ -953,28 +953,83 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         </div>
       )}
 
-      {/* Plan Access Banner */}
-      {planStatus && !planStatus.hasStorageAccess && showPlanBanner && (
-        <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm">
+      {/* Trial Expiration Banner - Only show when trial expires in 3 days or less */}
+      {planStatus && planStatus.trialActive && showPlanBanner && (() => {
+        const trialEnd = new Date(planStatus.trialEndsAt);
+        const now = new Date();
+        const daysRemaining = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Only show banner if 3 days or less remaining
+        if (daysRemaining > 3) return null;
+        
+        const isExpiringSoon = daysRemaining > 0;
+        const borderColor = isExpiringSoon ? 'border-orange-500/40' : 'border-red-500/40';
+        const bgColor = isExpiringSoon ? 'bg-orange-500/10' : 'bg-red-500/10';
+        const iconColor = isExpiringSoon ? 'text-orange-500' : 'text-red-500';
+        const textColor = isExpiringSoon ? 'text-orange-200' : 'text-red-200';
+        const subTextColor = isExpiringSoon ? 'text-orange-100/80' : 'text-red-100/80';
+        const buttonBg = isExpiringSoon ? 'bg-orange-500 hover:bg-orange-400' : 'bg-red-500 hover:bg-red-400';
+        const closeColor = isExpiringSoon ? 'text-orange-400 hover:text-orange-300' : 'text-red-400 hover:text-red-300';
+        
+        return (
+          <div className={`rounded-xl border ${borderColor} ${bgColor} p-4 text-sm`}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-3">
+                <Clock className={`w-5 h-5 ${iconColor} mt-0.5`} />
+                <div>
+                  <h4 className={`font-medium ${textColor} mb-1`}>
+                    {isExpiringSoon 
+                      ? `Your free trial expires in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'}`
+                      : 'Your free trial has expired'
+                    }
+                  </h4>
+                  <p className={`${subTextColor} mb-3`}>
+                    {isExpiringSoon
+                      ? 'Upgrade now to keep access to cloud storage and all features.'
+                      : 'Upgrade to continue using cloud storage and all features.'
+                    }
+                  </p>
+                  <a 
+                    href="/briefly/app/billing?reason=trial-expiring" 
+                    className={`inline-flex items-center px-3 py-1.5 ${buttonBg} text-white rounded-lg transition-colors font-medium`}
+                  >
+                    Upgrade Now →
+                  </a>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPlanBanner(false)}
+                className={`${closeColor} transition-colors`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+      
+      {/* Expired Trial Banner - Show when trial is expired and not paid */}
+      {planStatus && !planStatus.trialActive && !planStatus.paidActive && showPlanBanner && (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm">
           <div className="flex items-start justify-between">
             <div className="flex items-start space-x-3">
-              <CreditCard className="w-5 h-5 text-yellow-500 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
               <div>
-                <h4 className="font-medium text-yellow-200 mb-1">Cloud Storage Requires Subscription</h4>
-                <p className="text-yellow-100/80 mb-3">
-                  Connect Google Drive and OneDrive to import your documents. This feature is available with our Pro plans.
+                <h4 className="font-medium text-red-200 mb-1">Your free trial has expired</h4>
+                <p className="text-red-100/80 mb-3">
+                  Upgrade to continue using cloud storage and all features.
                 </p>
                 <a 
-                  href="/briefly/app/billing?reason=cloud-storage" 
-                  className="inline-flex items-center px-3 py-1.5 bg-yellow-500 text-black rounded-lg hover:bg-yellow-400 transition-colors font-medium"
+                  href="/briefly/app/billing?reason=trial-expired" 
+                  className="inline-flex items-center px-3 py-1.5 bg-red-500 hover:bg-red-400 text-white rounded-lg transition-colors font-medium"
                 >
-                  Upgrade or Start Trial →
+                  Upgrade Now →
                 </a>
               </div>
             </div>
             <button
               onClick={() => setShowPlanBanner(false)}
-              className="text-yellow-400 hover:text-yellow-300 transition-colors"
+              className="text-red-400 hover:text-red-300 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
