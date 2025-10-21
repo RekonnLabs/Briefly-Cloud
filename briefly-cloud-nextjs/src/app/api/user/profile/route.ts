@@ -7,14 +7,40 @@ import { supabasePublicAdmin } from '@/app/lib/auth/supabase-server-admin'
 async function handler(_req: Request, ctx: { user: { id: string } | null }) {
   if (!ctx.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { data, error } = await supabasePublicAdmin
+  // Try to get existing profile
+  let { data, error } = await supabasePublicAdmin
     .from('user_profiles')
     .select('*')
     .eq('id', ctx.user.id)
-    .single()
+    .maybeSingle()
 
-  if (error) {
-    console.error('[user/profile] Error details:', {
+  // If profile doesn't exist, create it
+  if (!data && !error) {
+    console.info('[user/profile] Creating new profile for user:', ctx.user.id)
+    const { data: newProfile, error: createError } = await supabasePublicAdmin
+      .from('user_profiles')
+      .insert({
+        id: ctx.user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+
+    if (createError) {
+      console.error('[user/profile] Error creating profile:', {
+        code: createError.code,
+        message: createError.message,
+        details: createError.details,
+        hint: createError.hint,
+        userId: ctx.user.id
+      })
+      return NextResponse.json({ error: 'db_error', detail: createError.message, code: createError.code }, { status: 500 })
+    }
+
+    data = newProfile
+  } else if (error) {
+    console.error('[user/profile] Error fetching profile:', {
       code: error.code,
       message: error.message,
       details: error.details,
