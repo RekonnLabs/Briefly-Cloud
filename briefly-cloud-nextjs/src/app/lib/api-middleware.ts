@@ -299,21 +299,9 @@ function getServerSupabaseFromRequest(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          // Parse cookies from request headers
-          const cookieHeader = request.headers.get('cookie') || ''
-          if (!cookieHeader) return []
-          
-          return cookieHeader.split(';').map(cookie => {
-            const [name, ...valueParts] = cookie.trim().split('=')
-            const value = valueParts.join('=')
-            return { name, value }
-          })
-        },
-        setAll(cookiesToSet) {
-          // Don't set cookies in API routes - read-only
-          // This prevents RSC cookie write warnings
-        },
+        get: (name: string) => getCookieFromReq(request, name),
+        set: () => {},    // no-ops; API routes must not mutate cookies
+        remove: () => {},
       },
     }
   )
