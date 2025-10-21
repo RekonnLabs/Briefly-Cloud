@@ -58,6 +58,20 @@ export function createAppAdminClient() {
 }
 
 /**
+ * Create admin client for public schema operations
+ */
+export function createPublicAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      ...baseConfig,
+      db: { schema: 'public' }
+    }
+  )
+}
+
+/**
  * Create admin client for private schema operations
  */
 export function createPrivateAdminClient() {
@@ -75,10 +89,12 @@ export function createPrivateAdminClient() {
 export const supabaseServerAdmin = createServerAdminClient()
 
 // Schema-specific admin clients
+export const supabasePublicAdmin = createPublicAdminClient()
 export const supabaseAppAdmin = createAppAdminClient()
 export const supabasePrivateAdmin = createPrivateAdminClient()
 
 // Type exports
 export type SupabaseServerAdmin = typeof supabaseServerAdmin
+export type SupabasePublicAdmin = typeof supabasePublicAdmin
 export type SupabaseAppAdmin = typeof supabaseAppAdmin
 export type SupabasePrivateAdmin = typeof supabasePrivateAdmin

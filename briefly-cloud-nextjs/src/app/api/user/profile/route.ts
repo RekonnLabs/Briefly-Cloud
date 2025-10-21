@@ -2,13 +2,13 @@ export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler } from '@/app/lib/api-middleware'
-import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin' // uses SUPABASE_SERVICE_ROLE_KEY with app schema
+import { supabasePublicAdmin } from '@/app/lib/auth/supabase-server-admin'
 
 async function handler(_req: Request, ctx: { user: { id: string } | null }) {
   if (!ctx.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { data, error } = await supabaseAppAdmin
-    .from('profiles')
+  const { data, error } = await supabasePublicAdmin
+    .from('user_profiles')
     .select('*')
     .eq('id', ctx.user.id)
     .single()
@@ -28,3 +28,4 @@ async function handler(_req: Request, ctx: { user: { id: string } | null }) {
 }
 
 export const GET = createProtectedApiHandler(handler)
+
