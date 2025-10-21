@@ -103,8 +103,8 @@ async function extractUserContext(request: Request, correlationId: string): Prom
   }
 }> {
   try {
-    // Create Supabase client using Next.js cookies (JWT-based, no DB queries)
-    const supabase = await getServerSupabase()
+    // Create Supabase client using request cookies (JWT-based, no DB queries)
+    const supabase = getServerSupabaseFromRequest(request)
 
     // Extract JWT token for debugging
     const jwtToken = extractJwtFromCookies(request)
@@ -290,18 +290,25 @@ async function extractUserContext(request: Request, correlationId: string): Prom
 }
 
 /**
- * Create server-side Supabase client that reads from Next.js cookies
+ * Create server-side Supabase client that reads from request cookies
  * This avoids database queries and uses JWT validation only
  */
-async function getServerSupabase() {
-  const cookieStore = await cookies()
+function getServerSupabaseFromRequest(request: Request) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          // Parse cookies from request headers
+          const cookieHeader = request.headers.get('cookie') || ''
+          if (!cookieHeader) return []
+          
+          return cookieHeader.split(';').map(cookie => {
+            const [name, ...valueParts] = cookie.trim().split('=')
+            const value = valueParts.join('=')
+            return { name, value }
+          })
         },
         setAll(cookiesToSet) {
           // Don't set cookies in API routes - read-only
