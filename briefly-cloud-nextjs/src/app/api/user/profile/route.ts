@@ -2,14 +2,14 @@ export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler } from '@/app/lib/api-middleware'
-import { supabasePublicAdmin } from '@/app/lib/auth/supabase-server-admin'
+import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin'
 
 async function handler(_req: Request, ctx: { user: { id: string } | null }) {
   if (!ctx.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   // Try to get existing profile
-  let { data, error } = await supabasePublicAdmin
-    .from('user_profiles')
+  let { data, error } = await supabaseAppAdmin
+    .from('profiles')
     .select('*')
     .eq('id', ctx.user.id)
     .maybeSingle()
@@ -17,8 +17,8 @@ async function handler(_req: Request, ctx: { user: { id: string } | null }) {
   // If profile doesn't exist, create it
   if (!data && !error) {
     console.info('[user/profile] Creating new profile for user:', ctx.user.id)
-    const { data: newProfile, error: createError } = await supabasePublicAdmin
-      .from('user_profiles')
+    const { data: newProfile, error: createError } = await supabaseAppAdmin
+      .from('profiles')
       .insert({
         id: ctx.user.id,
         created_at: new Date().toISOString(),
