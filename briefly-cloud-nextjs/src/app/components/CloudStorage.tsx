@@ -326,13 +326,6 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         return
       }
 
-      // Check if user has storage access (unless allowlisted)
-      if (planStatus && !planStatus.hasStorageAccess) {
-        // Navigate to billing instead of attempting OAuth
-        window.location.href = '/briefly/app/billing?reason=cloud-storage'
-        return
-      }
-
       // Use Apideck Vault if enabled, otherwise use legacy OAuth
       if (isApideckEnabled) {
         console.log('[connect] Using Apideck Vault for connection');
@@ -1091,9 +1084,9 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
               ) : (
                 <button
                   onClick={() => connectProvider(provider.id)}
-                  disabled={(planStatus && !planStatus.hasStorageAccess) || isVaultLoading}
+                  disabled={isVaultLoading}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-colors shadow-lg ${
-                    (planStatus && !planStatus.hasStorageAccess) || isVaultLoading
+                    isVaultLoading
                       ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
@@ -1106,11 +1099,9 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                   <span>
                     {isVaultLoading 
                       ? 'Opening...' 
-                      : planStatus && !planStatus.hasStorageAccess 
-                        ? 'Requires Subscription' 
-                        : isApideckEnabled 
-                          ? 'Connect via Vault'
-                          : 'Connect'
+                      : isApideckEnabled 
+                        ? 'Connect via Vault'
+                        : `Connect ${provider.name}`
                     }
                   </span>
                 </button>
@@ -1157,7 +1148,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                     <GooglePicker
                       onFilesSelected={handleGoogleFilesSelected}
                       onError={handlePickerError}
-                      disabled={isProcessingPickerFiles || (planStatus && !planStatus.hasStorageAccess)}
+                      disabled={isProcessingPickerFiles}
                       userId={userId}
                     />
                   </div>
