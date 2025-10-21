@@ -106,148 +106,68 @@ async function extractUserContext(request: Request, correlationId: string): Prom
     // Create Supabase client using request cookies (JWT-based, no DB queries)
     const supabase = getServerSupabaseFromRequest(request)
 
-    // Extract JWT token for debugging
-    const jwtToken = extractJwtFromCookies(request)
-
-    // Debug cookie information
-    const cookieHeader = request.headers.get('cookie')
-    const cookieNames = cookieHeader?.split(';').map(c => c.trim().split('=')[0]) || []
-
-    console.debug('[auth:cookie-debug]', {
-      correlationId,
-      hasCookieHeader: !!cookieHeader,
-      cookieCount: cookieNames.length,
-      cookieNames: cookieNames.filter(name => name.startsWith('sb-')), // Only log Supabase cookies
-      hasJwtToken: !!jwtToken,
-      jwtTokenLength: jwtToken?.length,
-      endpoint: new URL(request.url).pathname
-    })
-
-    // Log authentication context for debugging
-    const authContext = createAuthDebugContext(
-      request,
-      correlationId,
-      'JWT_EXTRACTION',
-      undefined,
-      !!jwtToken,
-      jwtToken?.length
-    )
-    logAuthenticationContext(authContext)
-
     // Get user from Supabase (validates JWT internally)
     const { data: { user }, error } = await supabase.auth.getUser()
 
     if (error) {
-      const authError = {
-        code: 'SUPABASE_AUTH_ERROR',
-        message: error.message,
-        details: {
-          supabaseError: error,
-          hasJwtToken: !!jwtToken
-        }
-      }
-
-      // Log authentication error with detailed context
-      logAuthenticationError(correlationId, authError, request)
-
-      // Log authentication context for debugging
-      const authContext = createAuthDebugContext(
-        request,
+      console.warn('[auth:error]', {
         correlationId,
-        'SUPABASE_ERROR',
-        undefined,
-        !!jwtToken,
-        jwtToken?.length
-      )
-      logAuthenticationContext(authContext)
+        error: error.message,
+        endpoint: new URL(request.url).pathname
+      })
 
       return {
         user: null,
         supabase,
-        authError
+        authError: {
+          code: 'SUPABASE_AUTH_ERROR',
+          message: error.message,
+          details: { supabaseError: error }
+        }
       }
     }
 
     if (!user) {
-      const authError = {
-        code: 'NO_USER_IN_TOKEN',
-        message: 'No user found in authentication token',
-        details: {
-          hasJwtToken: !!jwtToken
-        }
-      }
-
-      // Log authentication error with detailed context
-      logAuthenticationError(correlationId, authError, request)
-
-      // Log authentication context for debugging
-      const authContext = createAuthDebugContext(
-        request,
+      console.warn('[auth:no-user]', {
         correlationId,
-        'NO_USER_FOUND',
-        undefined,
-        !!jwtToken,
-        jwtToken?.length
-      )
-      logAuthenticationContext(authContext)
+        endpoint: new URL(request.url).pathname
+      })
 
       return {
         user: null,
         supabase,
-        authError
+        authError: {
+          code: 'NO_USER_IN_TOKEN',
+          message: 'No user found in authentication token',
+          details: {}
+        }
       }
     }
 
     // Validate user ID format (should be UUID)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(user.id)) {
-      const authError = {
-        code: 'INVALID_USER_ID',
-        message: 'Invalid user ID format',
-        details: {
-          userId: user.id
-        }
-      }
-
-      // Log authentication error with detailed context
-      logAuthenticationError(correlationId, authError, request)
-
-      // Log authentication context for debugging
-      const authContext = createAuthDebugContext(
-        request,
+      console.warn('[auth:invalid-user-id]', {
         correlationId,
-        'INVALID_USER_ID',
-        { id: user.id },
-        !!jwtToken,
-        jwtToken?.length
-      )
-      logAuthenticationContext(authContext)
+        userId: user.id,
+        endpoint: new URL(request.url).pathname
+      })
 
       return {
         user: null,
         supabase,
-        authError
+        authError: {
+          code: 'INVALID_USER_ID',
+          message: 'Invalid user ID format',
+          details: { userId: user.id }
+        }
       }
     }
 
-    // Log successful authentication with detailed context
-    const successContext = createAuthDebugContext(
-      request,
-      correlationId,
-      'AUTH_SUCCESS',
-      { id: user.id },
-      !!jwtToken,
-      jwtToken?.length
-    )
-    logAuthenticationContext(successContext)
-
-    console.info('[auth:user-details]', {
+    console.info('[auth:success]', {
       correlationId,
       userId: user.id,
-      userEmail: user.email,
-      hasJwtToken: !!jwtToken,
-      jwtTokenLength: jwtToken?.length,
-      timestamp: new Date().toISOString()
+      endpoint: new URL(request.url).pathname
     })
 
     return {
@@ -256,35 +176,25 @@ async function extractUserContext(request: Request, correlationId: string): Prom
     }
 
   } catch (error) {
-    const authError = {
-      code: 'AUTH_EXTRACTION_ERROR',
-      message: 'Failed to extract user context',
-      details: {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      }
-    }
-
-    // Log authentication error with detailed context
-    logAuthenticationError(correlationId, authError, request)
-
-    // Log authentication context for debugging
-    const authContext = createAuthDebugContext(
-      request,
+    console.error('[auth:extraction-error]', {
       correlationId,
-      'EXTRACTION_ERROR',
-      undefined,
-      false
-    )
-    logAuthenticationContext(authContext)
+      error: error instanceof Error ? error.message : 'Unknown error',
+      endpoint: new URL(request.url).pathname
+    })
 
     // Create a fallback Supabase client for error responses
-    const fallbackSupabase = await getServerSupabase()
+    const fallbackSupabase = getServerSupabaseFromRequest(request)
 
     return {
       user: null,
       supabase: fallbackSupabase,
-      authError
+      authError: {
+        code: 'AUTH_EXTRACTION_ERROR',
+        message: 'Failed to extract user context',
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
     }
   }
 }
