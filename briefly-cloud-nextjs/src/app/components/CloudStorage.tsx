@@ -859,48 +859,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         <p className="text-gray-300">Connect your cloud storage accounts to import documents</p>
       </div>
 
-      {/* Connection Status Overview */}
-      {isApideckEnabled && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-white">Connection Status</h3>
-            <Button
-              onClick={refreshConnectionStatus}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 text-gray-300 border-gray-600 hover:border-gray-500"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh Status
-            </Button>
-          </div>
-          
-          <div className="grid gap-4 md:grid-cols-2">
-            {providers.map((provider) => {
-              const connectionStatus: ConnectionStatus = {
-                provider: provider.id,
-                connected: provider.connected,
-                status: provider.connected ? 'healthy' : 'disconnected',
-                lastSync: provider.lastSync,
-                error: provider.errorMessage,
-                needsRefresh: false,
-                canRefresh: true
-              };
 
-              return (
-                <ConnectionStatusCard
-                  key={provider.id}
-                  status={connectionStatus}
-                  onConnect={() => connectProvider(provider.id)}
-                  onRefresh={() => refreshConnectionStatus()}
-                  onDisconnect={() => disconnectProvider(provider.id)}
-                  className="bg-gray-900/60 border-gray-700/40"
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Debug Section - Development Only */}
       {process.env.NODE_ENV === 'development' && (
@@ -1053,9 +1012,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                       ? 'Opening...' 
                       : planStatus && !planStatus.hasStorageAccess 
                         ? 'Requires Subscription' 
-                        : isApideckEnabled 
-                          ? 'Connect via Vault'
-                          : 'Connect'
+                        : 'Connect'
                     }
                   </span>
                 </button>
