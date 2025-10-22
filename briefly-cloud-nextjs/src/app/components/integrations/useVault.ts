@@ -23,7 +23,11 @@ export function useVault() {
       
       console.log('[vault] Creating session...')
       const res = await fetch('/api/integrations/apideck/session', {
-        credentials: 'include'
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
       
       if (!res.ok) {

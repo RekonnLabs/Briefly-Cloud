@@ -185,15 +185,29 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
   // Function to check if Apideck is enabled
   const checkApideckStatus = useCallback(async () => {
     try {
-      // Try to create a session to see if Apideck is enabled
+      // Use POST method for better session handling
       const response = await fetch('/api/integrations/apideck/session', {
-        credentials: 'include'
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
       // If we get a 503, Apideck is disabled
-      // If we get 200, Apideck is enabled
-      // If we get 401, user not authenticated but Apideck is enabled
+      // If we get a 200, Apideck is enabled
+      // If we get a 401, user not authenticated but Apideck is enabled
       setIsApideckEnabled(response.status !== 503);
+      
+      // Log the response for debugging
+      if (response.status !== 200) {
+        const errorData = await response.json().catch(() => ({}));
+        console.log('[CloudStorage] Apideck status check:', {
+          status: response.status,
+          error: errorData.error,
+          message: errorData.message
+        });
+      }
     } catch (error) {
       console.error('Error checking Apideck status:', error);
       setIsApideckEnabled(false);
