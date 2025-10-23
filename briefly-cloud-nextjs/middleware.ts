@@ -26,6 +26,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/briefly/app/') ||            // App routes use page-level gating
     pathname.startsWith('/api/storage/google/callback') ||
     pathname.startsWith('/api/storage/microsoft/callback') ||
+    pathname.startsWith('/api/integrations/apideck/') ||  // API Deck integration routes
     pathname.startsWith('/api/billing/webhook') ||
     pathname.startsWith('/api/health')                 // Public health checks
   ) {

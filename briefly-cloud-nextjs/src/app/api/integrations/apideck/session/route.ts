@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     console.log('[apideck:session] Creating vault session for user:', user.id);
     
     // Create Apideck vault session
-    const session = await Apideck.createVaultSession(user.id, APIDECK_REDIRECT_URL);
+    const session = await Apideck.createVaultSession(user.id, process.env.APIDECK_REDIRECT_URL!);
     
     console.log('[apideck:session] Session created successfully:', {
       userId: user.id,
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       error: e instanceof Error ? e.message : 'Unknown error',
       stack: e instanceof Error ? e.stack : undefined,
       userId: user.id,
-      redirect: APIDECK_REDIRECT_URL
+      redirect: process.env.APIDECK_REDIRECT_URL
     });
     
     // Provide more specific error information
