@@ -75,6 +75,7 @@ export interface ListFilesParams {
 
 export const Apideck = {
   async createVaultSession(consumerId: string, redirect: string) {
+    // Force rebuild - UUID validation removed, accepts base64 App ID format
     const API_KEY = process.env.APIDECK_API_KEY!;
     const APP_ID = process.env.APIDECK_APP_ID!;              // UUID from Apideck dashboard
     const VAULT_URL = process.env.APIDECK_VAULT_BASE_URL!;   // must be https://vault.apideck.com
