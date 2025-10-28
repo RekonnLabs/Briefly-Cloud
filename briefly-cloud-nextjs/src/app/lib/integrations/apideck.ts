@@ -75,15 +75,14 @@ export interface ListFilesParams {
 
 export const Apideck = {
   async createVaultSession(consumerId: string, redirect: string) {
-    // Force rebuild - UUID validation removed, accepts base64 App ID format
+    // Apideck App ID is base64-like format, NOT a UUID
     const API_KEY = process.env.APIDECK_API_KEY!;
-    const APP_ID = process.env.APIDECK_APP_ID!;              // UUID from Apideck dashboard
+    const APP_ID = process.env.APIDECK_APP_ID!;              // App ID from Apideck dashboard (base64 format)
     const VAULT_URL = process.env.APIDECK_VAULT_BASE_URL!;   // must be https://vault.apideck.com
     
-    // Validate that APP_ID is a UUID
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(APP_ID)) {
-      throw new Error(`APIDECK_APP_ID must be a valid UUID, got: ${APP_ID}`);
+    // Validate that APP_ID is not empty and has reasonable length
+    if (!APP_ID || APP_ID.length < 10) {
+      throw new Error(`APIDECK_APP_ID is invalid or too short: ${APP_ID}`);
     }
     
     // Ensure correct Vault URL
