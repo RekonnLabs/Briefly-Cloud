@@ -69,8 +69,13 @@ export async function POST(req: Request) {
     
     console.log('[apideck:session] Creating vault session for user:', user.id);
     
-    // Create Apideck vault session
-    const session = await Apideck.createVaultSession(user.id, process.env.APIDECK_REDIRECT_URL!);
+    // Create Apideck vault session with user metadata
+    const session = await Apideck.createVaultSession(
+      user.id, 
+      process.env.APIDECK_REDIRECT_URL!,
+      user.email,
+      user.user_metadata?.name || user.email?.split('@')[0]
+    );
     
     console.log('[apideck:session] Session created successfully:', {
       userId: user.id,

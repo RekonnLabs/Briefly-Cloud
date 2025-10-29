@@ -74,7 +74,7 @@ export interface ListFilesParams {
 }
 
 export const Apideck = {
-  async createVaultSession(consumerId: string, redirect: string) {
+  async createVaultSession(consumerId: string, redirect: string, userEmail?: string, userName?: string) {
     // Apideck App ID is base64-like format, NOT a UUID
     const API_KEY = process.env.APIDECK_API_KEY!;
     const APP_ID = process.env.APIDECK_APP_ID!;              // App ID from Apideck dashboard (base64 format)
@@ -99,9 +99,18 @@ export const Apideck = {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        application_id: APP_ID,                  // REQUIRED and must be a UUID
-        unified_api: 'file-storage',
-        redirect_uri: redirect                   // e.g. https://briefly.rekonnlabs.com/api/integrations/apideck/callback
+        consumer_metadata: {
+          account_name: userName || 'Briefly User',
+          user_name: userName || 'Briefly User',
+          email: userEmail || 'user@briefly.com'
+        },
+        redirect_uri: redirect,
+        settings: {
+          unified_apis: ['file-storage'],
+          session_length: '30m',
+          hide_resource_settings: false,
+          show_logs: true
+        }
       })
     });
 
