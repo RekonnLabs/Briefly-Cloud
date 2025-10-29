@@ -49,7 +49,7 @@ export default function RootLayout({
           </div>
         </Providers>
         {/* Apideck Vault Script */}
-        <script src="https://unpkg.com/@apideck/vault-js/dist/vault.umd.js" async />
+        <script src="https://unpkg.com/@apideck/vault-js@1.8.0/dist/vault-js.umd.production.min.js" async />
         
         {/* OAuth Console Helpers - Development Only */}
         {process.env.NODE_ENV === 'development' && (
