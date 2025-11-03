@@ -241,6 +241,35 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       // Refresh connection status after successful OAuth
       setTimeout(() => {
         refreshConnectionStatus();
+        
+        // Auto-trigger import for newly connected provider
+        if (connectedProvider === '1' || connectedProvider === 'apideck') {
+          // For Apideck, we need to determine which provider was connected
+          // For now, trigger import for both if they're connected
+          setTimeout(() => {
+            const googleProvider = providers.find(p => p.id === 'google');
+            const msProvider = providers.find(p => p.id === 'microsoft');
+            
+            if (googleProvider?.connected) {
+              console.log('[auto-import] Triggering automatic import for Google Drive');
+              startBatchImport('google', 'root');
+            }
+            if (msProvider?.connected) {
+              console.log('[auto-import] Triggering automatic import for OneDrive');
+              startBatchImport('microsoft', 'root');
+            }
+          }, 2000);
+        } else if (connectedProvider === 'google') {
+          setTimeout(() => {
+            console.log('[auto-import] Triggering automatic import for Google Drive');
+            startBatchImport('google', 'root');
+          }, 2000);
+        } else if (connectedProvider === 'microsoft') {
+          setTimeout(() => {
+            console.log('[auto-import] Triggering automatic import for OneDrive');
+            startBatchImport('microsoft', 'root');
+          }, 2000);
+        }
       }, 1000);
     }
     
