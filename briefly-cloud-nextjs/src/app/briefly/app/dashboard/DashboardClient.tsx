@@ -8,6 +8,7 @@ import { ChatInterface } from "@/app/components/ChatInterface";
 import { FileUpload } from "@/app/components/FileUpload";
 import { CloudStorage } from "@/app/components/CloudStorage";
 import { SubscriptionStatus } from "@/app/components/SubscriptionStatus";
+import { QuotaStatus } from "@/app/components/QuotaStatus";
 import { Sidebar } from "@/app/components/Sidebar";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import type { CompleteUserData, UserDataError } from "@/app/lib/user-data-types";
@@ -544,48 +545,12 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             </div>
           )}
 
-          {usageSummary.length > 0 && (
-            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {usageSummary.map((item) => {
-                const limit = item.limit || 0;
-                const used = item.used || 0;
-                const percentage = limit > 0 ? Math.round((used / limit) * 100) : 0;
-                const isStorage = item.key === "storage";
-
-                return (
-                  <div
-                    key={item.key}
-                    className="bg-gray-900/60 border border-gray-700/40 rounded-2xl p-4 shadow-lg"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">{item.label}</span>
-                      <span className={`text-xs ${percentage >= 90 ? "text-red-300" : percentage >= 75 ? "text-yellow-300" : "text-gray-400"}`}>
-                        {percentage}%
-                      </span>
-                    </div>
-                    <div className="mt-2 text-xl font-semibold text-white">
-                      {isStorage ? formatBytes(used) : used}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      of {isStorage ? formatBytes(limit) : `${limit} ${item.unit}`}
-                    </div>
-                    <div className="mt-3 h-2 rounded-full bg-gray-700/60">
-                      <div
-                        className={`h-2 rounded-full ${
-                          percentage >= 90
-                            ? "bg-red-500"
-                            : percentage >= 75
-                              ? "bg-yellow-400"
-                              : "bg-blue-500"
-                        }`}
-                        style={{ width: `${Math.min(percentage, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          {/* New Quota Status Component */}
+          <div className="mt-6">
+            <ErrorBoundary>
+              <QuotaStatus />
+            </ErrorBoundary>
+          </div>
         </header>
 
         <main className="flex-1 p-6">
