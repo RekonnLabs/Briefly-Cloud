@@ -21,13 +21,16 @@ export const GET = withAuth(async (request: NextRequest, context) => {
     const limits = await getUserLimits(user.id)
     
     if (!limits) {
+      // User profile might still be initializing - return success with null data
+      // This prevents errors during profile creation
+      logger.warn('Quota limits not available yet', { userId: user.id })
       return NextResponse.json(
         { 
-          success: false, 
-          error: 'User not found',
-          message: 'Could not retrieve quota information'
+          success: true, 
+          data: null,
+          message: 'Profile initializing, quota data not yet available'
         },
-        { status: 404 }
+        { status: 200 }
       )
     }
 

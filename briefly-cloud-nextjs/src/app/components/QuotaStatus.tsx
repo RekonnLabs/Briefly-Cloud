@@ -56,6 +56,24 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
         cache: 'no-store'
       });
 
+      // Handle auth failures gracefully - don't show error to user
+      if (response.status === 401 || response.status === 403) {
+        console.warn('Quota status: Authentication required');
+        setError(null); // Don't show error, just don't display quota
+        return;
+      }
+
+      // Handle profile being created - retry after delay
+      if (response.status === 404) {
+        const data = await response.json();
+        if (data.error === 'User not found') {
+          console.warn('Quota status: User profile not ready yet');
+          // Retry after 2 seconds
+          setTimeout(() => fetchQuotaStatus(), 2000);
+          return;
+        }
+      }
+
       if (!response.ok) {
         throw new Error('Failed to fetch quota status');
       }
@@ -70,7 +88,8 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
       }
     } catch (err) {
       console.error('Error fetching quota:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load quota');
+      // Don't show error for network issues - just hide the component
+      setError(null);
     } finally {
       setIsLoading(false);
     }
@@ -86,15 +105,10 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
     );
   }
 
-  if (error || !quota) {
-    return (
-      <div className={`bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 ${className}`}>
-        <div className="flex items-center space-x-2 text-red-400">
-          <AlertTriangle className="w-5 h-5" />
-          <span className="text-sm">{error || 'Failed to load quota'}</span>
-        </div>
-      </div>
-    );
+  // Don't render anything if quota data isn't available
+  // This prevents errors from being shown during profile creation
+  if (!quota) {
+    return null;
   }
 
   const getProgressColor = (percentage: number, limitReached: boolean) => {
