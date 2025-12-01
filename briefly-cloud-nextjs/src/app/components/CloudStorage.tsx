@@ -161,7 +161,9 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
 
   // Function to refresh connection status
   const refreshConnectionStatus = useCallback(async () => {
+    console.log('[refresh-status] Starting connection status refresh');
     await checkConnectionStatus();
+    console.log('[refresh-status] Connection status refresh complete');
   }, []);
 
   // Function to check plan status
@@ -226,6 +228,11 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     const errorCode = urlParams.get('error');
     
     if (connectedProvider) {
+      console.log('[oauth-callback] Detected successful OAuth connection:', {
+        provider: connectedProvider,
+        timestamp: new Date().toISOString()
+      });
+      
       if (connectedProvider === 'apideck') {
         showSuccess('Cloud storage connected successfully!', 'You can now import files from your connected providers.');
       } else {
@@ -239,16 +246,23 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       window.history.replaceState({}, '', newUrl.toString());
       
       // Refresh connection status after successful OAuth
-      setTimeout(() => {
-        refreshConnectionStatus();
+      setTimeout(async () => {
+        console.log('[auto-import] Starting connection status refresh');
+        await refreshConnectionStatus();
+        console.log('[auto-import] Connection status refresh complete');
         
         // Auto-trigger import for newly connected provider
-        if (connectedProvider === '1' || connectedProvider === 'apideck') {
-          // For Apideck, we need to determine which provider was connected
-          // For now, trigger import for both if they're connected
-          setTimeout(() => {
+        // Wait a bit for React state to propagate
+        setTimeout(() => {
+          if (connectedProvider === '1' || connectedProvider === 'apideck') {
+            // For Apideck, we need to determine which provider was connected
             const googleProvider = providers.find(p => p.id === 'google');
             const msProvider = providers.find(p => p.id === 'microsoft');
+            
+            console.log('[auto-import] Connection status after refresh:', {
+              google: googleProvider?.connected,
+              microsoft: msProvider?.connected
+            });
             
             if (googleProvider?.connected) {
               console.log('[auto-import] Triggering automatic import for Google Drive');
@@ -258,18 +272,30 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
               console.log('[auto-import] Triggering automatic import for OneDrive');
               startBatchImport('microsoft', 'root');
             }
-          }, 2000);
-        } else if (connectedProvider === 'google') {
-          setTimeout(() => {
-            console.log('[auto-import] Triggering automatic import for Google Drive');
-            startBatchImport('google', 'root');
-          }, 2000);
-        } else if (connectedProvider === 'microsoft') {
-          setTimeout(() => {
-            console.log('[auto-import] Triggering automatic import for OneDrive');
-            startBatchImport('microsoft', 'root');
-          }, 2000);
-        }
+            
+            if (!googleProvider?.connected && !msProvider?.connected) {
+              console.warn('[auto-import] No providers connected after OAuth - auto-import skipped');
+            }
+          } else if (connectedProvider === 'google') {
+            const googleProvider = providers.find(p => p.id === 'google');
+            console.log('[auto-import] Google Drive connection status:', googleProvider?.connected);
+            if (googleProvider?.connected) {
+              console.log('[auto-import] Triggering automatic import for Google Drive');
+              startBatchImport('google', 'root');
+            } else {
+              console.warn('[auto-import] Google Drive not connected - auto-import skipped');
+            }
+          } else if (connectedProvider === 'microsoft') {
+            const msProvider = providers.find(p => p.id === 'microsoft');
+            console.log('[auto-import] OneDrive connection status:', msProvider?.connected);
+            if (msProvider?.connected) {
+              console.log('[auto-import] Triggering automatic import for OneDrive');
+              startBatchImport('microsoft', 'root');
+            } else {
+              console.warn('[auto-import] OneDrive not connected - auto-import skipped');
+            }
+          }
+        }, 1000);
       }, 1000);
     }
     
@@ -303,15 +329,24 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
 
   const checkConnectionStatus = async () => {
     try {
+      console.log('[check-status] Fetching connection status from API');
       const response = await fetch('/api/storage/status');
       
       if (response.ok) {
         const data = await response.json();
         const statusData = data.data;
         
+        console.log('[check-status] Received status:', statusData);
+        
         setProviders(prev => prev.map(provider => {
           const providerKey = provider.id === 'google' ? 'google' : 'microsoft';
           const status = statusData[providerKey];
+          
+          console.log(`[check-status] ${provider.name}:`, {
+            connected: status?.connected || false,
+            status: status?.status,
+            lastSync: status?.lastSync
+          });
           
           return {
             ...provider,
@@ -321,7 +356,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
           };
         }));
       } else {
-        console.error('Failed to fetch connection status');
+        console.error('[check-status] Failed to fetch connection status:', response.status);
         // Set all as disconnected on error
         setProviders(prev => prev.map(p => ({ 
           ...p, 
@@ -330,7 +365,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         })));
       }
     } catch (error) {
-      console.error('Error checking connection status:', error);
+      console.error('[check-status] Error checking connection status:', error);
       // Set all as disconnected on error
       setProviders(prev => prev.map(p => ({ 
         ...p, 

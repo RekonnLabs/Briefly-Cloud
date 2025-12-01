@@ -97,7 +97,7 @@ const upsertConnection = async (
         provider: params.provider,
         consumer_id: params.consumer,
         connection_id: params.conn,
-        status: params.status,
+        status: 'connected',  // Normalize to 'connected' for consistent health checks
         updated_at: new Date().toISOString()
       });
 
