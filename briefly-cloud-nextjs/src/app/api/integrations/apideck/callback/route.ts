@@ -92,7 +92,7 @@ const upsertConnection = async (
   try {
     // Retry database operation with exponential backoff
     await retryDatabaseOperation(async () => {
-      const { error } = await supabaseAdmin.from('apideck_connections').upsert({
+      const { error } = await supabaseAdmin.from('app.apideck_connections').upsert({
         user_id: params.user,
         provider: params.provider,
         consumer_id: params.consumer,

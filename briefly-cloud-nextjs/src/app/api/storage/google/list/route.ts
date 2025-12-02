@@ -12,7 +12,7 @@ async function listGoogleFilesApideck(req: Request, ctx: ApiContext) {
   const cursor   = url.searchParams.get('cursor') || undefined;
   const limit    = url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : 100;
 
-  const { data, error } = await supabaseAdmin.from('apideck_connections')
+  const { data, error } = await supabaseAdmin.from('app.apideck_connections')
     .select('consumer_id, connection_id')
     .eq('user_id', ctx.user.id)
     .eq('provider', 'google')

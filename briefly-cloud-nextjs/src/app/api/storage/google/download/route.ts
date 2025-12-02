@@ -9,7 +9,7 @@ const handler = async (req: Request, ctx: ApiContext) => {
   try {
     const { fileId, format } = await req.json();
 
-    const { data, error } = await supabaseAdmin.from('apideck_connections')
+    const { data, error } = await supabaseAdmin.from('app.apideck_connections')
       .select('consumer_id, connection_id')
       .eq('user_id', ctx.user.id)
       .eq('provider', 'google')
