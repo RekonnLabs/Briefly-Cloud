@@ -106,10 +106,18 @@ async function getStoredConnections(userId: string): Promise<Array<{
       console.error('[health-check:db-error]', {
         userId,
         error: error.message,
-        code: error.code
+        code: error.code,
+        details: error.details,
+        hint: error.hint
       });
       throw error;
     }
+
+    console.log('[health-check:db-success]', {
+      userId,
+      connectionsFound: data?.length || 0,
+      providers: data?.map(d => d.provider) || []
+    });
 
     return data || [];
   } catch (error) {
@@ -526,7 +534,13 @@ export async function getConnectionStatus(userId: string): Promise<{
   microsoft?: { connected: boolean; status: string; lastSync?: string; needsRefresh?: boolean };
 }> {
   try {
+    console.log('[get-connection-status:start]', { userId });
     const connections = await getStoredConnections(userId);
+    console.log('[get-connection-status:connections-loaded]', { 
+      userId, 
+      count: connections.length,
+      providers: connections.map(c => c.provider)
+    });
     
     const google = connections.find(c => c.provider === 'google');
     const microsoft = connections.find(c => c.provider === 'microsoft');
@@ -551,12 +565,15 @@ export async function getConnectionStatus(userId: string): Promise<{
       };
     }
 
+    console.log('[get-connection-status:result]', { userId, result });
     return result;
 
   } catch (error) {
     console.error('[get-connection-status:error]', {
       userId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      errorType: error instanceof Error ? error.constructor.name : typeof error
     });
 
     // Return safe defaults on error
