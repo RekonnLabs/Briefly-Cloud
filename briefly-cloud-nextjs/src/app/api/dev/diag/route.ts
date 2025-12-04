@@ -1,7 +1,7 @@
 import { getSupabaseServerReadOnly } from '@/app/lib/auth/supabase-server-readonly'
 
 export async function GET() {
-  const supabase = getSupabaseServerReadOnly()
+  const supabase = await getSupabaseServerReadOnly()
   
   const [files, chunks, ingest, tokens] = await Promise.all([
     supabase.from('app.files').select('count', { count: 'exact', head: true }),

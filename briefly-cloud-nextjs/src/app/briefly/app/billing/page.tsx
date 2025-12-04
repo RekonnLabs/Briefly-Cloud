@@ -10,7 +10,7 @@ export default async function BillingPage() {
   // Optionally hydrate user if you need it
   let user = null as any
   if (authed) {
-    const supabase = getSupabaseServerReadOnly()
+    const supabase = await getSupabaseServerReadOnly()
     const { data: { user: u } } = await supabase.auth.getUser()
     user = u ?? null
   }

@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const supabase = getSupabaseServerReadOnly();
+  const supabase = await getSupabaseServerReadOnly();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect("/auth/signin?err=session");

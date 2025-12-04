@@ -61,8 +61,8 @@ export interface AuthSession {
 /**
  * Create Supabase client for server-side operations (API routes, middleware)
  */
-export function createSupabaseServerClient() {
-  const cookieStore = cookies()
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -169,7 +169,7 @@ export function createSupabaseBrowserClient() {
  * Throws error if user is not authenticated
  */
 export async function getAuthenticatedUser(): Promise<AuthUser> {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
   
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
@@ -268,7 +268,7 @@ export async function isAdmin(): Promise<boolean> {
  * Sign out user (server-side)
  */
 export async function signOut(): Promise<void> {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
   await supabase.auth.signOut()
 }
 
@@ -399,7 +399,7 @@ export async function createOrUpdateUserProfile(
  */
 export async function validateSession(): Promise<{ valid: boolean; user?: AuthUser }> {
   try {
-    const supabase = createSupabaseServerClient()
+    const supabase = await createSupabaseServerClient()
     
     const { data: { session }, error } = await supabase.auth.getSession()
     

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Get user info for logging
     try {
-      const supabase = createSupabaseServerClient()
+      const supabase = await createSupabaseServerClient()
       const { data: { user } } = await supabase.auth.getUser()
       userId = user?.id
     } catch (userError) {

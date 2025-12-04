@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   // Use read-only server client that handles App Router cookie edge cases
-  const supabase = getSupabaseServerReadOnly();
+  const supabase = await getSupabaseServerReadOnly();
   const { data: { user }, error } = await supabase.auth.getUser();
 
   // Enhanced logging for debugging
