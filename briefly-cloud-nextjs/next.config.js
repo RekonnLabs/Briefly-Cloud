@@ -148,7 +148,13 @@ const nextConfig = {
     ]
   },
 
-  // Webpack configuration for security
+  // Turbopack configuration (Next.js 16+)
+  turbopack: {
+    // Turbopack handles server-only modules automatically
+    // No additional configuration needed for basic setup
+  },
+
+  // Webpack configuration for security (fallback for --webpack builds)
   webpack: (config, { dev, isServer }) => {
     // Prevent bundling of server-only modules in client
     if (!isServer) {
@@ -187,11 +193,8 @@ const nextConfig = {
     ignoreBuildErrors: isProduction(),
   },
 
-  // ESLint configuration
-  eslint: {
-    // Linting is handled by CI/CD in production
-    ignoreDuringBuilds: isProduction(),
-  },
+  // ESLint configuration (moved to eslintrc.json for Next.js 16+)
+  // Note: eslint config in next.config.js is deprecated in Next.js 16
 
   // Output configuration
   output: 'standalone',
