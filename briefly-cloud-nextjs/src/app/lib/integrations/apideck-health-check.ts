@@ -98,7 +98,7 @@ async function getStoredConnections(userId: string): Promise<Array<{
 }>> {
   try {
     const { data, error } = await supabaseAdmin
-      .from('app.apideck_connections')
+      .from('apideck_connections')
       .select('provider, connection_id, status, updated_at')
       .eq('user_id', userId);
 
@@ -140,7 +140,7 @@ async function updateConnectionStatus(
 ): Promise<void> {
   try {
     const { error } = await supabaseAdmin
-      .from('app.apideck_connections')
+      .from('apideck_connections')
       .update({
         status,
         updated_at: new Date().toISOString()
