@@ -92,7 +92,7 @@ async function createChunksHandler(request: Request, context: ApiContext): Promi
       const supabase = supabaseAdmin
       
       await supabase
-        .from('app.files')
+        .from('file_metadata')
         .update({
           processed: true,
           processing_status: 'completed',

@@ -29,16 +29,16 @@ export async function POST(request: Request) {
         const userId = (session.metadata as any)?.user_id
         const tier = (session.metadata as any)?.tier
         if (userId && tier) {
-          await supabase.from('app.users').update({ subscription_tier: tier, subscription_status: 'active' }).eq('id', userId)
+          await supabase.from('users').update({ subscription_tier: tier, subscription_status: 'active' }).eq('id', userId)
         }
         break
       }
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription
         const customerId = subscription.customer as string
-        const { data: match } = await supabase.from('app.users').select('id').eq('stripe_customer_id', customerId).single()
+        const { data: match } = await supabase.from('users').select('id').eq('stripe_customer_id', customerId).single()
         if (match?.id) {
-          await supabase.from('app.users').update({ subscription_tier: 'free', subscription_status: 'canceled' }).eq('id', match.id)
+          await supabase.from('users').update({ subscription_tier: 'free', subscription_status: 'canceled' }).eq('id', match.id)
         }
         break
       }

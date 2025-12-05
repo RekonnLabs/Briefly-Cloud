@@ -70,7 +70,7 @@ export const POST = withAuth(
 
       // Verify file ownership
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('files')
+        .from('file_metadata')
         .select('*')
         .eq('id', fileId)
         .eq('user_id', user.id)
@@ -190,11 +190,11 @@ export const GET = withAuth(
 
       // Verify file ownership
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('files')
+        .from('file_metadata')
         .select('id, name')
         .eq('id', fileId)
         .eq('user_id', user.id)
-        .is('deleted_at', null)
+        .single()ted_at', null)
         .single()
 
       if (fileError || !file) {
@@ -282,7 +282,7 @@ export const DELETE = withAuth(
 
       // Verify file ownership
       const { data: file, error: fileError } = await supabaseAdmin
-        .from('files')
+        .from('file_metadata')
         .select('id, name')
         .eq('id', fileId)
         .eq('user_id', user.id)
