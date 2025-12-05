@@ -194,7 +194,6 @@ export const GET = withAuth(
         .select('id, name')
         .eq('id', fileId)
         .eq('user_id', user.id)
-        .single()ted_at', null)
         .single()
 
       if (fileError || !file) {
