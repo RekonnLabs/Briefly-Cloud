@@ -26,7 +26,7 @@ async function createCheckoutHandler(request: Request, context: ApiContext): Pro
 
   // Ensure customer id
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('stripe_customer_id, email')
     .eq('id', user.id)
     .single()
@@ -36,7 +36,7 @@ async function createCheckoutHandler(request: Request, context: ApiContext): Pro
     const customer = await getStripe().customers.create({ email: profile?.email || user.email, metadata: { user_id: user.id } })
     customerId = customer.id
     await supabase
-      .from('users')
+      .from('profiles')
       .update({ stripe_customer_id: customerId })
       .eq('id', user.id)
   }

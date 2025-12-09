@@ -40,7 +40,7 @@ export function withAuth(
           // Check if this is just a profile not found error during OAuth flow
           if (error instanceof Error && error.message.includes('User profile not found')) {
             // Try to create the user profile if we have a valid session but no profile
-            const supabase = createSupabaseServerClient()
+            const supabase = await createSupabaseServerClient()
             const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
             
             if (!authError && authUser) {

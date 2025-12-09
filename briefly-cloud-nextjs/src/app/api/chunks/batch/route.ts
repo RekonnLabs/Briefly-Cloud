@@ -58,7 +58,7 @@ async function batchChunkingHandler(request: Request, context: ApiContext): Prom
     
     // Get files metadata
     const { data: files, error: filesError } = await supabase
-      .from('file_metadata')
+      .from('files')
       .select('*')
       .eq('user_id', user.id)
       .in('id', file_ids)
@@ -171,7 +171,7 @@ async function batchChunkingHandler(request: Request, context: ApiContext): Prom
             
             // Update file metadata
             await supabase
-              .from('file_metadata')
+              .from('files')
               .update({
                 processed: true,
                 processing_status: 'completed',

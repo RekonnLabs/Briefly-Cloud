@@ -4,7 +4,7 @@ export async function GET() {
   const supabase = await getSupabaseServerReadOnly()
   
   const [files, chunks, ingest, tokens] = await Promise.all([
-    supabase.from('file_metadata').select('count', { count: 'exact', head: true }),
+    supabase.from('files').select('count', { count: 'exact', head: true }),
     supabase.from('document_chunks').select('count', { count: 'exact', head: true }),
     supabase.from('file_ingest').select('status').then(r => {
       const statusCounts = r.data?.reduce((acc: Record<string, number>, row) => {
