@@ -58,6 +58,7 @@ export async function getUserLimits(userId: string): Promise<UserLimits | null> 
   try {
     console.log('[getUserLimits] Querying v_user_limits for userId:', userId);
     
+    // Query v_user_limits view (permissions now granted to service_role)
     const { data, error } = await supabaseAdmin
       .from('v_user_limits')
       .select('*')
@@ -81,10 +82,11 @@ export async function getUserLimits(userId: string): Promise<UserLimits | null> 
       return null;
     }
 
-    console.log('[getUserLimits] Successfully fetched limits:', {
+    console.log('[getUserLimits] Successfully fetched limits from view:', {
       userId,
       subscription_tier: data.subscription_tier,
-      files_limit: data.files_limit
+      files_limit: data.files_limit,
+      files_used: data.files_used
     });
 
     return data as UserLimits;
