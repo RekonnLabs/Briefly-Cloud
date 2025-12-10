@@ -177,9 +177,9 @@ export async function getAuthenticatedUser(): Promise<AuthUser> {
     throw new Error('Unauthorized: No valid session found')
   }
 
-  // Get full user profile from app.users table
+  // Get full user profile from app.profiles table
   const { data: userProfile, error: profileError } = await supabaseApp
-    .from('users')
+    .from('profiles')
     .select(`
       id,
       email,
@@ -195,10 +195,8 @@ export async function getAuthenticatedUser(): Promise<AuthUser> {
       api_calls_limit,
       storage_used_bytes,
       storage_limit_bytes,
-      features_enabled,
-      permissions,
-      last_login_at,
-      created_at
+      created_at,
+      updated_at
     `)
     .eq('id', user.id)
     .single()
@@ -207,10 +205,10 @@ export async function getAuthenticatedUser(): Promise<AuthUser> {
     throw new Error('User profile not found')
   }
 
-  // Update last login timestamp
+  // Update last activity timestamp
   await supabaseApp
-    .from('users')
-    .update({ last_login_at: new Date().toISOString() })
+    .from('profiles')
+    .update({ updated_at: new Date().toISOString() })
     .eq('id', user.id)
 
   return {
@@ -222,9 +220,9 @@ export async function getAuthenticatedUser(): Promise<AuthUser> {
     subscription_status: userProfile.subscription_status,
     usage_count: userProfile.chat_messages_count || 0,
     usage_limit: userProfile.chat_messages_limit || TIER_LIMITS[userProfile.subscription_tier]?.max_llm_calls || 100,
-    features_enabled: userProfile.features_enabled || {},
-    permissions: userProfile.permissions || {},
-    last_login_at: userProfile.last_login_at,
+    features_enabled: {},  // Not stored in database, use defaults
+    permissions: {},  // Not stored in database, use defaults
+    last_login_at: userProfile.updated_at,  // Use updated_at as last activity
     created_at: userProfile.created_at
   }
 }
