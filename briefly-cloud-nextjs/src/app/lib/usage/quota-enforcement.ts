@@ -56,6 +56,8 @@ export interface QuotaCheckResult {
  */
 export async function getUserLimits(userId: string): Promise<UserLimits | null> {
   try {
+    console.log('[getUserLimits] Querying v_user_limits for userId:', userId);
+    
     const { data, error } = await supabaseAdmin
       .from('v_user_limits')
       .select('*')
@@ -63,9 +65,27 @@ export async function getUserLimits(userId: string): Promise<UserLimits | null> 
       .single();
 
     if (error) {
+      console.error('[getUserLimits] Query error:', {
+        userId,
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
       logger.error('Error fetching user limits', { userId, error: error.message });
       return null;
     }
+
+    if (!data) {
+      console.warn('[getUserLimits] No data returned for userId:', userId);
+      return null;
+    }
+
+    console.log('[getUserLimits] Successfully fetched limits:', {
+      userId,
+      subscription_tier: data.subscription_tier,
+      files_limit: data.files_limit
+    });
 
     return data as UserLimits;
   } catch (error) {
