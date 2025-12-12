@@ -213,7 +213,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   }, []);
 
   const fetchUserData = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal, retryCount = 0) => {
       if (!isMountedRef.current) return;
       setLoading(true);
       setError(null);
@@ -259,6 +259,20 @@ export default function DashboardClient({ user }: DashboardClientProps) {
         }
 
         if (err instanceof AuthRequiredError) {
+          // Retry auth failures with exponential backoff (up to 3 times)
+          if (retryCount < 3) {
+            const delay = Math.pow(2, retryCount) * 500; // 500ms, 1s, 2s
+            console.log(`[auth] Session not ready, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
+            setTimeout(() => {
+              if (isMountedRef.current && !signal?.aborted) {
+                fetchUserData(signal, retryCount + 1);
+              }
+            }, delay);
+            return;
+          }
+          
+          // After 3 retries, show error
+          console.error('[auth] Session not established after 3 retries');
           setUserData(null);
           setError({
             code: "AUTH_REQUIRED",
