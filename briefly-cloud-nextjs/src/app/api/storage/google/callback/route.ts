@@ -2,6 +2,7 @@ export const runtime = 'nodejs'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/app/lib/auth/supabase-auth'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { oauthTokensRepo } from '@/app/lib/repos/oauth-tokens-repo'
 import { OAuthStateManager } from '@/app/lib/oauth/state-manager'
 import { OAuthLogger } from '@/app/lib/oauth/logger'
@@ -146,6 +147,33 @@ export async function GET(req: NextRequest) {
         hasRefreshToken: !!refreshToken,
         preservedRefreshToken: !tokens.refresh_token && !!existingToken?.refreshToken
       })
+
+      // Create apideck_connections entry for health check and auto-indexing
+      try {
+        console.log(`[${rid}] Creating apideck_connections entry for user ${user.id}`);
+        const { error: connError } = await supabaseAdmin.from('apideck_connections').upsert({
+          user_id: user.id,
+          provider: 'google',
+          consumer_id: 'briefly-cloud',
+          connection_id: `google-${user.id}`,
+          status: 'connected',
+          updated_at: new Date().toISOString()
+        });
+
+        if (connError) {
+          console.error(`[${rid}] Failed to create apideck_connections entry:`, connError);
+          // Don't fail the OAuth flow, but log the error
+          OAuthLogger.logError('google', 'connection_entry', new Error(connError.message), {
+            userId: user.id,
+            operation: 'create_connection_entry'
+          });
+        } else {
+          console.log(`[${rid}] apideck_connections entry created successfully`);
+        }
+      } catch (connError) {
+        console.error(`[${rid}] Exception creating apideck_connections entry:`, connError);
+        // Don't fail the OAuth flow
+      }
 
       // Log successful callback completion
       OAuthLogger.logCallback('google', user.id, true, undefined, {
