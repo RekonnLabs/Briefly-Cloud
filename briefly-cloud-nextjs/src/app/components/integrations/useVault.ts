@@ -61,8 +61,17 @@ export function useVault() {
       // Apideck Vault v1.8.0 uses singleton pattern - call open() directly
       // NOT: new ApideckVault().open() ❌
       // YES: ApideckVault.open() ✅
+      
+      // Extract session data from nested response structure
+      const sessionData = session.session || session.data || session;
+      const sessionToken = sessionData.session_token || session.session_token;
+      
+      if (!sessionToken) {
+        throw new Error('No session token received from Apideck API');
+      }
+      
       window.ApideckVault.open({
-        token: session.token,
+        token: sessionToken,
         unifiedApi: 'file-storage',
         serviceId: session.serviceId || 'google-drive',
         onReady: () => {
