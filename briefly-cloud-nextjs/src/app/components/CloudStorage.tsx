@@ -387,19 +387,12 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
    */
   const connectProvider = async (providerId: 'google' | 'microsoft') => {
     try {
-      // Import browser client at runtime to avoid SSR issues
-      const { getSupabaseBrowser } = await import('@/app/lib/supabase-browser')
-      const supabase = getSupabaseBrowser()
+      // Trust server-side authentication - if this component is rendered, user is authenticated
+      // The server (page.tsx) already verified the session before rendering DashboardClient
+      // Client-side session checks fail when using httpOnly cookies (more secure)
       
-      // Hard stop if user isn't logged in - storage connections require authentication
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        // Log authentication violation for monitoring
-        const attemptedRoute = providerId === 'google' 
-          ? '/api/storage/google/start'
-          : '/api/storage/microsoft/start';
-        logAuthenticationViolation(attemptedRoute, 'CloudStorage')
-        
+      if (!userId) {
+        console.error('[connect] No userId provided - component should not be rendered without authentication');
         window.location.href = `/auth/signin?next=${encodeURIComponent('/briefly/app/dashboard?tab=storage')}`
         return
       }
@@ -427,7 +420,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         : '/api/storage/microsoft/start'; // Storage OAuth route for OneDrive
       
       // Log OAuth route usage for monitoring
-      logStorageOAuthRoute(providerId, 'CloudStorage', session.user.id)
+      logStorageOAuthRoute(providerId, 'CloudStorage', userId)
       
       const response = await fetch(startUrl, {
         credentials: 'include'
@@ -445,8 +438,6 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       console.error('OAuth initiation failed:', error);
       
       // Log OAuth flow failure for monitoring
-      const { data: { session } } = await supabase.auth.getSession()
-      
       // Determine error type based on the error
       let errorType: 'oauth_flow_violation' | 'authentication_failure' | 'business_logic_restriction' | 'technical_error' = 'technical_error'
       if (error instanceof Error) {
@@ -461,7 +452,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         'storage_oauth',
         providerId,
         false,
-        session?.user?.id,
+        userId,
         undefined,
         error instanceof Error ? error.message : 'Unknown error',
         errorType
