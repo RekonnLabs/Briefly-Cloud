@@ -51,7 +51,12 @@ export function useVault() {
       }
       
       const session = await res.json()
-      console.log('[vault] Session created, opening vault...')
+      console.log('[vault] Session created:', JSON.stringify(session, null, 2))
+      console.log('[vault] Opening vault with config:', {
+        hasToken: !!session.token,
+        hasSessionToken: !!session.session_token,
+        serviceId: session.serviceId || 'google-drive'
+      })
       
       // Apideck Vault v1.8.0 uses singleton pattern - call open() directly
       // NOT: new ApideckVault().open() ❌
