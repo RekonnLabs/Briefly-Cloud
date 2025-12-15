@@ -53,24 +53,27 @@ export function useVault() {
       const session = await res.json()
       console.log('[vault] Session created, opening vault...')
       
-      const vault = new window.ApideckVault({
-        session,
-        onConnectionChange: (connection: any) => {
-          console.log('[vault] Connection changed:', connection)
-          // Redirect to callback with success indicator
-          window.location.href = '/api/integrations/apideck/callback?connected=apideck'
-        },
-        onError: (error: any) => {
-          console.error('[vault] Vault error:', error)
-          setError(`Vault error: ${error.message || 'Unknown error'}`)
+      // Apideck Vault v1.8.0 uses singleton pattern - call open() directly
+      // NOT: new ApideckVault().open() ❌
+      // YES: ApideckVault.open() ✅
+      window.ApideckVault.open({
+        token: session.token,
+        unifiedApi: 'file-storage',
+        serviceId: session.serviceId || 'google-drive',
+        onReady: () => {
+          console.log('[vault] Vault ready')
         },
         onClose: () => {
           console.log('[vault] Vault closed')
           setLoading(false)
+        },
+        onConnectionChange: (connection: any) => {
+          console.log('[vault] Connection changed:', connection)
+          // Redirect to callback with success indicator
+          window.location.href = '/api/integrations/apideck/callback?connected=apideck'
         }
       })
       
-      vault.open()
       console.log('[vault] Vault opened successfully')
       
     } catch (e) {
