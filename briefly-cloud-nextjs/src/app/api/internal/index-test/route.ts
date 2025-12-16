@@ -23,7 +23,7 @@ import { indexFile, FileReference } from '@/app/lib/indexing/indexingPipeline'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-response'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { filesRepo } from '@/app/lib/repos'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { z } from 'zod'
 
 // Validation schema
@@ -66,20 +66,35 @@ async function indexTestHandler(request: NextRequest, context: ApiContext): Prom
     console.log(`[TEST_TRIGGER] Starting manual indexing test for file_id=${fileId} user_id=${userId}`)
     
     // Create file record in database first (required for pipeline)
+    // Use admin client to bypass RLS for test endpoint
     try {
-      const fileRecord = await filesRepo.create({
-        ownerId: userId,
-        name: data.filename,
-        path: `test/${fileId}`,
-        sizeBytes: data.content?.length || 0,
-        mimeType: data.mime_type,
-        source: data.source,
-        externalId: data.external_id,
-        metadata: {
-          test_file: true,
-          created_by_test_endpoint: true,
-        },
-      })
+      const { data: fileRecord, error: createError } = await supabaseAdmin
+        .from('files')
+        .insert({
+          id: fileId,
+          owner_id: userId,
+          name: data.filename,
+          path: `test/${fileId}`,
+          size_bytes: data.content?.length || 0,
+          mime_type: data.mime_type,
+          source: data.source,
+          external_id: data.external_id,
+          metadata: {
+            test_file: true,
+            created_by_test_endpoint: true,
+          },
+          processed: false,
+          processing_status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+      
+      if (createError) {
+        throw createError
+      }
+      
       console.log(`[TEST_TRIGGER] Created file record: id=${fileRecord.id}`)
     } catch (createError) {
       console.error(`[TEST_TRIGGER] Failed to create file record: ${createError}`)
