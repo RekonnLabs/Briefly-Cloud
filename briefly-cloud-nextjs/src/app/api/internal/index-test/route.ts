@@ -20,7 +20,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { indexFile, FileReference } from '@/app/lib/indexing/indexingPipeline'
-import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-handler'
+import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-response'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { filesRepo } from '@/app/lib/repos'
