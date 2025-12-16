@@ -105,7 +105,7 @@ export class FilesRepository extends BaseRepository {
       owner_id: input.ownerId,
       name: input.name,
       path: input.path,
-      size: input.sizeBytes,
+      size_bytes: input.sizeBytes,
       mime_type: input.mimeType,
       source: input.source || 'upload',
       external_id: input.externalId,
