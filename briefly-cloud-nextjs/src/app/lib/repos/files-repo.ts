@@ -58,7 +58,7 @@ export interface UpdateFileInput {
 // Map database record to AppFile format for backward compatibility
 const mapRecordToAppFile = (record: Record<string, any>): AppFile => ({
   id: record.id,
-  owner_id: record.user_id,
+  owner_id: record.owner_id,
   name: record.name,
   path: record.path,
   size_bytes: Number(record.size ?? 0),
@@ -70,7 +70,7 @@ const mapRecordToAppFile = (record: Record<string, any>): AppFile => ({
 // Map database record to FileRecord format
 const mapRecordToFileRecord = (record: Record<string, any>): FileRecord => ({
   id: record.id,
-  user_id: record.user_id,
+  user_id: record.owner_id,
   name: record.name,
   path: record.path,
   size: Number(record.size ?? 0),
@@ -150,7 +150,7 @@ export class FilesRepository extends BaseRepository {
         .from(this.TABLE_NAME)
         .select('*')
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
         .maybeSingle()
 
       if (error) {
@@ -173,7 +173,7 @@ export class FilesRepository extends BaseRepository {
       const { data, error } = await this.appClient
         .from(this.TABLE_NAME)
         .select('*')
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1)
 
@@ -209,7 +209,7 @@ export class FilesRepository extends BaseRepository {
       let query = this.appClient
         .from(this.TABLE_NAME)
         .select('*', { count: 'exact' })
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       if (filterIds && filterIds.length > 0) {
         query = query.in('id', filterIds)
@@ -249,7 +249,7 @@ export class FilesRepository extends BaseRepository {
       const { data, error } = await this.appClient
         .from(this.TABLE_NAME)
         .select('*')
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
         .in('id', fileIds)
 
       if (error) {
@@ -283,7 +283,7 @@ export class FilesRepository extends BaseRepository {
         .from(this.TABLE_NAME)
         .update(payload)
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       if (error) {
         this.handleDatabaseError(error, 'update file processing status')
@@ -311,7 +311,7 @@ export class FilesRepository extends BaseRepository {
         .from(this.TABLE_NAME)
         .update(payload)
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       if (error) {
         this.handleDatabaseError(error, 'update file')
@@ -342,7 +342,7 @@ export class FilesRepository extends BaseRepository {
       const { data, error } = await this.appClient
         .from(this.TABLE_NAME)
         .update(payload)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
         .in('id', fileIds)
         .select('*')
 
@@ -367,7 +367,7 @@ export class FilesRepository extends BaseRepository {
         .from(this.TABLE_NAME)
         .delete()
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       if (error) {
         this.handleDatabaseError(error, 'delete file')
@@ -389,7 +389,7 @@ export class FilesRepository extends BaseRepository {
       const { data, error } = await this.appClient
         .from(this.TABLE_NAME)
         .delete()
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
         .in('id', fileIds)
         .select('id')
 
@@ -417,7 +417,7 @@ export class FilesRepository extends BaseRepository {
           updated_at: new Date().toISOString()
         })
         .eq('id', fileId)
-        .eq('user_id', userId)
+        .eq('owner_id', userId)
 
       if (error) {
         this.handleDatabaseError(error, 'update file checksum')
@@ -432,7 +432,7 @@ export class FilesRepository extends BaseRepository {
     const files = await this.findByUserId(ownerId)
     return files.map(file => mapRecordToAppFile({
       id: file.id,
-      user_id: file.user_id,
+      owner_id: file.user_id,
       name: file.name,
       path: file.path,
       size: file.size,
