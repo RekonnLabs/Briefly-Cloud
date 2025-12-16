@@ -102,7 +102,7 @@ export class FilesRepository extends BaseRepository {
     this.validateRequiredFields(input, ['ownerId', 'name', 'path', 'sizeBytes'], 'create file')
 
     const payload = this.sanitizeInput({
-      user_id: input.ownerId,
+      owner_id: input.ownerId,
       name: input.name,
       path: input.path,
       size: input.sizeBytes,
