@@ -121,12 +121,14 @@ export async function indexFile(fileRef: FileReference): Promise<IndexingResult>
     // ========================================
     console.log(`[INDEX:CHUNK_START] file_id=${fileRef.file_id} text_length=${extractedText.length}`)
     
-    const chunks = createTextChunks(extractedText, {
-      chunkSize: 1000,
-      chunkOverlap: 200,
-      fileId: fileRef.file_id,
-      fileName: fileRef.filename,
-    })
+    const chunks = createTextChunks(
+      extractedText,
+      fileRef.file_id,
+      fileRef.filename,
+      fileRef.mime_type,
+      fileRef.user_id,
+      1000 // maxChunkSize
+    )
     
     if (chunks.length === 0) {
       throw new Error('No chunks created from extracted text')
