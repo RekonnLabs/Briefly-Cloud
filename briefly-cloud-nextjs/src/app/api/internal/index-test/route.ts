@@ -60,12 +60,14 @@ async function indexTestHandler(request: NextRequest, context: ApiContext): Prom
     // Use authenticated user ID if not provided
     const userId = data.user_id || user.id
     
-    // Generate file_id if not provided
+    // Generate file_id if not provided (must be done BEFORE creating file record)
     const fileId = data.file_id || crypto.randomUUID()
+    
+    console.log(`[TEST_TRIGGER] Starting manual indexing test for file_id=${fileId} user_id=${userId}`)
     
     // Create file record in database first (required for pipeline)
     try {
-      await filesRepo.create({
+      const fileRecord = await filesRepo.create({
         ownerId: userId,
         name: data.filename,
         path: `test/${fileId}`,
@@ -78,10 +80,13 @@ async function indexTestHandler(request: NextRequest, context: ApiContext): Prom
           created_by_test_endpoint: true,
         },
       })
-      console.log(`[TEST_TRIGGER] Created file record for file_id=${fileId}`)
+      console.log(`[TEST_TRIGGER] Created file record: id=${fileRecord.id}`)
     } catch (createError) {
-      // File might already exist, that's okay
-      console.log(`[TEST_TRIGGER] File record may already exist: ${createError}`)
+      console.error(`[TEST_TRIGGER] Failed to create file record: ${createError}`)
+      return ApiResponse.internalError(
+        `Failed to create file record: ${createError instanceof Error ? createError.message : 'Unknown error'}`,
+        { file_id: fileId, user_id: userId }
+      )
     }
     
     // Create file reference
