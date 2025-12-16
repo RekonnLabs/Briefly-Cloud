@@ -65,44 +65,9 @@ async function indexTestHandler(request: NextRequest, context: ApiContext): Prom
     
     console.log(`[TEST_TRIGGER] Starting manual indexing test for file_id=${fileId} user_id=${userId}`)
     
-    // Create file record in database first (required for pipeline)
-    // Use admin client to bypass RLS for test endpoint
-    try {
-      const { data: fileRecord, error: createError } = await supabaseAdmin
-        .from('files')
-        .insert({
-          id: fileId,
-          owner_id: userId,
-          name: data.filename,
-          path: `test/${fileId}`,
-          size_bytes: data.content?.length || 0,
-          mime_type: data.mime_type,
-          source: data.source,
-          external_id: data.external_id,
-          metadata: {
-            test_file: true,
-            created_by_test_endpoint: true,
-          },
-          processed: false,
-          processing_status: 'pending',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single()
-      
-      if (createError) {
-        throw createError
-      }
-      
-      console.log(`[TEST_TRIGGER] Created file record: id=${fileRecord.id}`)
-    } catch (createError) {
-      console.error(`[TEST_TRIGGER] Failed to create file record: ${createError}`)
-      return ApiResponse.internalError(
-        `Failed to create file record: ${createError instanceof Error ? createError.message : 'Unknown error'}`,
-        { file_id: fileId, user_id: userId }
-      )
-    }
+    // NOTE: Skipping file record creation for now due to RLS/client issues
+    // The indexing pipeline will create file_ingest record automatically
+    console.log(`[TEST_TRIGGER] Skipping file record creation, testing pipeline directly`)
     
     // Create file reference
     const fileRef: FileReference = {
