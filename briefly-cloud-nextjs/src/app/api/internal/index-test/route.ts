@@ -1,3 +1,5 @@
+console.log("INDEX_TEST_ROUTE_FILE_LOADED");
+
 /**
  * Quest 0: Manual Indexing Test Trigger
  * 
@@ -26,6 +28,11 @@ import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { z } from 'zod'
 
+console.log("INDEX_TEST_IMPORTS_COMPLETED");
+
+// Force Node.js runtime (not Edge) - required for OpenAI SDK, Supabase admin, vector stores
+export const runtime = 'nodejs'
+
 // Validation schema
 const indexTestSchema = z.object({
   user_id: z.string().uuid().optional(), // Optional: will use authenticated user if not provided
@@ -42,6 +49,7 @@ const indexTestSchema = z.object({
 )
 
 async function indexTestHandler(request: NextRequest, context: ApiContext): Promise<NextResponse> {
+  console.log("INDEX_TEST_HANDLER_ENTERED");
   const { user } = context
   
   try {
