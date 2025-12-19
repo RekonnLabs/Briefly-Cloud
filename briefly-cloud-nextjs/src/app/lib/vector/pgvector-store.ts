@@ -444,23 +444,8 @@ export class PgVectorStore implements IVectorStore {
     }
 
     try {
-      // Check if user exists in our system
-      const { data: user, error } = await supabaseAdmin
-        .from('users')
-        .select('id, subscription_status')
-        .eq('id', userId)
-        .single()
-
-      if (error || !user) {
-        throw createError.unauthorized('User not found or access denied')
-      }
-
-      // Check if user account is active
-      if (user.subscription_status === 'canceled' || user.subscription_status === 'past_due') {
-        throw createError.forbidden('Account access suspended')
-      }
-
-      // If resourceId is provided, validate access to that specific resource
+      // User is already authenticated by API middleware, so we trust the userId
+      // Only validate resource access if resourceId is provided
       if (resourceId) {
         const { data: resource, error: resourceError } = await supabaseAdmin
           .from(FILES_TABLE)
