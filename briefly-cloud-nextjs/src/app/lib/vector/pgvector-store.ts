@@ -29,6 +29,7 @@ export class PgVectorStore implements IVectorStore {
   private config: VectorStoreConfig
   private isInitialized: boolean = false
   private connectionError: Error | null = null
+  private initPromise: Promise<void> | null = null
 
   constructor(config: Partial<VectorStoreConfig> = {}) {
     this.config = {
@@ -38,7 +39,8 @@ export class PgVectorStore implements IVectorStore {
       ...config
     }
     
-    this.initialize()
+    // Start initialization but don't block constructor
+    this.initPromise = this.initialize()
   }
 
   /**
@@ -95,6 +97,12 @@ export class PgVectorStore implements IVectorStore {
    * Add documents to the vector store
    */
   async addDocuments(userId: string, documents: VectorDocument[]): Promise<void> {
+    // Wait for initialization to complete if still in progress
+    if (this.initPromise) {
+      await this.initPromise
+      this.initPromise = null
+    }
+    
     if (!this.isInitialized) {
       throw createError.serviceUnavailable('pgvector store not initialized')
     }
@@ -167,6 +175,12 @@ export class PgVectorStore implements IVectorStore {
     queryEmbedding: number[],
     options: VectorSearchOptions = {}
   ): Promise<VectorSearchResult[]> {
+    // Wait for initialization to complete if still in progress
+    if (this.initPromise) {
+      await this.initPromise
+      this.initPromise = null
+    }
+    
     if (!this.isInitialized) {
       throw createError.serviceUnavailable('pgvector store not initialized')
     }
@@ -281,6 +295,12 @@ export class PgVectorStore implements IVectorStore {
    * Delete user documents
    */
   async deleteUserDocuments(userId: string, fileId?: string): Promise<void> {
+    // Wait for initialization to complete if still in progress
+    if (this.initPromise) {
+      await this.initPromise
+      this.initPromise = null
+    }
+    
     if (!this.isInitialized) {
       throw createError.serviceUnavailable('pgvector store not initialized')
     }
