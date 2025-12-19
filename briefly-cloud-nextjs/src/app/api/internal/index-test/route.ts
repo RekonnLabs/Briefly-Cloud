@@ -23,7 +23,7 @@ console.log("INDEX_TEST_ROUTE_FILE_LOADED");
 import { NextRequest, NextResponse } from 'next/server'
 import { indexFile, FileReference } from '@/app/lib/indexing/indexingPipeline'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
-import { ApiResponse } from '@/app/lib/api-response'
+import { ApiResponse, ApiErrorCode } from '@/app/lib/api-response'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { z } from 'zod'
@@ -108,8 +108,9 @@ async function indexTestHandler(request: NextRequest, context: ApiContext): Prom
         'File indexed successfully'
       )
     } else {
-      return ApiResponse.internalError(
+      return ApiResponse.serverError(
         `Indexing failed: ${result.error}`,
+        ApiErrorCode.INTERNAL_ERROR,
         {
           result,
           file_id: fileId,
@@ -121,8 +122,9 @@ async function indexTestHandler(request: NextRequest, context: ApiContext): Prom
   } catch (error) {
     console.error('[TEST_TRIGGER] Indexing test handler error:', error)
     
-    return ApiResponse.internalError(
+    return ApiResponse.serverError(
       'Failed to process indexing test',
+      ApiErrorCode.INTERNAL_ERROR,
       {
         error: error instanceof Error ? error.message : 'Unknown error',
       }
