@@ -118,12 +118,15 @@ export class PgVectorStore implements IVectorStore {
       // Prepare document chunks for insertion
       const now = new Date().toISOString()
       const chunks = documents.map((doc, index) => ({
-        owner_id: userId,
+        user_id: userId,  // Changed from owner_id to match schema
         file_id: doc.metadata.fileId,
         chunk_index: doc.metadata.chunkIndex ?? index,
         content: doc.content,
         embedding: doc.embedding ?? null,
-        token_count: doc.metadata.tokenCount ?? doc.metadata.tokens ?? null,
+        metadata: {
+          token_count: doc.metadata.tokenCount ?? doc.metadata.tokens ?? null,
+          ...(doc.metadata || {})
+        },
         created_at: doc.metadata.createdAt ?? now
       }))
 
