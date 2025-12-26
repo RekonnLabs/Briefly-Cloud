@@ -136,6 +136,15 @@ export class PgVectorStore implements IVectorStore {
         .insert(chunks)
 
       if (error) {
+        logger.error('Database error inserting chunks', {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          table: CHUNKS_TABLE,
+          chunkCount: chunks.length,
+          sampleChunk: chunks[0]
+        })
         throw error
       }
 
