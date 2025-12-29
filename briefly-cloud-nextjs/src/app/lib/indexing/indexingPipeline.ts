@@ -172,7 +172,7 @@ export async function indexFile(fileRef: FileReference): Promise<IndexingResult>
     const vectorDocuments = chunks.map((chunk, index) => ({
       id: `${fileRef.file_id}_${chunk.chunkIndex}`,
       content: chunk.content,
-      embedding: embeddingResult.embeddings[index],
+      embedding: embeddingResult.embeddings[index].embedding,  // Extract raw array
       metadata: {
         fileId: fileRef.file_id,
         fileName: fileRef.filename,
