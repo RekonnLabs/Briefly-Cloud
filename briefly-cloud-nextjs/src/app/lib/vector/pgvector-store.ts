@@ -136,9 +136,12 @@ export class PgVectorStore implements IVectorStore {
         .insert(chunks)
 
       if (error) {
-        // Log raw error object
-        console.error('[PGVECTOR_INSERT_ERROR] Raw error:', JSON.stringify(error, null, 2))
-        console.error('[PGVECTOR_INSERT_ERROR] Error keys:', Object.keys(error))
+        // Log raw error object with all properties
+        console.error('[PGVECTOR_INSERT_ERROR] Error message:', error.message)
+        console.error('[PGVECTOR_INSERT_ERROR] Error code:', error.code)
+        console.error('[PGVECTOR_INSERT_ERROR] Error details:', error.details)
+        console.error('[PGVECTOR_INSERT_ERROR] Error hint:', error.hint)
+        console.error('[PGVECTOR_INSERT_ERROR] Full error:', error)
         console.error('[PGVECTOR_INSERT_ERROR] Sample chunk:', JSON.stringify(chunks[0], null, 2))
         
         logger.error('Database error inserting chunks', {
