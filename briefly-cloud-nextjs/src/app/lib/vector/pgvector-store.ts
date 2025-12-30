@@ -131,24 +131,31 @@ export class PgVectorStore implements IVectorStore {
       }))
 
       // Insert chunks into app.document_chunks
-      const { error } = await supabaseAdmin
+      const res = await supabaseAdmin
         .from(CHUNKS_TABLE)
         .insert(chunks)
 
-      if (error) {
-        // Log raw error object with all properties
-        console.error('[PGVECTOR_INSERT_ERROR] Error message:', error.message)
-        console.error('[PGVECTOR_INSERT_ERROR] Error code:', error.code)
-        console.error('[PGVECTOR_INSERT_ERROR] Error details:', error.details)
-        console.error('[PGVECTOR_INSERT_ERROR] Error hint:', error.hint)
-        console.error('[PGVECTOR_INSERT_ERROR] Full error:', error)
+      // Log full response as GPT suggested
+      console.log('[PGVECTOR_INSERT] status:', res.status)
+      console.log('[PGVECTOR_INSERT] statusText:', res.statusText)
+      console.log('[PGVECTOR_INSERT] data:', res.data)
+      console.log('[PGVECTOR_INSERT] error raw:', res.error)
+      
+      if (res.error) {
+        console.error('[PGVECTOR_INSERT_ERROR] Error keys:', Object.keys(res.error))
+        console.error('[PGVECTOR_INSERT_ERROR] Error props:', Object.getOwnPropertyNames(res.error))
+        console.error('[PGVECTOR_INSERT_ERROR] Error string:', String(res.error))
+        console.error('[PGVECTOR_INSERT_ERROR] Error message:', res.error.message)
+        console.error('[PGVECTOR_INSERT_ERROR] Error code:', res.error.code)
+        console.error('[PGVECTOR_INSERT_ERROR] Error details:', res.error.details)
+        console.error('[PGVECTOR_INSERT_ERROR] Error hint:', res.error.hint)
         console.error('[PGVECTOR_INSERT_ERROR] Sample chunk:', JSON.stringify(chunks[0], null, 2))
         
         logger.error('Database error inserting chunks', {
-          error: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
+          error: res.error.message,
+          code: res.error.code,
+          details: res.error.details,
+          hint: res.error.hint,
           table: CHUNKS_TABLE,
           chunkCount: chunks.length,
           sampleChunk: chunks[0]
