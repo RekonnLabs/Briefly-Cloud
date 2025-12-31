@@ -115,53 +115,47 @@ export class PgVectorStore implements IVectorStore {
       // Validate user access
       await this.validateUserAccess(userId)
 
-      // Prepare document chunks for insertion
-      const now = new Date().toISOString()
-      const chunks = documents.map((doc, index) => ({
-        user_id: userId,  // Changed from owner_id to match schema
-        file_id: doc.metadata.fileId,
-        chunk_index: doc.metadata.chunkIndex ?? index,
-        content: doc.content,
-        embedding: doc.embedding ?? null,
-        metadata: {
-          token_count: doc.metadata.tokenCount ?? doc.metadata.tokens ?? null,
-          ...(doc.metadata || {})
-        },
-        created_at: doc.metadata.createdAt ?? now
-      }))
+      // Insert chunks using RPC function (bypasses PostgREST vector coercion issues)
+      logger.info('Inserting document chunks via RPC', {
+        documentCount: documents.length,
+        userId
+      })
 
-      // Insert chunks into app.document_chunks
-      const res = await supabaseAdmin
-        .from(CHUNKS_TABLE)
-        .insert(chunks)
-
-      // Log full response as GPT suggested
-      console.log('[PGVECTOR_INSERT] status:', res.status)
-      console.log('[PGVECTOR_INSERT] statusText:', res.statusText)
-      console.log('[PGVECTOR_INSERT] data:', res.data)
-      console.log('[PGVECTOR_INSERT] error raw:', res.error)
+      const insertedIds: bigint[] = []
       
-      if (res.error) {
-        console.error('[PGVECTOR_INSERT_ERROR] Error keys:', Object.keys(res.error))
-        console.error('[PGVECTOR_INSERT_ERROR] Error props:', Object.getOwnPropertyNames(res.error))
-        console.error('[PGVECTOR_INSERT_ERROR] Error string:', String(res.error))
-        console.error('[PGVECTOR_INSERT_ERROR] Error message:', res.error.message)
-        console.error('[PGVECTOR_INSERT_ERROR] Error code:', res.error.code)
-        console.error('[PGVECTOR_INSERT_ERROR] Error details:', res.error.details)
-        console.error('[PGVECTOR_INSERT_ERROR] Error hint:', res.error.hint)
-        console.error('[PGVECTOR_INSERT_ERROR] Sample chunk:', JSON.stringify(chunks[0], null, 2))
+      for (let i = 0; i < documents.length; i++) {
+        const doc = documents[i]
         
-        logger.error('Database error inserting chunks', {
-          error: res.error.message,
-          code: res.error.code,
-          details: res.error.details,
-          hint: res.error.hint,
-          table: CHUNKS_TABLE,
-          chunkCount: chunks.length,
-          sampleChunk: chunks[0]
+        const { data, error } = await supabaseAdmin.rpc('insert_document_chunk', {
+          p_file_id: doc.metadata.fileId,
+          p_owner_id: userId,
+          p_chunk_index: doc.metadata.chunkIndex ?? i,
+          p_content: doc.content,
+          p_embedding: doc.embedding ?? null,
+          p_token_count: doc.metadata.tokenCount ?? doc.metadata.tokens ?? null,
+          p_source: doc.metadata.source ?? 'indexing_pipeline'
         })
-        throw error
+
+        if (error) {
+          logger.error('RPC error inserting chunk', {
+            error: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+            chunkIndex: i,
+            fileId: doc.metadata.fileId
+          })
+          throw createError.internal(`Failed to insert chunk ${i}: ${error.message}`)
+        }
+
+        insertedIds.push(data)
+        logger.info(`Chunk ${i + 1}/${documents.length} inserted`, { id: data })
       }
+
+      logger.info('All chunks inserted successfully', {
+        totalChunks: documents.length,
+        insertedIds
+      })
 
       // Log the operation
       await supabaseAdmin
