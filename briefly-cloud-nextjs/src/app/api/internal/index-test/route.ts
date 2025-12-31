@@ -1,23 +1,19 @@
-console.log("INDEX_TEST_ROUTE_FILE_LOADED");
+// Quest 0: Manual Indexing Test Trigger
 
 /**
  * Quest 0: Manual Indexing Test Trigger
  * 
- * This endpoint allows testing the indexing pipeline without Apideck/OAuth.
- * It accepts a mocked file reference and calls the pipeline directly.
+ * This endpoint allows testing the indexing pipeline with a real file from storage.
+ * It fetches the file from app.files and Supabase Storage, then runs the indexing pipeline.
  * 
  * POST /api/internal/index-test
  * 
  * Body:
  * {
- *   "user_id": "uuid",
- *   "file_id": "uuid",
- *   "source": "test",
- *   "external_id": "test-file-123",
- *   "filename": "test.txt",
- *   "mime_type": "text/plain",
- *   "content": "Text content to index..."
+ *   "fileId": "uuid"
  * }
+ * 
+ * Authentication: JWT (owner_id derived from token)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -28,82 +24,133 @@ import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { z } from 'zod'
 
-console.log("INDEX_TEST_IMPORTS_COMPLETED");
+const requestSchema = z.object({
+  fileId: z.string().uuid('Invalid file ID format')
+})
 
-// Force Node.js runtime (not Edge) - required for OpenAI SDK, Supabase admin, vector stores
-export const runtime = 'nodejs'
+const DEFAULT_STORAGE_BUCKET = 'documents'
 
-// Validation schema
-const indexTestSchema = z.object({
-  user_id: z.string().uuid().optional(), // Optional: will use authenticated user if not provided
-  file_id: z.string().uuid().optional(), // Optional: will generate if not provided
-  source: z.string().default('test'),
-  external_id: z.string(),
-  filename: z.string(),
-  mime_type: z.string(),
-  content: z.string().optional(),
-  download_url: z.string().url().optional(),
-}).refine(
-  (data) => data.content || data.download_url,
-  { message: 'Either content or download_url must be provided' }
-)
+async function handler(request: NextRequest, context: ApiContext) {
+  const correlationId = context.correlationId
+  const userId = context.user?.id
 
-async function indexTestHandler(request: NextRequest, context: ApiContext): Promise<NextResponse> {
-  console.log("INDEX_TEST_HANDLER_ENTERED");
-  const { user } = context
-  
+  if (!userId) {
+    return ApiResponse.unauthorized('User not authenticated', ApiErrorCode.UNAUTHORIZED, correlationId)
+  }
+
+  console.log(`[TEST_TRIGGER] Request received`, { correlationId, userId })
+
   try {
     const body = await request.json()
-    const validation = indexTestSchema.safeParse(body)
-    
+    const validation = requestSchema.safeParse(body)
+
     if (!validation.success) {
       return ApiResponse.badRequest(
         'Invalid request body',
-        validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+        ApiErrorCode.VALIDATION_ERROR,
+        correlationId,
+        { errors: validation.error.errors }
       )
     }
-    
-    const data = validation.data
-    
-    // Use authenticated user ID if not provided
-    const userId = data.user_id || user.id
-    
-    // Generate file_id if not provided (must be done BEFORE creating file record)
-    const fileId = data.file_id || crypto.randomUUID()
-    
-    console.log(`[TEST_TRIGGER] Starting manual indexing test for file_id=${fileId} user_id=${userId}`)
-    
-    // NOTE: Skipping file record creation for now due to RLS/client issues
-    // The indexing pipeline will create file_ingest record automatically
-    console.log(`[TEST_TRIGGER] Skipping file record creation, testing pipeline directly`)
-    
-    // Create file reference
+
+    const { fileId } = validation.data
+
+    console.log(`[TEST_TRIGGER] Fetching file from database`, { fileId, userId, correlationId })
+
+    // Fetch file metadata from app.files
+    const { data: fileRecord, error: fetchError } = await supabaseAdmin
+      .from('app.files')
+      .select('id, owner_id, name, path, mime_type, source, external_id, external_url')
+      .eq('id', fileId)
+      .eq('owner_id', userId)
+      .single()
+
+    if (fetchError || !fileRecord) {
+      console.error(`[TEST_TRIGGER] File not found`, { fileId, userId, error: fetchError })
+      return ApiResponse.notFound(
+        'File not found or access denied',
+        ApiErrorCode.NOT_FOUND,
+        correlationId
+      )
+    }
+
+    console.log(`[TEST_TRIGGER] File found`, { 
+      fileId, 
+      name: fileRecord.name, 
+      path: fileRecord.path,
+      mimeType: fileRecord.mime_type,
+      correlationId 
+    })
+
+    // Read file content from Supabase Storage
+    const { data: fileData, error: downloadError } = await supabaseAdmin
+      .storage
+      .from(DEFAULT_STORAGE_BUCKET)
+      .download(fileRecord.path)
+
+    if (downloadError || !fileData) {
+      console.error(`[TEST_TRIGGER] Failed to download file from storage`, { 
+        fileId, 
+        path: fileRecord.path,
+        bucket: DEFAULT_STORAGE_BUCKET,
+        error: downloadError,
+        correlationId 
+      })
+      return ApiResponse.serverError(
+        'Failed to download file from storage',
+        ApiErrorCode.INTERNAL_ERROR,
+        correlationId,
+        { bucket: DEFAULT_STORAGE_BUCKET, path: fileRecord.path }
+      )
+    }
+
+    // Convert blob to text
+    const fileContent = await fileData.text()
+    console.log(`[TEST_TRIGGER] File content read`, { 
+      fileId, 
+      contentLength: fileContent.length,
+      correlationId 
+    })
+
+    // Check if marker phrase is present in the file
+    const markerPhrase = 'BRIEFLY_INDEX_TEST_PHRASE_9F3A7C2D'
+    const markerFound = fileContent.includes(markerPhrase)
+    console.log(`[TEST_TRIGGER] Marker phrase check`, { markerFound, correlationId })
+
+    // Build FileReference for indexing pipeline
     const fileRef: FileReference = {
       user_id: userId,
       file_id: fileId,
-      source: data.source,
-      external_id: data.external_id,
-      filename: data.filename,
-      mime_type: data.mime_type,
-      content: data.content,
-      download_url: data.download_url,
+      source: fileRecord.source || 'test',
+      external_id: fileRecord.external_id || fileId,
+      filename: fileRecord.name,
+      mime_type: fileRecord.mime_type || 'text/plain',
+      content: fileContent,
+      download_url: fileRecord.external_url,
       last_modified: new Date().toISOString(),
     }
-    
-    console.log(`[TEST_TRIGGER] Starting manual indexing test for file_id=${fileId} user_id=${userId}`)
-    
-    // Call the indexing pipeline
+
+    console.log(`[TEST_TRIGGER] Starting indexing pipeline`, { fileId, userId, correlationId })
+
+    // Run the indexing pipeline
     const result = await indexFile(fileRef)
-    
-    console.log(`[TEST_TRIGGER] Indexing completed: success=${result.success} file_id=${fileId}`)
-    
+
+    console.log(`[TEST_TRIGGER] Indexing completed`, { 
+      success: result.success, 
+      fileId, 
+      chunksIndexed: result.chunks_indexed,
+      correlationId 
+    })
+
     if (result.success) {
       return ApiResponse.success(
         {
-          result,
-          message: 'Indexing completed successfully',
+          success: true,
           file_id: fileId,
-          user_id: userId,
+          chunks_inserted: result.chunks_indexed || 0,
+          marker_found: markerFound,
+          correlationId,
+          result
         },
         'File indexed successfully'
       )
@@ -111,34 +158,31 @@ async function indexTestHandler(request: NextRequest, context: ApiContext): Prom
       return ApiResponse.serverError(
         `Indexing failed: ${result.error}`,
         ApiErrorCode.INTERNAL_ERROR,
+        correlationId,
         {
-          result,
+          success: false,
           file_id: fileId,
-          user_id: userId,
+          marker_found: markerFound,
+          result
         }
       )
     }
-    
-  } catch (error) {
-    console.error('[TEST_TRIGGER] Indexing test handler error:', error)
-    
+  } catch (error: any) {
+    console.error(`[TEST_TRIGGER] Unexpected error`, { 
+      error: error.message, 
+      stack: error.stack,
+      correlationId 
+    })
     return ApiResponse.serverError(
-      'Failed to process indexing test',
+      'Internal server error',
       ApiErrorCode.INTERNAL_ERROR,
-      {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
+      correlationId,
+      { error: error.message }
     )
   }
 }
 
-export const POST = createProtectedApiHandler(indexTestHandler, {
-  rateLimit: {
-    ...rateLimitConfigs.embedding,
-    maxRequests: 10, // Restrictive for test endpoint
-  },
-  logging: {
-    enabled: true,
-    includeBody: true,
-  },
+export const POST = createProtectedApiHandler(handler, {
+  requireAuth: true,
+  rateLimit: rateLimitConfigs.internal
 })
