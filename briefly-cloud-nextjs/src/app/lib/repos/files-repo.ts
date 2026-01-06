@@ -119,7 +119,9 @@ export class FilesRepository extends BaseRepository {
     })
 
     try {
-      const { data, error } = await this.appClient
+      // Explicitly use schema('app') to ensure PostgREST targets the correct schema
+      const { data, error} = await this.appClient
+        .schema('app')
         .from(this.TABLE_NAME)
         .insert(payload)
         .select('*')
