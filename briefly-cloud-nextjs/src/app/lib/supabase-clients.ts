@@ -42,30 +42,50 @@ export function createSchemaAwareClients(): SchemaConfig {
     }
   }
 
-  // Use placeholder values during build if environment variables are not available
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY0MDk5NTIwMCwiZXhwIjoxOTU2NTcxMjAwfQ.placeholder'
+  // Only allow placeholders during build, not runtime
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build'
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  
+  // Prefer SUPABASE_SERVICE_ROLE_KEY, allow SUPABASE_KEY as legacy alias
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
 
   // Debug logging for Quest 0
   console.log('[SUPABASE_APP_CLIENT]', {
+    vercelEnv: process.env.VERCEL_ENV,
+    isBuild,
     usingServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     usingSupabaseKey: !!process.env.SUPABASE_KEY,
     serviceRoleKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length,
     supabaseKeyLength: process.env.SUPABASE_KEY?.length,
   })
 
+  // Hard fail if keys are missing at runtime (not during build)
+  if (!isBuild) {
+    if (!supabaseUrl) {
+      throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL in server runtime')
+    }
+    if (!serviceKey) {
+      throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY) in server runtime')
+    }
+  }
+
+  // Use placeholders only during build
+  const finalUrl = supabaseUrl || 'https://placeholder.supabase.co'
+  const finalKey = serviceKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY0MDk5NTIwMCwiZXhwIjoxOTU2NTcxMjAwfQ.placeholder'
+
   return {
     app: createClient(
-      supabaseUrl,
-      supabaseKey,
+      finalUrl,
+      finalKey,
       {
         ...baseConfig,
         db: { schema: 'app' }
       }
     ),
     private: createClient(
-      supabaseUrl,
-      supabaseKey,
+      finalUrl,
+      finalKey,
       {
         ...baseConfig,
         db: { schema: 'private' }

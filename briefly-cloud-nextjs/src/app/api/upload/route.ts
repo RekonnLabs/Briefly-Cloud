@@ -183,6 +183,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
 
     // Debug logging for Quest 0
     console.log('[UPLOAD_DEBUG]', {
+      vercelEnv: process.env.VERCEL_ENV,
       hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       serviceRoleKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length,
       hasSupabaseKey: !!process.env.SUPABASE_KEY,
