@@ -18,7 +18,7 @@ export interface FileIngestRecord {
 
 const useAppSchema = config.features.ragAppSchema ?? true
 
-const INGEST_TABLE = useAppSchema ? 'app.file_ingest' : 'file_ingest'
+const INGEST_TABLE = 'file_ingest'  // Table name only, schema handled by client config or .schema() call
 
 const columnMap = useAppSchema
   ? {
@@ -71,6 +71,7 @@ export const fileIngestRepo = {
     if (record.meta !== undefined) payload[columnMap.meta] = record.meta
 
     const { data, error } = await supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .upsert(payload, { onConflict: columnMap.fileId })
       .select('*')
@@ -94,6 +95,7 @@ export const fileIngestRepo = {
     }
 
     const { error } = await supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .update(updates)
       .eq(columnMap.fileId, fileId)
@@ -108,6 +110,7 @@ export const fileIngestRepo = {
     if (!fileIds.length) return {}
 
     const { data, error } = await supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .select('*')
       .eq(columnMap.ownerId, ownerId)
@@ -127,6 +130,7 @@ export const fileIngestRepo = {
 
   async listByOwner(ownerId: string): Promise<FileIngestRecord[]> {
     const { data, error } = await supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .select('*')
       .eq(columnMap.ownerId, ownerId)
@@ -140,6 +144,7 @@ export const fileIngestRepo = {
 
   async filterFileIds(ownerId: string, filters: { source?: string | null; status?: FileIngestStatus }): Promise<string[]> {
     let query = supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .select(columnMap.fileId)
       .eq(columnMap.ownerId, ownerId)
@@ -178,6 +183,7 @@ export const fileIngestRepo = {
 
   async existsWithContentHash(ownerId: string, contentHash: string): Promise<boolean> {
     const { data, error } = await supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .select(columnMap.fileId)
       .eq(columnMap.ownerId, ownerId)
@@ -193,6 +199,7 @@ export const fileIngestRepo = {
 
   async deleteByFile(ownerId: string, fileId: string): Promise<void> {
     const { error } = await supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .delete()
       .eq(columnMap.fileId, fileId)
@@ -207,6 +214,7 @@ export const fileIngestRepo = {
     if (!fileIds.length) return
 
     const { error } = await supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .delete()
       .eq(columnMap.ownerId, ownerId)
@@ -219,6 +227,7 @@ export const fileIngestRepo = {
 
   async get(ownerId: string, fileId: string): Promise<FileIngestRecord | null> {
     const { data, error } = await supabaseAdmin
+      .schema('app')
       .from(INGEST_TABLE)
       .select('*')
       .eq(columnMap.fileId, fileId)
