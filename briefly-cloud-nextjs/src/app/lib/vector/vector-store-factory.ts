@@ -109,6 +109,12 @@ export class VectorStoreFactory implements IVectorStoreFactory {
 
     // Add backend-specific configuration
     if (backend === 'pgvector') {
+      // Safety check: ensure connection string is present for pgvector
+      if (!process.env.SUPABASE_CONNECTION_STRING) {
+        throw new Error(
+          'Missing SUPABASE_CONNECTION_STRING. Use Supabase Transaction Pooler for serverless.'
+        )
+      }
       config.connectionString = process.env.SUPABASE_CONNECTION_STRING
     } else if (backend === 'chromadb') {
       config.apiKey = process.env.CHROMA_API_KEY
