@@ -146,7 +146,9 @@ export class PgVectorStore implements IVectorStore {
           payloadSerialized: JSON.stringify(payload)
         })
         
-        const { data, error } = await supabaseAdmin.rpc('insert_document_chunk', payload)
+        const { data, error } = await supabaseAdmin
+          .schema('app')
+          .rpc('insert_document_chunk', payload)
 
         if (error) {
           logger.error('RPC error inserting chunk', {
@@ -171,7 +173,8 @@ export class PgVectorStore implements IVectorStore {
 
       // Log the operation
       await supabaseAdmin
-        .from('private.audit_logs')
+        .schema('private')
+        .from('audit_logs')
         .insert({
           user_id: userId,
           action: 'VECTORS_STORED',
@@ -372,7 +375,8 @@ export class PgVectorStore implements IVectorStore {
 
       // Log the deletion
       await supabaseAdmin
-        .from('private.audit_logs')
+        .schema('private')
+        .from('audit_logs')
         .insert({
           user_id: userId,
           action: fileId ? 'FILE_VECTORS_DELETED' : 'ALL_VECTORS_DELETED',
