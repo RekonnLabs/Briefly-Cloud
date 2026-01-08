@@ -126,7 +126,8 @@ export class PgVectorStore implements IVectorStore {
       for (let i = 0; i < documents.length; i++) {
         const doc = documents[i]
         
-        const { data, error } = await supabaseAdmin.rpc('insert_document_chunk', {
+        // Log exact payload for debugging UUID type mismatch
+        const payload = {
           p_file_id: doc.metadata.fileId,
           p_owner_id: userId,
           p_chunk_index: doc.metadata.chunkIndex ?? i,
@@ -134,7 +135,18 @@ export class PgVectorStore implements IVectorStore {
           p_embedding: doc.embedding ?? null,
           p_token_count: doc.metadata.tokenCount ?? doc.metadata.tokens ?? null,
           p_source: doc.metadata.source ?? 'indexing_pipeline'
+        }
+        
+        console.log('[VECTOR_INSERT_PAYLOAD]', {
+          chunkIndex: i,
+          payload,
+          fileIdType: typeof doc.metadata.fileId,
+          fileIdValue: doc.metadata.fileId,
+          fullMetadata: doc.metadata,
+          payloadSerialized: JSON.stringify(payload)
         })
+        
+        const { data, error } = await supabaseAdmin.rpc('insert_document_chunk', payload)
 
         if (error) {
           logger.error('RPC error inserting chunk', {
