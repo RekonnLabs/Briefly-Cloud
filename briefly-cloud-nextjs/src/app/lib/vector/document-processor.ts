@@ -117,6 +117,40 @@ export class DocumentProcessor implements IDocumentProcessor {
       })
 
     } catch (error) {
+      const e = error as any
+
+      // Comprehensive error logging to see actual error details in Vercel
+      console.error('DOCUMENT_PROCESSING_FAILED', {
+        message: e?.message,
+        name: e?.name,
+        code: e?.code,
+        status: e?.status,
+        stack: e?.stack,
+
+        // OpenAI-style errors
+        openai: {
+          status: e?.response?.status,
+          data: e?.response?.data,
+        },
+
+        // Supabase / Postgres-style errors
+        supabase: {
+          message: e?.message,
+          details: e?.details,
+          hint: e?.hint,
+          code: e?.code,
+        },
+
+        // Context
+        context: {
+          userId,
+          fileId,
+          fileName,
+        },
+
+        raw: JSON.stringify(e, Object.getOwnPropertyNames(e)),
+      })
+
       logger.error('Document processing failed', {
         userId,
         fileId,
