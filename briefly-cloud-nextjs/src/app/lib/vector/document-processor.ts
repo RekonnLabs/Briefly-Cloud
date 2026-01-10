@@ -72,15 +72,19 @@ export class DocumentProcessor implements IDocumentProcessor {
         content: chunk.content,
         embedding: embeddingResult.embeddings[index],
         metadata: {
+          // Spread incoming metadata first so canonical values can override
+          ...metadata,
+          ...chunk.metadata,
+
+          // Force canonical values last so nothing overrides them
           fileId,
           fileName,
-          chunkIndex: chunk.chunkIndex,
           userId,
+          chunkIndex: chunk.chunkIndex,
+
           createdAt: new Date().toISOString(),
           embeddingModel: embeddingResult.model,
-          embeddingDimensions: embeddingResult.dimensions,
-          ...metadata,
-          ...chunk.metadata
+          embeddingDimensions: embeddingResult.dimensions
         }
       }))
 

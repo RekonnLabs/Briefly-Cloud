@@ -126,6 +126,12 @@ export class PgVectorStore implements IVectorStore {
       for (let i = 0; i < documents.length; i++) {
         const doc = documents[i]
         
+        // Validate fileId is a proper UUID string
+        const fileId = doc.metadata.fileId
+        if (typeof fileId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(fileId)) {
+          throw createError.badRequest(`Invalid fileId for vector chunk insert: ${JSON.stringify(fileId)}`)
+        }
+        
         // Log exact payload for debugging UUID type mismatch
         const payload = {
           p_file_id: doc.metadata.fileId,
