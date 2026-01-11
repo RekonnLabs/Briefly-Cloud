@@ -5,7 +5,8 @@ import type { User } from "@supabase/supabase-js";
 import { useSearchParams } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { ChatInterface } from "@/app/components/ChatInterface";
-import { FileUpload } from "@/app/components/FileUpload";
+import FileUpload from "@/app/components/FileUpload";
+import { FileList } from "@/app/components/files/FileList";
 import { CloudStorage } from "@/app/components/CloudStorage";
 import { SubscriptionStatus } from "@/app/components/SubscriptionStatus";
 import { QuotaStatus } from "@/app/components/QuotaStatus";
@@ -584,9 +585,9 @@ export default function DashboardClient({ user }: DashboardClientProps) {
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-white mb-4">Your Documents</h2>
-                <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-xl p-6 text-gray-400 text-center">
-                  Connect storage providers or upload files to see them here.
-                </div>
+                <ErrorBoundary>
+                  <FileList />
+                </ErrorBoundary>
               </div>
             </div>
           )}
