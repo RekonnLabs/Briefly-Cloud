@@ -70,7 +70,7 @@ export class DocumentProcessor implements IDocumentProcessor {
       const vectorDocuments: VectorDocument[] = chunks.map((chunk, index) => ({
         id: `${fileId}_${chunk.chunkIndex}`,
         content: chunk.content,
-        embedding: embeddingResult.embeddings[index],
+        embedding: embeddingResult.embeddings[index].embedding,
         metadata: {
           // Spread incoming metadata first so canonical values can override
           ...metadata,
@@ -87,6 +87,16 @@ export class DocumentProcessor implements IDocumentProcessor {
           embeddingDimensions: embeddingResult.dimensions
         }
       }))
+
+      // Sanity check logging (temporary for debugging)
+      const first = vectorDocuments[0]
+      logger.info('[vector-sanity]', {
+        fileId,
+        embeddingType: typeof first?.embedding,
+        embeddingIsArray: Array.isArray(first?.embedding),
+        embeddingLen: Array.isArray(first?.embedding) ? first.embedding.length : null,
+        embeddingPreview: Array.isArray(first?.embedding) ? first.embedding.slice(0, 3) : first?.embedding,
+      })
 
       // Step 4: Store vectors in the vector store
       await this.vectorStore.addDocuments(userId, vectorDocuments)
