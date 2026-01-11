@@ -1,8 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabaseBrowser } from '@/app/lib/supabase-clients'
+import { createBrowserClient } from '@supabase/ssr'
 import { logger } from '@/app/lib/logger'
+
+// Create browser client for client component
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 interface FileRecord {
   id: string
@@ -28,7 +34,7 @@ export function FileList() {
       setLoading(true)
       setError(null)
 
-      const { data, error: fetchError } = await supabaseBrowser
+      const { data, error: fetchError } = await supabase
         .schema('app')
         .from('files')
         .select('id, name, mime_type, size_bytes, processing_status, created_at, updated_at')
@@ -54,7 +60,7 @@ export function FileList() {
     }
 
     try {
-      const { error: deleteError } = await supabaseBrowser
+      const { error: deleteError } = await supabase
         .schema('app')
         .from('files')
         .delete()

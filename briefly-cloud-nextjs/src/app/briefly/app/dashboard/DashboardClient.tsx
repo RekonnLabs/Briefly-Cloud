@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { useSearchParams } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { ChatInterface } from "@/app/components/ChatInterface";
-import FileUpload from "@/app/components/FileUpload";
+import { FileUpload } from "@/app/components/FileUpload";
 import { FileList } from "@/app/components/files/FileList";
 import { CloudStorage } from "@/app/components/CloudStorage";
 import { SubscriptionStatus } from "@/app/components/SubscriptionStatus";
