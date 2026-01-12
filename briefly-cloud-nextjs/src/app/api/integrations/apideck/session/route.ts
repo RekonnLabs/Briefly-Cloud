@@ -77,14 +77,43 @@ export async function POST(req: Request) {
       user.user_metadata?.name || user.email?.split('@')[0]
     );
     
+    // Normalize response structure - extract token and uri from various possible locations
+    const token =
+      session?.data?.session_token ??
+      session?.session_token ??
+      session?.session?.data?.session_token;
+
+    const uri =
+      session?.data?.session_uri ??
+      session?.session_uri ??
+      session?.session?.data?.session_uri;
+
+    if (!token) {
+      console.error('[apideck:session] Missing session token:', {
+        userId: user.id,
+        responseKeys: Object.keys(session || {})
+      });
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'MISSING_TOKEN',
+          message: 'Missing session token from Apideck',
+          raw: session 
+        },
+        { status: 500 }
+      );
+    }
+
     console.log('[apideck:session] Session created successfully:', {
       userId: user.id,
-      sessionId: session?.id || 'unknown'
+      hasToken: !!token,
+      hasUri: !!uri
     });
     
     return NextResponse.json({
       success: true,
-      session,
+      token,
+      uri,
       userId: user.id
     });
     

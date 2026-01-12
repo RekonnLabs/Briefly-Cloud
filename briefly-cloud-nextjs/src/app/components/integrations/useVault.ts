@@ -51,10 +51,9 @@ export function useVault() {
       }
       
       const session = await res.json()
-      console.log('[vault] Session created:', JSON.stringify(session, null, 2))
+      console.log('[vault] Session created successfully')
       console.log('[vault] Opening vault with config:', {
         hasToken: !!session.token,
-        hasSessionToken: !!session.session_token,
         serviceId: session.serviceId || 'google-drive'
       })
       
@@ -62,16 +61,15 @@ export function useVault() {
       // NOT: new ApideckVault().open() ❌
       // YES: ApideckVault.open() ✅
       
-      // Extract session data from nested response structure
-      const sessionData = session.session || session.data || session;
-      const sessionToken = sessionData.session_token || session.session_token;
+      // Backend now returns normalized { token, uri } structure
+      const token = session.token;
       
-      if (!sessionToken) {
+      if (!token) {
         throw new Error('No session token received from Apideck API');
       }
       
       window.ApideckVault.open({
-        token: sessionToken,
+        token,
         unifiedApi: 'file-storage',
         serviceId: session.serviceId || 'google-drive',
         onReady: () => {
