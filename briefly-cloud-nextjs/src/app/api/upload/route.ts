@@ -8,6 +8,7 @@ import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { supabaseApp } from '@/app/lib/supabase-clients'
 import { logApiUsage } from '@/app/lib/logger'
 import { filesRepo, fileIngestRepo, usersRepo } from '@/app/lib/repos'
+import { computeBufferHash } from '@/app/lib/utils/content-hash'
 import { createError } from '@/app/lib/api-errors'
 import { cacheManager, CACHE_KEYS } from '@/app/lib/cache'
 import { withPerformanceMonitoring, withApiPerformanceMonitoring } from '@/app/lib/stubs/performance'
@@ -156,6 +157,28 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     // Convert File to ArrayBuffer for Supabase Storage
     const fileBuffer = await file.arrayBuffer()
     
+    // Compute content hash for deduplication
+    const contentHash = computeBufferHash(Buffer.from(fileBuffer))
+    
+    // Check for duplicate upload based on content hash
+    const existingFile = await filesRepo.findByContentHash(user.id, contentHash)
+    
+    if (existingFile) {
+      logger.info('Duplicate file detected, returning existing file', {
+        userId: user.id,
+        existingFileId: existingFile.id,
+        fileName: file.name,
+        contentHash,
+        correlationId
+      })
+      
+      return ApiResponse.success({
+        file: existingFile,
+        duplicate: true,
+        message: 'File with identical content already exists'
+      })
+    }
+    
     // Upload to Supabase Storage using app schema client
     const { data: uploadData, error: uploadError } = await supabaseApp.storage
       .from('documents')
@@ -201,6 +224,8 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
           path: fileName,
           sizeBytes: file.size,
           mimeType: file.type,
+          checksum: contentHash,
+          source: 'upload',
           createdAt: new Date().toISOString(),
         }),
         {

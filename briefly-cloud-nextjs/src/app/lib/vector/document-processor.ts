@@ -13,6 +13,7 @@ import { createTextChunks } from '@/app/lib/document-chunker'
 import { supabaseApp } from '@/app/lib/supabase-clients'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { chunksRepo } from '@/app/lib/repos/chunks-repo'
+import { computeContentHash } from '@/app/lib/utils/content-hash'
 
 import type {
   IDocumentProcessor,
@@ -38,11 +39,20 @@ export class DocumentProcessor implements IDocumentProcessor {
     metadata: Record<string, any> = {}
   ): Promise<void> {
     try {
+      // Compute content hash for deduplication
+      const contentHash = computeContentHash(content)
+      
       logger.info('Starting document processing', {
         userId,
         fileId,
         fileName,
-        contentLength: content.length
+        contentLength: content.length,
+        contentHash
+      })
+
+      // Update file record with content hash
+      await filesRepo.update(userId, fileId, {
+        checksum: contentHash
       })
 
       // Step 1: Create text chunks
@@ -98,13 +108,46 @@ export class DocumentProcessor implements IDocumentProcessor {
         embeddingPreview: Array.isArray(first?.embedding) ? first.embedding.slice(0, 3) : first?.embedding,
       })
 
-      // Step 4: Store vectors in the vector store
+      // Step 4: Delete old chunks if file is being re-indexed (for updates)
+      // This ensures we don't accumulate stale chunks
+      const existingChunks = await supabaseApp
+        .schema('app')
+        .from('document_chunks')
+        .select('id')
+        .eq('file_id', fileId)
+        .eq('owner_id', userId)
+      
+      if (existingChunks.data && existingChunks.data.length > 0) {
+        logger.info('Deleting old chunks for file update', {
+          userId,
+          fileId,
+          oldChunkCount: existingChunks.data.length
+        })
+        
+        const { error: deleteError } = await supabaseApp
+          .schema('app')
+          .from('document_chunks')
+          .delete()
+          .eq('file_id', fileId)
+          .eq('owner_id', userId)
+        
+        if (deleteError) {
+          logger.error('Failed to delete old chunks', {
+            userId,
+            fileId,
+            error: deleteError
+          })
+          // Continue anyway - we'll insert new chunks
+        }
+      }
+      
+      // Step 5: Store new vectors in the vector store
       await this.vectorStore.addDocuments(userId, vectorDocuments)
 
-      // Step 5: Update file processing status using repository
+      // Step 6: Update file processing status using repository
       await filesRepo.updateProcessingStatus(userId, fileId, 'completed')
 
-      // Step 6: Log usage for analytics in app schema
+      // Step 7: Log usage for analytics in app schema
       await supabaseApp
         .from('usage_logs')
         .insert({

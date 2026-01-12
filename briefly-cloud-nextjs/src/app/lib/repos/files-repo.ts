@@ -142,6 +142,32 @@ export class FilesRepository extends BaseRepository {
   }
 
   /**
+   * Find file by content hash for deduplication
+   */
+  async findByContentHash(userId: string, contentHash: string): Promise<FileRecord | null> {
+    this.validateRequiredFields({ userId, contentHash }, ['userId', 'contentHash'], 'find file by content hash')
+
+    try {
+      const { data, error } = await this.appClient
+        .schema('app')
+        .from(this.TABLE_NAME)
+        .select('*')
+        .eq('owner_id', userId)
+        .eq('checksum', contentHash)
+        .eq('source', 'upload')
+        .maybeSingle()
+
+      if (error) {
+        this.handleDatabaseError(error, 'find file by content hash')
+      }
+
+      return data ? mapRecordToFileRecord(data) : null
+    } catch (error) {
+      this.handleDatabaseError(error, 'find file by content hash from app schema')
+    }
+  }
+
+  /**
    * Get file by ID for a specific user
    */
   async getById(userId: string, fileId: string): Promise<FileRecord | null> {
