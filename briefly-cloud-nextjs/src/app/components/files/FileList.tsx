@@ -15,7 +15,7 @@ interface FileRecord {
   name: string
   mime_type: string
   size_bytes: number
-  processing_status: 'pending' | 'processing' | 'completed' | 'failed'
+  processing_status: 'pending' | 'processing' | 'completed' | 'failed' | 'deleted'
   created_at: string
   updated_at: string
 }
@@ -38,6 +38,7 @@ export function FileList() {
         .schema('app')
         .from('files')
         .select('id, name, mime_type, size_bytes, processing_status, created_at, updated_at')
+        .neq('processing_status', 'deleted')
         .order('created_at', { ascending: false })
         .limit(50)
 
