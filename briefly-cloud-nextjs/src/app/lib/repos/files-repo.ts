@@ -142,6 +142,31 @@ export class FilesRepository extends BaseRepository {
   }
 
   /**
+   * List files by user and source (for cloud sync)
+   */
+  async listByUserAndSource(userId: string, source: string): Promise<FileRecord[]> {
+    this.validateRequiredFields({ userId, source }, ['userId', 'source'], 'list files by user and source')
+
+    try {
+      const { data, error } = await this.appClient
+        .schema('app')
+        .from(this.TABLE_NAME)
+        .select('*')
+        .eq('owner_id', userId)
+        .eq('source', source)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        this.handleDatabaseError(error, 'list files by user and source')
+      }
+
+      return (data || []).map(mapRecordToFileRecord)
+    } catch (error) {
+      this.handleDatabaseError(error, 'list files by user and source from app schema')
+    }
+  }
+
+  /**
    * Find file by content hash for deduplication
    */
   async findByContentHash(userId: string, contentHash: string): Promise<FileRecord | null> {
