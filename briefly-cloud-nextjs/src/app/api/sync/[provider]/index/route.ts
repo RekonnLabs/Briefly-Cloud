@@ -15,11 +15,13 @@ import { createError } from '@/app/lib/api-errors'
  * 
  * Request body:
  * - fileIds?: string[] - Optional list of specific file IDs to sync (if omitted, syncs all changed files)
+ * - deletedIds?: string[] - Optional list of file IDs that were deleted from cloud
  * 
  * Returns:
  * - indexed: Files that were downloaded and indexed
  * - skipped: Files that were skipped (no changes)
  * - failed: Files that failed to process
+ * - deleted: Files that were marked as deleted
  * - nextCursor: Delta cursor for next sync
  */
 export const POST = createProtectedApiHandler(async (req: NextRequest, user) => {
@@ -34,12 +36,14 @@ export const POST = createProtectedApiHandler(async (req: NextRequest, user) => 
   // Parse request body
   const body = await req.json().catch(() => ({}))
   const specificFileIds: string[] | undefined = body.fileIds
+  const deletedFileIds: string[] | undefined = body.deletedIds
 
   logger.info('[SYNC_INDEX] Starting', {
     correlationId,
     userId: user.id,
     provider,
-    specificFileIds: specificFileIds?.length || 'all'
+    specificFileIds: specificFileIds?.length || 'all',
+    deletedFileIds: deletedFileIds?.length || 0
   })
 
   try {
@@ -101,6 +105,7 @@ export const POST = createProtectedApiHandler(async (req: NextRequest, user) => 
     const indexed: any[] = []
     const skipped: any[] = []
     const failed: any[] = []
+    const deleted: any[] = []
 
     for (const cloudFile of cloudFiles) {
       const normalizedFile = normalizeApideckFile(cloudFile)
@@ -212,6 +217,36 @@ export const POST = createProtectedApiHandler(async (req: NextRequest, user) => 
       }
     }
 
+    // Handle deletions - mark files as deleted if they're no longer in cloud
+    if (deletedFileIds && deletedFileIds.length > 0) {
+      for (const deletedId of deletedFileIds) {
+        try {
+          const existing = existingFileMap.get(deletedId)
+          if (existing) {
+            await filesRepo.update(user.id, existing.id, {
+              processing_status: 'deleted'
+            })
+            deleted.push({
+              id: deletedId,
+              fileRecordId: existing.id,
+              name: existing.name
+            })
+            logger.info('[SYNC_INDEX] File marked as deleted', {
+              correlationId,
+              fileId: deletedId,
+              fileRecordId: existing.id
+            })
+          }
+        } catch (error: any) {
+          logger.error('[SYNC_INDEX] Failed to mark file as deleted', {
+            correlationId,
+            fileId: deletedId,
+            error: error.message
+          })
+        }
+      }
+    }
+
     // Update sync connection with new cursor and timestamp
     await syncConnectionsRepo.upsert({
       ownerId: user.id,
@@ -222,7 +257,8 @@ export const POST = createProtectedApiHandler(async (req: NextRequest, user) => 
         last_sync_summary: {
           indexed: indexed.length,
           skipped: skipped.length,
-          failed: failed.length
+          failed: failed.length,
+          deleted: deleted.length
         }
       }
     })
@@ -231,7 +267,8 @@ export const POST = createProtectedApiHandler(async (req: NextRequest, user) => 
       correlationId,
       indexed: indexed.length,
       skipped: skipped.length,
-      failed: failed.length
+      failed: failed.length,
+      deleted: deleted.length
     })
 
     return NextResponse.json({
@@ -241,12 +278,14 @@ export const POST = createProtectedApiHandler(async (req: NextRequest, user) => 
         indexed: indexed.length,
         skipped: skipped.length,
         failed: failed.length,
+        deleted: deleted.length,
         total: cloudFiles.length
       },
       results: {
         indexed,
         skipped: skipped.slice(0, 10), // Limit skipped list
-        failed
+        failed,
+        deleted
       },
       nextCursor,
       timestamp: new Date().toISOString()

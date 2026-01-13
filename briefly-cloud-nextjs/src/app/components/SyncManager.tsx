@@ -100,8 +100,10 @@ export function SyncManager({ provider, providerName }: SyncManagerProps) {
       ...checkResult.updated.map(f => f.id)
     ];
 
-    if (filesToSync.length === 0) {
-      showError('Nothing to sync', 'No new or updated files found');
+    const deletedIds = checkResult.deleted.map(f => f.id);
+
+    if (filesToSync.length === 0 && deletedIds.length === 0) {
+      showError('Nothing to sync', 'No changes to process');
       return;
     }
 
@@ -116,7 +118,8 @@ export function SyncManager({ provider, providerName }: SyncManagerProps) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          fileIds: filesToSync
+          fileIds: filesToSync.length > 0 ? filesToSync : undefined,
+          deletedIds: deletedIds.length > 0 ? deletedIds : undefined
         })
       });
 
