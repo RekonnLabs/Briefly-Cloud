@@ -34,6 +34,7 @@ import { logStorageOAuthRoute, logOAuthFlowCompletion, logAuthenticationViolatio
 import { useVault } from './integrations/useVault';
 import { ConnectionStatusCard, type ConnectionStatus } from './integrations/ConnectionStatusCard';
 import { ConnectionMonitoringDashboard } from './integrations/ConnectionMonitoringDashboard';
+import { SyncManager } from './SyncManager';
 
 interface CloudFile {
   id: string;
@@ -1108,6 +1109,14 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                   </button>
                 )}
               </div>
+
+              {/* Sync Manager - Show for connected providers */}
+              {isApideckEnabled && (
+                <SyncManager
+                  provider={provider.id === 'google' ? 'gdrive' : provider.id === 'microsoft' ? 'onedrive' : 'dropbox'}
+                  providerName={provider.name}
+                />
+              )}
 
               {/* Google Picker Integration - Only show for Google Drive */}
               {provider.id === 'google' && (
