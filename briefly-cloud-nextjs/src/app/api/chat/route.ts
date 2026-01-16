@@ -228,26 +228,11 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   }
 
   // Generate response using routed model
-  let rawResponse: string
-  
-  if (stream) {
-    const streamResp = await withApiPerformanceMonitoring(() =>
-      streamChatCompletion(messages as any, tier)
-    )
-    
-    // For streaming, we'll collect the response and then lint it
-    // This is a simplified approach - in production you might want to stream and lint simultaneously
-    let collectedResponse = ''
-    for await (const chunk of streamResp) {
-      const content = typeof chunk === 'string' ? chunk : chunk.choices?.[0]?.delta?.content || ''
-      collectedResponse += content
-    }
-    rawResponse = collectedResponse
-  } else {
-    rawResponse = await withApiPerformanceMonitoring(() =>
-      generateChatCompletion(messages as any, tier)
-    )
-  }
+  // Note: Currently using non-streaming mode for both cases to avoid streaming complexity
+  // TODO: Implement proper streaming response when stream=true
+  const rawResponse = await withApiPerformanceMonitoring(() =>
+    generateChatCompletion(messages as any, tier)
+  )
 
   // Apply Briefly Voice linting
   const lintResult = lintResponse(rawResponse)
