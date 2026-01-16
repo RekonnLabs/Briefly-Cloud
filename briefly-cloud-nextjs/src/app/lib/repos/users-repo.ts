@@ -64,11 +64,11 @@ export const TIER_LIMITS = {
 /**
  * Users Repository - App Schema Implementation
  * 
- * This repository handles user operations using the app schema (app.users table).
+ * This repository handles user operations using the app schema (app.profiles table).
  * It extends BaseRepository for schema-aware operations and proper error handling.
  */
 export class UsersRepository extends BaseRepository {
-  private readonly TABLE_NAME = 'users'
+  private readonly TABLE_NAME = 'profiles'
 
   /**
    * Get user profile by ID
