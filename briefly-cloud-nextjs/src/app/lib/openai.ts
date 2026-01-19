@@ -98,6 +98,12 @@ export async function generateChatCompletion(
   const model = resolveChatModel(tier)
   
   try {
+    console.log('[OpenAI] Calling chat.completions.create with:', {
+      model,
+      messageCount: messages.length,
+      tier
+    })
+    
     const response = await client.chat.completions.create({
       model,
       messages,
@@ -105,7 +111,23 @@ export async function generateChatCompletion(
       temperature: 0.7,
     })
     
-    return response.choices[0]?.message?.content || 'No response generated'
+    console.log('[OpenAI] Response received:', {
+      model: response.model,
+      choices: response.choices.length,
+      finishReason: response.choices[0]?.finish_reason,
+      contentLength: response.choices[0]?.message?.content?.length || 0,
+      hasContent: !!response.choices[0]?.message?.content
+    })
+    
+    const content = response.choices[0]?.message?.content
+    if (!content || content.trim().length === 0) {
+      console.error('[OpenAI] Empty response received!', {
+        response: JSON.stringify(response, null, 2)
+      })
+      return 'No response generated'
+    }
+    
+    return content
   } catch (error) {
     console.error('Error generating chat completion:', error)
     
