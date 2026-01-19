@@ -50,6 +50,7 @@ export class PgVectorStore implements IVectorStore {
     try {
       // Test connection by checking if pgvector extension is available
       const { data, error } = await supabaseAdmin
+        .schema('app')
         .rpc('test_pgvector_extension')
         .single()
 
