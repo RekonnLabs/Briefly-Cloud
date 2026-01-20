@@ -10,9 +10,12 @@ export function withPerformanceMonitoring<T extends (...args: any[]) => any>(
 ): T {
   return ((...args: any[]) => {
     const start = Date.now();
+    console.log('[Performance] Wrapper called', { operationName, argsCount: args.length });
     
     try {
+      console.log('[Performance] About to call fn()');
       const result = fn(...args);
+      console.log('[Performance] fn() returned', { isPromise: result && typeof result.then === 'function', resultType: typeof result });
       
       // If it's a promise, handle async timing
       if (result && typeof result.then === 'function') {
