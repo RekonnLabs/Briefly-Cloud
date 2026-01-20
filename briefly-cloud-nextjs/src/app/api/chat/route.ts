@@ -230,9 +230,20 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   // Generate response using routed model
   // Note: Currently using non-streaming mode for both cases to avoid streaming complexity
   // TODO: Implement proper streaming response when stream=true
+  console.log('[chat-handler] About to call generateChatCompletion', {
+    tier,
+    messageCount: messages.length,
+    model: routing.model
+  })
+  
   const rawResponse = await withApiPerformanceMonitoring(() =>
     generateChatCompletion(messages as any, tier)
   )
+  
+  console.log('[chat-handler] generateChatCompletion returned', {
+    responseLength: rawResponse?.length || 0,
+    hasContent: !!rawResponse
+  })
 
   // Apply Briefly Voice linting
   const lintResult = lintResponse(rawResponse)
