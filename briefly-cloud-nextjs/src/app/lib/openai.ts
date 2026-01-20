@@ -89,6 +89,13 @@ export async function generateChatCompletion(
   tier: SubscriptionTier,
   userApiKey?: string
 ): Promise<string> {
+  console.log('[OpenAI] generateChatCompletion ENTERED', {
+    tier,
+    messageCount: messages.length,
+    hasUserApiKey: !!userApiKey,
+    hasEnvApiKey: !!process.env.OPENAI_API_KEY
+  })
+  
   // Validate API key availability
   if (!process.env.OPENAI_API_KEY && !userApiKey) {
     throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable or provide a user API key.')
