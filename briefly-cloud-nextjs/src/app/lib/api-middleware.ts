@@ -135,7 +135,22 @@ async function extractUserContext(request: Request, correlationId: string): Prom
     logAuthenticationContext(authContext)
 
     // Get user from Supabase (validates JWT internally)
+    console.log('[auth:getUser] Calling supabase.auth.getUser()...', {
+      correlationId,
+      hasJwtToken: !!jwtToken,
+      jwtTokenLength: jwtToken?.length
+    })
+    
     const { data: { user }, error } = await supabase.auth.getUser()
+    
+    console.log('[auth:getUser] Result:', {
+      correlationId,
+      hasUser: !!user,
+      userId: user?.id,
+      hasError: !!error,
+      errorMessage: error?.message,
+      errorStatus: error?.status
+    })
 
     if (error) {
       const authError = {
