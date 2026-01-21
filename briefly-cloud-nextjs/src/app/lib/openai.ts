@@ -8,6 +8,7 @@ export const openai = new Proxy({} as OpenAI, {
     if (!_openai) {
       _openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY!,
+        project: process.env.OPENAI_PROJECT_ID,
       })
     }
     return _openai[prop as keyof OpenAI]
@@ -18,6 +19,7 @@ export const openai = new Proxy({} as OpenAI, {
 export function createUserOpenAIClient(apiKey: string) {
   return new OpenAI({
     apiKey: apiKey,
+    project: process.env.OPENAI_PROJECT_ID,
   })
 }
 
