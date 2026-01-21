@@ -116,13 +116,19 @@ export async function generateChatCompletion(
     })
     
     // GPT-5 models use max_completion_tokens instead of max_tokens
+    // GPT-5 models only support default temperature (1), so we omit it
     const isGPT5 = model.startsWith('gpt-5')
     const completionParams: any = {
       model,
       messages,
-      temperature: 0.7,
     }
     
+    // Only add temperature for non-GPT-5 models
+    if (!isGPT5) {
+      completionParams.temperature = 0.7
+    }
+    
+    // Use appropriate token limit parameter
     if (isGPT5) {
       completionParams.max_completion_tokens = 1000
     } else {
@@ -148,23 +154,46 @@ export async function generateChatCompletion(
     }
     
     return content
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating chat completion:', error)
     
-    // Provide more specific error messages
-    if (error instanceof Error) {
-      if (error.message.includes('API key')) {
-        throw new Error('Invalid OpenAI API key. Please check your API key configuration.')
-      }
-      if (error.message.includes('quota')) {
-        throw new Error('OpenAI API quota exceeded. Please check your billing and usage limits.')
-      }
-      if (error.message.includes('model')) {
-        throw new Error(`OpenAI model "${model}" not available. Please check your API access.`)
-      }
+    // Extract error details
+    const errorCode = error?.error?.code || error?.code
+    const errorType = error?.error?.type || error?.type
+    const errorParam = error?.error?.param || error?.param
+    const errorMessage = error?.error?.message || error?.message || String(error)
+    const status = error?.status || error?.statusCode
+    
+    console.error('[OpenAI] Error details:', {
+      status,
+      code: errorCode,
+      type: errorType,
+      param: errorParam,
+      message: errorMessage
+    })
+    
+    // Handle specific error types
+    if (status === 400 && errorCode === 'unsupported_value') {
+      throw new Error(`Invalid parameter for model "${model}": ${errorParam} - ${errorMessage}`)
     }
     
-    throw new Error('Failed to generate chat response. Please try again.')
+    if (status === 401 || errorMessage.includes('API key') || errorMessage.includes('Incorrect API key')) {
+      throw new Error('Invalid OpenAI API key. Please check your API key configuration.')
+    }
+    
+    if (status === 403 || errorMessage.includes('access')) {
+      throw new Error(`Access denied to model "${model}". Please check your API access level.`)
+    }
+    
+    if (status === 404 || errorCode === 'model_not_found') {
+      throw new Error(`Model "${model}" not found. The model may have been renamed or deprecated.`)
+    }
+    
+    if (status === 429 || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+      throw new Error('OpenAI API quota or rate limit exceeded. Please check your billing and usage limits.')
+    }
+    
+    throw new Error(`Failed to generate chat response: ${errorMessage}`)
   }
 }
 
@@ -184,14 +213,20 @@ export async function streamChatCompletion(
   
   try {
     // GPT-5 models use max_completion_tokens instead of max_tokens
+    // GPT-5 models only support default temperature (1), so we omit it
     const isGPT5 = model.startsWith('gpt-5')
     const streamParams: any = {
       model,
       messages,
-      temperature: 0.7,
       stream: true,
     }
     
+    // Only add temperature for non-GPT-5 models
+    if (!isGPT5) {
+      streamParams.temperature = 0.7
+    }
+    
+    // Use appropriate token limit parameter
     if (isGPT5) {
       streamParams.max_completion_tokens = 1000
     } else {
@@ -201,22 +236,45 @@ export async function streamChatCompletion(
     const stream = await client.chat.completions.create(streamParams)
     
     return stream
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error streaming chat completion:', error)
     
-    // Provide more specific error messages
-    if (error instanceof Error) {
-      if (error.message.includes('API key')) {
-        throw new Error('Invalid OpenAI API key. Please check your API key configuration.')
-      }
-      if (error.message.includes('quota')) {
-        throw new Error('OpenAI API quota exceeded. Please check your billing and usage limits.')
-      }
-      if (error.message.includes('model')) {
-        throw new Error(`OpenAI model "${model}" not available. Please check your API access.`)
-      }
+    // Extract error details
+    const errorCode = error?.error?.code || error?.code
+    const errorType = error?.error?.type || error?.type
+    const errorParam = error?.error?.param || error?.param
+    const errorMessage = error?.error?.message || error?.message || String(error)
+    const status = error?.status || error?.statusCode
+    
+    console.error('[OpenAI] Stream error details:', {
+      status,
+      code: errorCode,
+      type: errorType,
+      param: errorParam,
+      message: errorMessage
+    })
+    
+    // Handle specific error types
+    if (status === 400 && errorCode === 'unsupported_value') {
+      throw new Error(`Invalid parameter for model "${model}": ${errorParam} - ${errorMessage}`)
     }
     
-    throw new Error('Failed to stream chat response. Please try again.')
+    if (status === 401 || errorMessage.includes('API key') || errorMessage.includes('Incorrect API key')) {
+      throw new Error('Invalid OpenAI API key. Please check your API key configuration.')
+    }
+    
+    if (status === 403 || errorMessage.includes('access')) {
+      throw new Error(`Access denied to model "${model}". Please check your API access level.`)
+    }
+    
+    if (status === 404 || errorCode === 'model_not_found') {
+      throw new Error(`Model "${model}" not found. The model may have been renamed or deprecated.`)
+    }
+    
+    if (status === 429 || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
+      throw new Error('OpenAI API quota or rate limit exceeded. Please check your billing and usage limits.')
+    }
+    
+    throw new Error(`Failed to stream chat response: ${errorMessage}`)
   }
 }
