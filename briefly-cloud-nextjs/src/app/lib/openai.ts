@@ -111,12 +111,21 @@ export async function generateChatCompletion(
       tier
     })
     
-    const response = await client.chat.completions.create({
+    // GPT-5 models use max_completion_tokens instead of max_tokens
+    const isGPT5 = model.startsWith('gpt-5')
+    const completionParams: any = {
       model,
       messages,
-      max_tokens: 1000,
       temperature: 0.7,
-    })
+    }
+    
+    if (isGPT5) {
+      completionParams.max_completion_tokens = 1000
+    } else {
+      completionParams.max_tokens = 1000
+    }
+    
+    const response = await client.chat.completions.create(completionParams)
     
     console.log('[OpenAI] Response received:', {
       model: response.model,
@@ -170,13 +179,22 @@ export async function streamChatCompletion(
   const model = resolveChatModel(tier)
   
   try {
-    const stream = await client.chat.completions.create({
+    // GPT-5 models use max_completion_tokens instead of max_tokens
+    const isGPT5 = model.startsWith('gpt-5')
+    const streamParams: any = {
       model,
       messages,
-      max_tokens: 1000,
       temperature: 0.7,
       stream: true,
-    })
+    }
+    
+    if (isGPT5) {
+      streamParams.max_completion_tokens = 1000
+    } else {
+      streamParams.max_tokens = 1000
+    }
+    
+    const stream = await client.chat.completions.create(streamParams)
     
     return stream
   } catch (error) {
