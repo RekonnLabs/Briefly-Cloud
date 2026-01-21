@@ -29,6 +29,7 @@ export interface ResponseProvenance {
   // Decision reasoning
   routingReasoning: string
   fallbackUsed: boolean
+  fallbackReason?: string
   
   // Timestamps
   classificationDuration: number
@@ -59,6 +60,7 @@ export interface ProvenanceBuilder {
   modelUsed?: Model | null
   routingReasoning?: string
   fallbackUsed?: boolean
+  fallbackReason?: string
   
   inputTokens?: number
   outputTokens?: number
@@ -111,11 +113,13 @@ export function recordRouting(
   builder: ProvenanceBuilder,
   modelUsed: Model | null,
   routingReasoning: string,
-  fallbackUsed: boolean = false
+  fallbackUsed: boolean = false,
+  fallbackReason?: string
 ): void {
   builder.modelUsed = modelUsed
   builder.routingReasoning = routingReasoning
   builder.fallbackUsed = fallbackUsed
+  builder.fallbackReason = fallbackReason
 }
 
 /**
@@ -172,6 +176,7 @@ export function buildProvenance(builder: ProvenanceBuilder): ResponseProvenance 
     
     routingReasoning: builder.routingReasoning || 'No routing decision made',
     fallbackUsed: builder.fallbackUsed || false,
+    fallbackReason: builder.fallbackReason,
     
     classificationDuration,
     retrievalDuration,
@@ -226,6 +231,7 @@ export function formatProvenanceForLog(provenance: ResponseProvenance): Record<s
     topScore: provenance.topRelevanceScore.toFixed(3),
     routing: provenance.routingReasoning,
     fallback: provenance.fallbackUsed,
+    fallbackReason: provenance.fallbackReason || 'none',
     tokens: {
       input: provenance.inputTokens,
       output: provenance.outputTokens,

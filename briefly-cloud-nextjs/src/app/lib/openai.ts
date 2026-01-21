@@ -30,23 +30,25 @@ export const EMBEDDING_DIMENSIONS = 1536
 // Feature flag and env-based chat model mapping
 const FEATURE_GPT5 = String(process.env.FEATURE_GPT5 || 'true').toLowerCase() === 'true'
 
-function fallbackFree(): string {
-  // Prefer 4.1-nano if available, then 3.5
+// Canonical GPT-5 model configuration
+export const FREE_CHAT_MODEL = 'gpt-5-mini'
+export const PRO_CHAT_MODEL = 'gpt-5.1'
+export const PRO_FALLBACK_MODEL = 'gpt-5-mini'
+export const CLASSIFIER_MODEL = 'gpt-5-nano'
+
+// Legacy GPT-4 fallbacks (only used when FEATURE_GPT5=false)
+function legacyFallbackFree(): string {
   return process.env.FALLBACK_MODEL_FREE || 'gpt-4.1-nano'
 }
 
-function fallbackPro(): string {
+function legacyFallbackPro(): string {
   return process.env.FALLBACK_MODEL_PRO || 'gpt-4o'
 }
 
-function fallbackByok(): string {
-  return process.env.FALLBACK_MODEL_BYOK || 'gpt-4o'
-}
-
 export const CHAT_MODELS = {
-  free: process.env.CHAT_MODEL_FREE || (FEATURE_GPT5 ? 'gpt-5-nano' : fallbackFree()),
-  pro: process.env.CHAT_MODEL_PRO || (FEATURE_GPT5 ? 'gpt-5-mini' : fallbackPro()),
-  pro_byok: process.env.CHAT_MODEL_BYOK || (FEATURE_GPT5 ? 'gpt-5-mini' : fallbackByok()),
+  free: process.env.CHAT_MODEL_FREE || (FEATURE_GPT5 ? FREE_CHAT_MODEL : legacyFallbackFree()),
+  pro: process.env.CHAT_MODEL_PRO || (FEATURE_GPT5 ? PRO_CHAT_MODEL : legacyFallbackPro()),
+  pro_byok: process.env.CHAT_MODEL_BYOK || 'user-provided',
 } as const
 
 export type SubscriptionTier = keyof typeof CHAT_MODELS

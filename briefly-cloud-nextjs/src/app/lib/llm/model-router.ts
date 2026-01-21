@@ -112,9 +112,9 @@ function routeProTier(taskType: TaskType, retrievalSufficient: boolean): Routing
   if (taskType === TaskType.DOC_GROUNDED) {
     if (retrievalSufficient) {
       return {
-        model: Model.GPT_5,
+        model: Model.GPT_5_1,
         shouldRespond: true,
-        reasoning: 'Pro tier: Doc-grounded with sufficient retrieval → GPT-5'
+        reasoning: 'Pro tier: Doc-grounded with sufficient retrieval → GPT-5.1'
       }
     }
     return {
