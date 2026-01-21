@@ -33,7 +33,17 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   const { user } = context
   const rid = logReq({ route: '/api/chat', method: 'POST', userId: user?.id })
   
-  if (!user) return ApiResponse.unauthorized('User not authenticated')
+  if (!user) {
+    console.error('[api:chat] Authentication failed - no user in context')
+    return ApiResponse.unauthorized('User not authenticated')
+  }
+  
+  // Quest 3A: Log auth success
+  console.log('[api:auth-success] User authenticated', {
+    userId: user.id,
+    email: user.email,
+    correlationId: rid
+  })
 
   let body: unknown
   try {
@@ -206,6 +216,16 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   // Route to appropriate model
   const routing = routeModel(tier, boost, routingSignals)
   const modelConfig = getModelConfig(routing.model)
+  
+  // Quest 3A: Log model selection
+  console.log('[api:model-selected]', {
+    model: routing.model,
+    tier,
+    boost,
+    reason: routing.reason,
+    estimatedCost: routing.estimatedCost,
+    correlationId: rid
+  })
 
   // Build messages using Briefly Voice v1
   const developerTask = "Answer the user's question using the provided context. Be helpful and cite sources when referencing documents."
@@ -244,6 +264,14 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   console.log('[chat-handler] generateChatCompletion returned', {
     responseLength: rawResponse?.length || 0,
     hasContent: !!rawResponse
+  })
+  
+  // Quest 3A: Log response status
+  console.log('[api:response-generated]', {
+    hasContent: !!rawResponse,
+    contentLength: rawResponse?.length || 0,
+    model: routing.model,
+    correlationId: rid
   })
 
   // Apply Briefly Voice linting
