@@ -239,7 +239,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   const rawResponse = await withApiPerformanceMonitoring(() => {
     console.log('[chat-handler] Arrow function called, about to invoke generateChatCompletion');
     return generateChatCompletion(messages as any, tier);
-  })
+  })()
   
   console.log('[chat-handler] generateChatCompletion returned', {
     responseLength: rawResponse?.length || 0,
