@@ -96,7 +96,99 @@ export class FilesRepository extends BaseRepository {
   private readonly TABLE_NAME = 'files'
 
   /**
+   * Ensure a file record exists (idempotent)
+   * Uses (owner_id, checksum) to deduplicate
+   * Returns existing record if found, creates new one if not
+   */
+  async ensureFileRow(input: CreateFileInput): Promise<{ file: FileRecord; isNew: boolean }> {
+    this.validateRequiredFields(input, ['ownerId', 'name', 'path', 'sizeBytes', 'checksum'], 'ensure file row')
+
+    try {
+      // Step 1: Try to find existing file by (owner_id, checksum)
+      const { data: existingFile, error: selectError } = await this.appClient
+        .schema('app')
+        .from(this.TABLE_NAME)
+        .select('*')
+        .eq('owner_id', input.ownerId)
+        .eq('checksum', input.checksum)
+        .maybeSingle()
+
+      if (selectError) {
+        this.handleDatabaseError(selectError, 'check for existing file by checksum')
+      }
+
+      // Step 2: If exists, optionally update mutable metadata and return
+      if (existingFile) {
+        // Update mutable fields (name, path, updated_at)
+        const updatePayload = this.sanitizeInput({
+          name: input.name,
+          path: input.path,
+          size_bytes: input.sizeBytes,
+          mime_type: input.mimeType,
+          updated_at: new Date().toISOString()
+        })
+
+        const { error: updateError } = await this.appClient
+          .schema('app')
+          .from(this.TABLE_NAME)
+          .update(updatePayload)
+          .eq('id', existingFile.id)
+
+        if (updateError) {
+          this.handleDatabaseError(updateError, 'update existing file metadata')
+        }
+
+        return {
+          file: mapRecordToFileRecord({ ...existingFile, ...updatePayload }),
+          isNew: false
+        }
+      }
+
+      // Step 3: If not exists, insert new row
+      const payload = this.sanitizeInput({
+        owner_id: input.ownerId,
+        name: input.name,
+        path: input.path,
+        size_bytes: input.sizeBytes,
+        mime_type: input.mimeType,
+        source: input.source || 'upload',
+        external_id: input.externalId,
+        external_url: input.externalUrl,
+        metadata: input.metadata || {},
+        checksum: input.checksum,
+        processed: false,
+        processing_status: 'pending',
+        created_at: input.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+
+      const { data, error: insertError } = await this.appClient
+        .schema('app')
+        .from(this.TABLE_NAME)
+        .insert(payload)
+        .select('*')
+        .single()
+
+      if (insertError) {
+        this.handleDatabaseError(insertError, 'create new file record')
+      }
+
+      if (!data) {
+        throw new Error('No data returned from file creation')
+      }
+
+      return {
+        file: mapRecordToFileRecord(data),
+        isNew: true
+      }
+    } catch (error) {
+      this.handleDatabaseError(error, 'ensure file row in app schema')
+    }
+  }
+
+  /**
    * Create a new file record in app.files table
+   * @deprecated Use ensureFileRow() instead for idempotent file creation
    */
   async create(input: CreateFileInput): Promise<FileRecord> {
     this.validateRequiredFields(input, ['ownerId', 'name', 'path', 'sizeBytes'], 'create file')

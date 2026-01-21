@@ -6,6 +6,7 @@ import { google } from 'googleapis'
 import { TokenStore } from '@/app/lib/oauth/token-store'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { extractTextFromBuffer } from '@/app/lib/document-extractor'
+import { computeBufferHash } from '@/app/lib/utils/content-hash'
 
 async function importGoogleFileHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
@@ -25,14 +26,29 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
   const res = await drive.files.get({ fileId: body.fileId, alt: 'media' }, { responseType: 'arraybuffer' })
   const buffer = Buffer.from(res.data as ArrayBuffer)
 
-  const createdFile = await filesRepo.create({
+  // Compute checksum for deduplication (Quest 3B)
+  const contentHash = computeBufferHash(buffer)
+
+  // Use ensureFileRow for idempotent file creation (Quest 3B)
+  const { file: createdFile, isNew } = await filesRepo.ensureFileRow({
     ownerId: user.id,
     name: meta.data.name ?? body.fileId,
     path: `google:${meta.data.id}`,
     sizeBytes: Number(meta.data.size ?? buffer.byteLength),
     mimeType: meta.data.mimeType ?? null,
+    checksum: contentHash,
+    source: 'google',
     createdAt: new Date().toISOString(),
   })
+
+  if (!isNew) {
+    console.log('[google-import:deduped]', {
+      userId: user.id,
+      fileId: createdFile.id,
+      fileName: meta.data.name,
+      contentHash
+    })
+  }
 
   await fileIngestRepo.upsert({
     file_id: createdFile.id,

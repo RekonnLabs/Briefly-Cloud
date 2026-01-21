@@ -5,6 +5,7 @@ import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { TokenStore } from '@/app/lib/oauth/token-store'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { extractTextFromBuffer } from '@/app/lib/document-extractor'
+import { computeBufferHash } from '@/app/lib/utils/content-hash'
 
 async function importOneDriveFileHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
@@ -25,14 +26,29 @@ async function importOneDriveFileHandler(request: Request, context: ApiContext):
   if (!dlResp.ok) return ApiResponse.internalError('Failed to download file')
   const buffer = Buffer.from(await dlResp.arrayBuffer())
 
-  const createdFile = await filesRepo.create({
+  // Compute checksum for deduplication (Quest 3B)
+  const contentHash = computeBufferHash(buffer)
+
+  // Use ensureFileRow for idempotent file creation (Quest 3B)
+  const { file: createdFile, isNew } = await filesRepo.ensureFileRow({
     ownerId: user.id,
     name: meta.name ?? body.fileId,
     path: `onedrive:${meta.id}`,
     sizeBytes: Number(meta.size ?? buffer.byteLength),
     mimeType: meta.file?.mimeType ?? 'application/octet-stream',
+    checksum: contentHash,
+    source: 'microsoft',
     createdAt: new Date().toISOString(),
   })
+
+  if (!isNew) {
+    console.log('[microsoft-import:deduped]', {
+      userId: user.id,
+      fileId: createdFile.id,
+      fileName: meta.name,
+      contentHash
+    })
+  }
 
   await fileIngestRepo.upsert({
     file_id: createdFile.id,

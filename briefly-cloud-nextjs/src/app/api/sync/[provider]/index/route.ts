@@ -7,6 +7,7 @@ import { filesRepo } from '@/app/lib/repos/files-repo'
 import { processDocument } from '@/app/lib/vector/document-processor'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
+import { computeBufferHash } from '@/app/lib/utils/content-hash'
 
 /**
  * POST /api/sync/:provider/index
@@ -143,40 +144,38 @@ export const POST = createProtectedApiHandler(async (req: NextRequest, user) => 
           throw new Error(`Download failed: ${downloadResponse.status}`)
         }
 
-        // Get file content as buffer
+         // Get file content as buffer
         const fileBuffer = Buffer.from(await downloadResponse.arrayBuffer())
 
-        // Create or update file record
-        let fileRecord = existing
+        // Compute checksum for deduplication (Quest 3B)
+        const contentHash = computeBufferHash(fileBuffer)
 
-        if (!fileRecord) {
-          // Create new file record
-          fileRecord = await filesRepo.create({
-            ownerId: user.id,
-            name: normalizedFile.name,
-            path: normalizedFile.path || normalizedFile.name,
-            sizeBytes: normalizedFile.size || fileBuffer.length,
-            mimeType: normalizedFile.mimeType || 'application/octet-stream',
-            source: provider,
-            metadata: {
-              external_id: normalizedFile.id,
-              source_path: normalizedFile.path,
-              source_revision: normalizedFile.revision,
-              source_modified_at: normalizedFile.modifiedAt,
-              source_size: normalizedFile.size
-            }
-          })
-        } else {
-          // Update existing file metadata
-          await filesRepo.update(user.id, fileRecord.id, {
-            name: normalizedFile.name,
-            metadata: {
-              ...fileRecord.metadata,
-              source_path: normalizedFile.path,
-              source_revision: normalizedFile.revision,
-              source_modified_at: normalizedFile.modifiedAt,
-              source_size: normalizedFile.size
-            }
+        // Use ensureFileRow for idempotent file creation (Quest 3B)
+        const { file: fileRecord, isNew } = await filesRepo.ensureFileRow({
+          ownerId: user.id,
+          name: normalizedFile.name,
+          path: normalizedFile.path || normalizedFile.name,
+          sizeBytes: normalizedFile.size || fileBuffer.length,
+          mimeType: normalizedFile.mimeType || 'application/octet-stream',
+          checksum: contentHash,
+          source: provider,
+          externalId: normalizedFile.id,
+          metadata: {
+            external_id: normalizedFile.id,
+            source_path: normalizedFile.path,
+            source_revision: normalizedFile.revision,
+            source_modified_at: normalizedFile.modifiedAt,
+            source_size: normalizedFile.size
+          }
+        })
+
+        if (!isNew) {
+          logger.info('[sync-index:deduped]', {
+            correlationId,
+            userId: user.id,
+            fileId: fileRecord.id,
+            fileName: normalizedFile.name,
+            contentHash
           })
         }
 

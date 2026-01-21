@@ -216,9 +216,11 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     })
 
     let createdFile
+    let isNewFile = false
     try {
-      createdFile = await withSchemaErrorHandling(
-        () => filesRepo.create({
+      // Use ensureFileRow for idempotent file creation (Quest 3B)
+      const result = await withSchemaErrorHandling(
+        () => filesRepo.ensureFileRow({
           ownerId: user.id,
           name: file.name,
           path: fileName,
@@ -230,13 +232,26 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
         }),
         {
           schema: 'app',
-          operation: 'create_file_record',
+          operation: 'ensure_file_record',
           table: 'files',
           userId: user.id,
           correlationId,
-          ...extractSchemaContext(request, 'create_file_record', 'app', 'files')
+          ...extractSchemaContext(request, 'ensure_file_record', 'app', 'files')
         }
       )
+      createdFile = result.file
+      isNewFile = result.isNew
+      
+      // Log deduplication for Quest 3B
+      if (!isNewFile) {
+        console.log('[upload:deduped]', {
+          userId: user.id,
+          fileId: createdFile.id,
+          fileName: file.name,
+          contentHash,
+          correlationId
+        })
+      }
     } catch (metadataError) {
       const schemaError = handleSchemaError(metadataError, {
         schema: 'app',
@@ -354,7 +369,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       correlation_id: correlationId,
     })
     
-    // Return success response
+    // Return success response (Quest 3B: include deduped and processed flags)
     return ApiResponse.created({
       file: {
         id: createdFile.id,
@@ -367,6 +382,9 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
         processing_status: ingestStatus,
         source: ingestRecord.source,
       },
+      uploaded: true,
+      deduped: !isNewFile,
+      processed: ingestStatus === 'ready',
       usage: {
         files_used: currentFileCount + 1,
         files_limit: tierLimits.maxFiles,
@@ -375,7 +393,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
         storage_used_formatted: formatFileSize(currentStorage + file.size),
         storage_limit_formatted: formatFileSize(tierLimits.totalStorage),
       },
-    }, 'File uploaded successfully')
+    }, isNewFile ? 'File uploaded successfully' : 'File already exists (deduplicated)')
     
   } catch (error) {
     logErr(rid, 'upload-handler', error, { correlationId, userId: user?.id })
