@@ -91,13 +91,15 @@ export async function generateEmbeddings(
 export async function generateChatCompletion(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   tier: SubscriptionTier,
-  userApiKey?: string
+  userApiKey?: string,
+  explicitModel?: string // NEW: Allow explicit model override from router
 ): Promise<string> {
   console.log('[OpenAI] generateChatCompletion ENTERED', {
     tier,
     messageCount: messages.length,
     hasUserApiKey: !!userApiKey,
-    hasEnvApiKey: !!process.env.OPENAI_API_KEY
+    hasEnvApiKey: !!process.env.OPENAI_API_KEY,
+    explicitModel
   })
   
   // Validate API key availability
@@ -106,7 +108,8 @@ export async function generateChatCompletion(
   }
 
   const client = userApiKey ? createUserOpenAIClient(userApiKey) : openai
-  const model = resolveChatModel(tier)
+  // Use explicit model from router if provided, otherwise fall back to tier-based resolution
+  const model = explicitModel || resolveChatModel(tier)
   
   try {
     console.log('[OpenAI] Calling chat.completions.create with:', {

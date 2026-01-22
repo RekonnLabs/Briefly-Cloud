@@ -8,21 +8,29 @@ export function pickModel(opts?: RouteOpts): string {
 }
 
 export function routeModel(tier: UserTier, boost: boolean, routingSignals: any): { model: string; reason: string; estimatedCost: number } {
-  let model = 'gpt-4o'
+  // Updated to use GPT-5 models (matching openai.ts configuration)
+  const FEATURE_GPT5 = String(process.env.FEATURE_GPT5 || 'true').toLowerCase() === 'true'
+  
+  let model: string
   let reason = 'default'
   
   if (tier === 'free') {
-    model = 'gpt-4o-mini'
+    model = FEATURE_GPT5 ? 'gpt-5-mini' : 'gpt-4o-mini'
     reason = 'free tier'
   } else if (boost) {
-    model = 'gpt-4o'
+    // Boost uses the highest tier model
+    model = FEATURE_GPT5 ? 'gpt-5.1' : 'gpt-4o'
     reason = 'boost requested'
+  } else {
+    // Pro tier default
+    model = FEATURE_GPT5 ? 'gpt-5.1' : 'gpt-4o'
+    reason = 'pro tier default'
   }
   
   return {
     model,
     reason,
-    estimatedCost: model.includes('mini') ? 0.001 : 0.01
+    estimatedCost: model.includes('mini') || model.includes('nano') ? 0.001 : 0.01
   }
 }
 

@@ -258,7 +258,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   
   const rawResponse = await withApiPerformanceMonitoring(() => {
     console.log('[chat-handler] Arrow function called, about to invoke generateChatCompletion');
-    return generateChatCompletion(messages as any, tier);
+    // Pass router-selected model explicitly to ensure telemetry matches actual model used
+    return generateChatCompletion(messages as any, tier, undefined, routing.model);
   })()
   
   console.log('[chat-handler] generateChatCompletion returned', {

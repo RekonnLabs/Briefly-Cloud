@@ -199,7 +199,7 @@ async function extractUserContext(request: Request, correlationId: string): Prom
       const authContext = createAuthDebugContext(
         request,
         correlationId,
-        'NO_USER_FOUND',
+        'NO_USER', // Changed from NO_USER_FOUND to match new logging logic
         undefined,
         !!jwtToken,
         jwtToken?.length
@@ -422,12 +422,32 @@ interface AuthDebugContext {
 
 /**
  * Log authentication context for debugging OAuth flows and API access
+ * Only logs AUTH:FAILURE when final auth decision is known (after getUser() call)
  */
 function logAuthenticationContext(context: AuthDebugContext): void {
-  const logLevel = context.userId ? 'info' : 'warn'
-  const message = context.userId
-    ? `[AUTH:SUCCESS] User authenticated successfully`
-    : `[AUTH:FAILURE] Authentication failed`
+  // Determine log level and message based on auth step and user presence
+  let logLevel: 'info' | 'warn' | 'debug'
+  let message: string
+
+  if (context.authStep === 'JWT_EXTRACTION') {
+    // JWT extraction is an intermediate step, not a final auth decision
+    logLevel = 'debug'
+    message = context.hasJwtToken
+      ? '[AUTH:DEBUG] JWT token found in cookies'
+      : '[AUTH:WARN] No JWT token found in cookies, will attempt getUser()'
+  } else if (context.authStep === 'SUPABASE_ERROR' || context.authStep === 'NO_USER') {
+    // These are actual auth failures (after getUser() call)
+    logLevel = 'warn'
+    message = '[AUTH:FAILURE] Authentication failed'
+  } else if (context.userId) {
+    // Auth success
+    logLevel = 'info'
+    message = '[AUTH:SUCCESS] User authenticated successfully'
+  } else {
+    // Unknown state - log as warning
+    logLevel = 'warn'
+    message = '[AUTH:WARN] Auth state unclear'
+  }
 
   console[logLevel](message, {
     correlationId: context.correlationId,
