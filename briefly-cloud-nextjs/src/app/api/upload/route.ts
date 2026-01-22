@@ -57,7 +57,7 @@ const TIER_LIMITS = {
 // POST /api/upload - Handle file upload
 async function uploadHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user, correlationId } = context
-  const rid = logReq({ route: '/api/upload', method: 'POST', userId: user.id })
+  const rid = logReq({ route: '/api/upload', method: 'POST', userId: user?.id })
   
   if (!user) {
     return ApiResponse.unauthorized('User not authenticated')
