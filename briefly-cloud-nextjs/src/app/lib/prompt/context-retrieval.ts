@@ -25,10 +25,28 @@ export async function getRelevantContext(
   // Import searchDocuments dynamically to avoid circular dependencies
   const { searchDocuments } = await import('@/app/lib/vector/document-processor')
   
+  // Quest 3D: Log retrieval start
+  console.log('[retrieval:start]', {
+    userId,
+    query: query.slice(0, 100),
+    budgetTopK: budget.topK,
+    budgetThreshold: budget.similarityThreshold,
+    budgetTokenLimit: budget.contextTokenLimit
+  })
+  
   // Search for documents with a higher limit to allow for filtering
   const searchResults = await searchDocuments(userId, query, {
     limit: budget.topK * 2, // Get more results to filter from
     threshold: 0.3, // Use a lower threshold initially, we'll filter later
+  })
+  
+  // Quest 3D: Log raw search results
+  console.log('[retrieval:raw-results]', {
+    userId,
+    resultCount: searchResults.length,
+    topScores: searchResults.slice(0, 3).map(r => r.similarity),
+    fileIds: [...new Set(searchResults.map(r => r.fileId))],
+    fileNames: [...new Set(searchResults.map(r => r.fileName))]
   })
 
   // Filter by similarity threshold
@@ -77,6 +95,18 @@ export async function getRelevantContext(
   // Determine if we need more info based on context quality
   const needMoreInfo = contextSnippets.length === 0 || 
     (contextSnippets.length < 2 && contextSnippets[0].relevance < budget.similarityThreshold + 0.1)
+
+  // Quest 3D: Log final retrieval result
+  console.log('[retrieval:final]', {
+    userId,
+    contextCount: contextSnippets.length,
+    needMoreInfo,
+    totalTokens,
+    filteredByThreshold,
+    filteredByTokenLimit,
+    topRelevance: contextSnippets[0]?.relevance,
+    sources: contextSnippets.map(c => c.source)
+  })
 
   return {
     contextSnippets,
