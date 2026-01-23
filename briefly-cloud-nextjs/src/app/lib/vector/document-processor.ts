@@ -50,10 +50,8 @@ export class DocumentProcessor implements IDocumentProcessor {
         contentHash
       })
 
-      // Update file record with content hash
-      await filesRepo.update(userId, fileId, {
-        checksum: contentHash
-      })
+      // Note: Checksum is already set by ensureFileRow() during upload
+      // No need to update it here as it's immutable and part of unique constraint
 
       // Step 1: Create text chunks
       const chunks = createTextChunks(content, {
