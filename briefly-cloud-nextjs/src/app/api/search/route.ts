@@ -45,7 +45,7 @@ async function searchHandler(request: Request, context: ApiContext): Promise<Nex
       threshold,
       fileIds,
     })
-  )
+  )()
 
   // Cache results for 5 minutes
   cacheManager.set(cacheKey, results, 1000 * 60 * 5)

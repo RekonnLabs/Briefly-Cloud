@@ -123,7 +123,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   const { getContextWithFallback, generateNeedMoreInfoResponse } = await import('@/app/lib/prompt/context-retrieval')
   const contextResult = await withApiPerformanceMonitoring(() =>
     getContextWithFallback(user.id, message, budget)
-  )
+  )()
 
   const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
   const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
