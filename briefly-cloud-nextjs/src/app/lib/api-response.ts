@@ -95,6 +95,26 @@ export enum ApiErrorCode {
  */
 export const ApiResponse = {
   // Success responses
+  success: (data?: unknown, message?: string, correlationId?: string): NextResponse => {
+    const response: StandardApiResponse = {
+      success: true,
+      data: data ?? { ok: true },
+      message,
+      timestamp: new Date().toISOString(),
+      correlationId
+    }
+    
+    const headers: Record<string, string> = {}
+    if (correlationId) {
+      headers['X-Correlation-ID'] = correlationId
+    }
+    
+    return NextResponse.json(response, { 
+      status: 200,
+      headers
+    })
+  },
+
   ok: (data?: unknown, message?: string, correlationId?: string): NextResponse => {
     const response: StandardApiResponse = {
       success: true,

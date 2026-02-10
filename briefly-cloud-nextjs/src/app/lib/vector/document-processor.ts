@@ -238,11 +238,10 @@ export class DocumentProcessor implements IDocumentProcessor {
         options
       })
 
-      // Check if vector store is available
-      if (!this.vectorStore.isConnected()) {
-        logger.warn('Vector store not connected, returning empty results', { userId })
-        return []
-      }
+      // Note: We do NOT check isConnected() here. The PgVectorStore.searchSimilar()
+      // method awaits its own initPromise before proceeding. Checking isConnected()
+      // synchronously here would race with async initialization and silently return
+      // empty results. Let searchSimilar() handle connection state.
 
       // Step 1: Generate embedding for the query
       const embeddingResult = await generateEmbedding(query)
