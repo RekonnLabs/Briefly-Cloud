@@ -243,6 +243,7 @@ export class PgVectorStore implements IVectorStore {
 
       // Use pgvector similarity search over app.document_chunks
       const { data: results, error } = await supabaseAdmin
+        .schema('app')
         .rpc('match_document_chunks', {
           query_embedding: queryEmbedding,
           match_owner_id: userId,
