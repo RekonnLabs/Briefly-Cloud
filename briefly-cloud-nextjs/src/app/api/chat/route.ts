@@ -234,7 +234,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   const messages = buildMessages({
     developerTask,
     developerShape,
-    safeContextSnippets,
+    contextSnippets: safeContextSnippets,
     historySummary,
     userMessage: message
   })

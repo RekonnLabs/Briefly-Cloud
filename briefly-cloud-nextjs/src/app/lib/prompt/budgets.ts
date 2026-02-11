@@ -9,26 +9,31 @@ export interface ChatBudget {
 }
 
 export const BUDGETS: Record<Budget, ChatBudget> = {
+  // text-embedding-3-small cosine similarity ranges:
+  // 0.7+  = strong match (exact or near-exact content)
+  // 0.5-0.7 = good semantic match
+  // 0.3-0.5 = weak/tangential match
+  // <0.3  = likely irrelevant
   fast: { 
     model: 'gpt-4o-mini', 
     maxTokens: 1000, 
     topK: 4,
     contextTokenLimit: 2000,
-    similarityThreshold: 0.5
+    similarityThreshold: 0.45
   },
   balanced: { 
     model: 'gpt-4o', 
     maxTokens: 2000, 
     topK: 6,
     contextTokenLimit: 4000,
-    similarityThreshold: 0.4
+    similarityThreshold: 0.40
   },
   quality: { 
     model: 'gpt-4o', 
     maxTokens: 4000, 
     topK: 8,
     contextTokenLimit: 8000,
-    similarityThreshold: 0.3
+    similarityThreshold: 0.35
   }
 } as const
 
