@@ -18,8 +18,8 @@ import type {
 } from './vector-store.interface'
 import type { AppFile } from '@/app/types/rag'
 
-const CHUNKS_TABLE = 'app.document_chunks'
-const FILES_TABLE = 'app.files'
+const CHUNKS_TABLE = 'document_chunks'
+const FILES_TABLE = 'files'
 
 
 /**
@@ -50,7 +50,8 @@ export class PgVectorStore implements IVectorStore {
     try {
       // Test connection by verifying we can query the document_chunks table
       const { error } = await supabaseAdmin
-        .from('app.document_chunks')
+        .schema('app')
+        .from(CHUNKS_TABLE)
         .select('id')
         .limit(1)
 
@@ -269,7 +270,8 @@ export class PgVectorStore implements IVectorStore {
 
       if (uniqueFileIds.length > 0) {
         const { data: filesData, error: filesError } = await supabaseAdmin
-          .from<AppFile>(FILES_TABLE)
+          .schema('app')
+          .from(FILES_TABLE)
           .select('id, name')
           .in('id', uniqueFileIds as string[])
 
@@ -359,6 +361,7 @@ export class PgVectorStore implements IVectorStore {
 
       if (fileId) {
         const { error, count } = await supabaseAdmin
+          .schema('app')
           .from(CHUNKS_TABLE)
           .delete({ count: 'exact' })
           .eq('owner_id', userId)
@@ -372,6 +375,7 @@ export class PgVectorStore implements IVectorStore {
 
       } else {
         const { error, count } = await supabaseAdmin
+          .schema('app')
           .from(CHUNKS_TABLE)
           .delete({ count: 'exact' })
           .eq('owner_id', userId)
@@ -425,6 +429,7 @@ export class PgVectorStore implements IVectorStore {
 
       // Get document count for user
       const { count, error } = await supabaseAdmin
+        .schema('app')
         .from(CHUNKS_TABLE)
         .select('id', { count: 'exact', head: true })
         .eq('owner_id', userId)
@@ -495,6 +500,7 @@ export class PgVectorStore implements IVectorStore {
       // Only validate resource access if resourceId is provided
       if (resourceId) {
         const { data: resource, error: resourceError } = await supabaseAdmin
+          .schema('app')
           .from(FILES_TABLE)
           .select('id')
           .eq('id', resourceId)
