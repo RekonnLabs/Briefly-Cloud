@@ -116,23 +116,153 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
 
     // Get budget based on user tier from app schema
     const tier = userProfile.subscription_tier as UserTier
-  const budgetType = getBudgetForTier(tier)
-  const budget = BUDGETS[budgetType]
+    const budgetType = getBudgetForTier(tier)
+    const budget = BUDGETS[budgetType]
 
-  // Enhanced context retrieval with guardrails
-  const { getContextWithFallback, generateNeedMoreInfoResponse } = await import('@/app/lib/prompt/context-retrieval')
-  const contextResult = await withApiPerformanceMonitoring(() =>
-    getContextWithFallback(user.id, message, budget)
-  )()
+    // Enhanced context retrieval with guardrails
+    // Always attempt retrieval — even if no results, we still send to LLM
+    const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
+    const contextResult = await withApiPerformanceMonitoring(() =>
+      getContextWithFallback(user.id, message, budget)
+    )()
 
-  const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
-  const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
+    const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
+    const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
 
-  // If we should use "need more info" response, return early
-  if (shouldUseNeedMoreInfo) {
-    const needMoreInfoResponse = generateNeedMoreInfoResponse(message)
+    // Log context retrieval outcome
+    console.log('[chat:context-decision]', {
+      hasDocumentContext: safeContextSnippets.length > 0,
+      contextCount: safeContextSnippets.length,
+      wouldHaveBeenNeedMoreInfo: shouldUseNeedMoreInfo,
+      correlationId: rid
+    })
+
+    // NOTE: We no longer early-return for needMoreInfo.
+    // Instead, we ALWAYS send the query to the LLM.
+    // - If document context exists: LLM answers grounded in documents with citations
+    // - If no document context: LLM answers as a general assistant (like ChatGPT)
+    // The promptBuilder handles both cases with appropriate instructions.
+
+    // Get conversation history summary from app schema
+    let historySummary: string | undefined
+    if (convoId) {
+      const { data: recentMessages } = await withSchemaErrorHandling(
+        () => supabaseApp
+          .from('chat_messages')
+          .select('role, content')
+          .eq('conversation_id', convoId)
+          .eq('user_id', user.id) // Ensure user isolation
+          .order('created_at', { ascending: false })
+          .limit(4), // Last 2 exchanges
+        {
+          schema: 'app',
+          operation: 'get_conversation_history',
+          table: 'chat_messages',
+          userId: user.id,
+          correlationId: rid,
+          ...extractSchemaContext(request, 'get_conversation_history', 'app', 'chat_messages')
+        }
+      )
+      
+      if (recentMessages && recentMessages.length > 0) {
+        historySummary = recentMessages
+          .reverse()
+          .map(m => `${m.role}: ${m.content.slice(0, 100)}`)
+          .join(' | ')
+      }
+    }
     
-    // Save assistant message in app schema
+    // Analyze query for routing signals
+    const routingSignals = analyzeQuery(message, safeContextSnippets, [])
+    
+    // Route to appropriate model
+    const routing = routeModel(tier, boost, routingSignals)
+    const modelConfig = getModelConfig(routing.model)
+    
+    // Quest 3A: Log model selection
+    console.log('[api:model-selected]', {
+      model: routing.model,
+      tier,
+      boost,
+      reason: routing.reason,
+      estimatedCost: routing.estimatedCost,
+      correlationId: rid
+    })
+
+    // Build messages using Briefly Voice v1
+    // The promptBuilder automatically handles both cases:
+    // - With context: "Answer based on documents, cite sources"
+    // - Without context: "No documents found, provide general answer"
+    const developerTask = "You are Briefly, an AI assistant that helps users understand their documents. Answer the user's question. When document context is provided, ground your answer in those documents and cite sources. When no document context is available, answer the question using your general knowledge — be helpful and conversational."
+    const developerShape = "Format: Direct answer first, then supporting details. Use bullet points for lists. Cite document sources with [Source: filename] when referencing uploaded documents."
+    
+    const messages = buildMessages({
+      developerTask,
+      developerShape,
+      contextSnippets: safeContextSnippets,
+      historySummary,
+      userMessage: message
+    })
+
+    if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {
+      console.error('Invalid chat message payload', {
+        userId: user.id,
+        conversationId: convoId,
+      })
+      return ApiResponse.internalError('Failed to prepare chat messages')
+    }
+
+    // Generate response using routed model
+    console.log('[chat-handler] About to call generateChatCompletion', {
+      tier,
+      messageCount: messages.length,
+      model: routing.model,
+      hasDocumentContext: safeContextSnippets.length > 0
+    })
+    
+    const rawResponse = await withApiPerformanceMonitoring(() => {
+      console.log('[chat-handler] Arrow function called, about to invoke generateChatCompletion');
+      // Pass router-selected model explicitly to ensure telemetry matches actual model used
+      return generateChatCompletion(messages as any, tier, undefined, routing.model);
+    })()
+    
+    console.log('[chat-handler] generateChatCompletion returned', {
+      responseLength: rawResponse?.length || 0,
+      hasContent: !!rawResponse
+    })
+    
+    // Quest 3A: Log response status
+    console.log('[api:response-generated]', {
+      hasContent: !!rawResponse,
+      contentLength: rawResponse?.length || 0,
+      model: routing.model,
+      correlationId: rid
+    })
+
+    // Apply Briefly Voice linting
+    const lintResult = lintResponse(rawResponse)
+    const finalResponse = lintResult.output
+
+    // Calculate metrics
+    const latency = Date.now() - startTime
+    const inputTokens = messages.reduce((sum, msg) => sum + Math.ceil(msg.content.length / 4), 0)
+    const outputTokens = Math.ceil(finalResponse.length / 4)
+
+    // Log telemetry
+    console.log('Chat completion telemetry:', {
+      modelRoute: routing.model,
+      inputTokens,
+      outputTokens,
+      latency,
+      contextCount: safeContextSnippets.length,
+      linterApplied: lintResult.rewritten,
+      boost,
+      tier,
+      userId: user.id,
+      retrievalStats
+    })
+
+    // Save assistant response in app schema
     if (convoId) {
       await withSchemaErrorHandling(
         () => supabaseApp
@@ -141,240 +271,75 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
             conversation_id: convoId,
             user_id: user.id,
             role: 'assistant', 
-            content: needMoreInfoResponse,
-            sources: [],
+            content: finalResponse, 
+            sources: safeContextSnippets.map(snippet => ({ 
+              source: snippet.source,
+              content: snippet.content.substring(0, 200), // Truncate for storage
+              relevance_score: snippet.relevance 
+            })),
             metadata: {
-              needMoreInfo: true,
+              modelRoute: routing.model,
+              inputTokens,
+              outputTokens,
+              latency,
+              linterApplied: lintResult.rewritten,
               retrievalStats,
-              modelRoute: 'need-more-info'
+              hadDocumentContext: safeContextSnippets.length > 0
             }
           }),
         {
           schema: 'app',
-          operation: 'save_assistant_message',
+          operation: 'save_final_assistant_message',
           table: 'chat_messages',
           userId: user.id,
           correlationId: rid,
-          ...extractSchemaContext(request, 'save_assistant_message', 'app', 'chat_messages')
+          ...extractSchemaContext(request, 'save_final_assistant_message', 'app', 'chat_messages')
         }
       )
     }
 
+    if (stream) {
+      // For streaming responses, return the linted content as a stream
+      const encoder = new TextEncoder()
+      const readable = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(finalResponse))
+          controller.close()
+        },
+      })
+
+      return new NextResponse(readable, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'X-Model-Route': routing.model,
+        },
+      })
+    }
+
     return ApiResponse.success({
       conversation_id: convoId,
-      response: needMoreInfoResponse,
-      sources: [],
-      modelRoute: 'need-more-info',
+      response: finalResponse,
+      sources: safeContextSnippets.map(snippet => ({
+        content: snippet.content,
+        source: snippet.source,
+        relevance_score: snippet.relevance
+      })),
+      modelRoute: routing.model,
       routing: {
-        model: 'need-more-info',
-        reason: 'insufficient context',
-        estimatedCost: 0
+        model: routing.model,
+        reason: routing.reason,
+        estimatedCost: routing.estimatedCost
       },
       telemetry: {
-        inputTokens: 0,
-        outputTokens: Math.ceil(needMoreInfoResponse.length / 4),
-        latency: Date.now() - startTime,
-        contextCount: 0,
-        needMoreInfo: true,
+        inputTokens,
+        outputTokens,
+        latency,
+        contextCount: safeContextSnippets.length,
+        linterApplied: lintResult.rewritten,
         retrievalStats
       }
     })
-  }
-
-  // Get conversation history summary from app schema
-  let historySummary: string | undefined
-  if (convoId) {
-    const { data: recentMessages } = await withSchemaErrorHandling(
-      () => supabaseApp
-        .from('chat_messages')
-        .select('role, content')
-        .eq('conversation_id', convoId)
-        .eq('user_id', user.id) // Ensure user isolation
-        .order('created_at', { ascending: false })
-        .limit(4), // Last 2 exchanges
-      {
-        schema: 'app',
-        operation: 'get_conversation_history',
-        table: 'chat_messages',
-        userId: user.id,
-        correlationId: rid,
-        ...extractSchemaContext(request, 'get_conversation_history', 'app', 'chat_messages')
-      }
-    )
-    
-    if (recentMessages && recentMessages.length > 0) {
-      historySummary = recentMessages
-        .reverse()
-        .map(m => `${m.role}: ${m.content.slice(0, 100)}`)
-        .join(' | ')
-    }
-  }
-  
-  // Analyze query for routing signals
-  const routingSignals = analyzeQuery(message, safeContextSnippets, [])
-  
-  // Route to appropriate model
-  const routing = routeModel(tier, boost, routingSignals)
-  const modelConfig = getModelConfig(routing.model)
-  
-  // Quest 3A: Log model selection
-  console.log('[api:model-selected]', {
-    model: routing.model,
-    tier,
-    boost,
-    reason: routing.reason,
-    estimatedCost: routing.estimatedCost,
-    correlationId: rid
-  })
-
-  // Build messages using Briefly Voice v1
-  const developerTask = "Answer the user's question using the provided context. Be helpful and cite sources when referencing documents."
-  const developerShape = "Format: Direct answer, key points as bullets, actionable next steps."
-  
-  const messages = buildMessages({
-    developerTask,
-    developerShape,
-    contextSnippets: safeContextSnippets,
-    historySummary,
-    userMessage: message
-  })
-
-  if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {
-    console.error('Invalid chat message payload', {
-      userId: user.id,
-      conversationId: convoId,
-    })
-    return ApiResponse.internalError('Failed to prepare chat messages')
-  }
-
-  // Generate response using routed model
-  // Note: Currently using non-streaming mode for both cases to avoid streaming complexity
-  // TODO: Implement proper streaming response when stream=true
-  console.log('[chat-handler] About to call generateChatCompletion', {
-    tier,
-    messageCount: messages.length,
-    model: routing.model
-  })
-  
-  const rawResponse = await withApiPerformanceMonitoring(() => {
-    console.log('[chat-handler] Arrow function called, about to invoke generateChatCompletion');
-    // Pass router-selected model explicitly to ensure telemetry matches actual model used
-    return generateChatCompletion(messages as any, tier, undefined, routing.model);
-  })()
-  
-  console.log('[chat-handler] generateChatCompletion returned', {
-    responseLength: rawResponse?.length || 0,
-    hasContent: !!rawResponse
-  })
-  
-  // Quest 3A: Log response status
-  console.log('[api:response-generated]', {
-    hasContent: !!rawResponse,
-    contentLength: rawResponse?.length || 0,
-    model: routing.model,
-    correlationId: rid
-  })
-
-  // Apply Briefly Voice linting
-  const lintResult = lintResponse(rawResponse)
-  const finalResponse = lintResult.output
-
-  // Calculate metrics
-  const latency = Date.now() - startTime
-  const inputTokens = messages.reduce((sum, msg) => sum + Math.ceil(msg.content.length / 4), 0)
-  const outputTokens = Math.ceil(finalResponse.length / 4)
-
-  // Log telemetry
-  console.log('Chat completion telemetry:', {
-    modelRoute: routing.model,
-    inputTokens,
-    outputTokens,
-    latency,
-    contextCount: safeContextSnippets.length,
-    linterApplied: lintResult.rewritten,
-    boost,
-    tier,
-    userId: user.id,
-    retrievalStats
-  })
-
-  // Save assistant response in app schema
-  if (convoId) {
-    await withSchemaErrorHandling(
-      () => supabaseApp
-        .from('chat_messages')
-        .insert({ 
-          conversation_id: convoId,
-          user_id: user.id,
-          role: 'assistant', 
-          content: finalResponse, 
-          sources: safeContextSnippets.map(snippet => ({ 
-            source: snippet.source,
-            content: snippet.content.substring(0, 200), // Truncate for storage
-            relevance_score: snippet.relevance 
-          })),
-          metadata: {
-            modelRoute: routing.model,
-            inputTokens,
-            outputTokens,
-            latency,
-            linterApplied: lintResult.rewritten,
-            retrievalStats
-          }
-        }),
-      {
-        schema: 'app',
-        operation: 'save_final_assistant_message',
-        table: 'chat_messages',
-        userId: user.id,
-        correlationId: rid,
-        ...extractSchemaContext(request, 'save_final_assistant_message', 'app', 'chat_messages')
-      }
-    )
-  }
-
-  if (stream) {
-    // For streaming responses, return the linted content as a stream
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode(finalResponse))
-        controller.close()
-      },
-    })
-
-    return new NextResponse(readable, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        'X-Model-Route': routing.model,
-      },
-    })
-  }
-
-  return ApiResponse.success({
-    conversation_id: convoId,
-    response: finalResponse,
-    sources: safeContextSnippets.map(snippet => ({
-      content: snippet.content,
-      source: snippet.source,
-      relevance_score: snippet.relevance
-    })),
-    modelRoute: routing.model,
-    routing: {
-      model: routing.model,
-      reason: routing.reason,
-      estimatedCost: routing.estimatedCost
-    },
-    telemetry: {
-      inputTokens,
-      outputTokens,
-      latency,
-      contextCount: safeContextSnippets.length,
-      linterApplied: lintResult.rewritten,
-      retrievalStats
-    }
-  })
   
   } catch (error) {
     // Handle schema-specific errors
@@ -395,6 +360,3 @@ export const POST = withPerformanceMonitoring(
     logging: { enabled: true, includeBody: true },
   })
 )
-
-
-
