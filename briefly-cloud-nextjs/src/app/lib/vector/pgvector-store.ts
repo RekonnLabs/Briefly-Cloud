@@ -301,21 +301,27 @@ export class PgVectorStore implements IVectorStore {
         chunkIndex: result.chunk_index ?? 0
       }))
 
-      // Log the search operation
-      await supabaseAdmin
-        .from('usage_logs')
-        .insert({
-          user_id: userId,
-          action: 'vector_search',
-          resource_type: 'vector_store',
-          metadata: {
-            query_dimensions: queryEmbedding.length,
-            results_count: searchResults.length,
-            threshold,
-            limit,
-            backend: 'pgvector'
-          }
-        })
+      // Log the search operation (non-blocking, must not crash search)
+      try {
+        await supabaseAdmin
+          .schema('app')
+          .from('usage_logs')
+          .insert({
+            user_id: userId,
+            action: 'vector_search',
+            resource_type: 'vector_store',
+            metadata: {
+              query_dimensions: queryEmbedding.length,
+              results_count: searchResults.length,
+              threshold,
+              limit,
+              backend: 'pgvector'
+            }
+          })
+      } catch (logError) {
+        // Don't fail the search if logging fails
+        logger.warn('Failed to log vector search usage', { userId }, logError as Error)
+      }
 
       logger.info('Vector search completed', {
         userId,
