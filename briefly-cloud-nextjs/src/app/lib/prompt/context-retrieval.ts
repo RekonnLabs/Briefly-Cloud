@@ -93,8 +93,9 @@ export async function getRelevantContext(
   }))
 
   // Determine if we need more info based on context quality
-  const needMoreInfo = contextSnippets.length === 0 || 
-    (contextSnippets.length < 2 && contextSnippets[0].relevance < budget.similarityThreshold + 0.1)
+  // If ANY context passed the similarity threshold, use it.
+  // The threshold already filters low-quality results — don't second-guess it.
+  const needMoreInfo = contextSnippets.length === 0
 
   // Quest 3D: Log final retrieval result
   console.log('[retrieval:final]', {

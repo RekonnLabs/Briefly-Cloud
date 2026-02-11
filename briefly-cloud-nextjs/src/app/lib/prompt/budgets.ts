@@ -14,21 +14,21 @@ export const BUDGETS: Record<Budget, ChatBudget> = {
     maxTokens: 1000, 
     topK: 4,
     contextTokenLimit: 2000,
-    similarityThreshold: 0.7
+    similarityThreshold: 0.5
   },
   balanced: { 
     model: 'gpt-4o', 
     maxTokens: 2000, 
     topK: 6,
     contextTokenLimit: 4000,
-    similarityThreshold: 0.6
+    similarityThreshold: 0.4
   },
   quality: { 
     model: 'gpt-4o', 
     maxTokens: 4000, 
     topK: 8,
     contextTokenLimit: 8000,
-    similarityThreshold: 0.5
+    similarityThreshold: 0.3
   }
 } as const
 
