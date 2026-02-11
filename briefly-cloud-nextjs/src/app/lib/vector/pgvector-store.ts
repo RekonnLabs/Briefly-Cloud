@@ -284,7 +284,29 @@ export class PgVectorStore implements IVectorStore {
         })
       }
 
-      const searchResults: VectorSearchResult[] = filteredResults.map(result => ({
+      // Diagnostic: log raw RPC result types for first result
+      if (filteredResults.length > 0) {
+        const first = filteredResults[0]
+        console.log('[pgvector:raw-result-types]', {
+          similarity_value: first.similarity,
+          similarity_type: typeof first.similarity,
+          id_type: typeof first.id,
+          content_length: first.content?.length,
+          file_id: first.file_id,
+          chunk_index: first.chunk_index
+        })
+      }
+
+      const searchResults: VectorSearchResult[] = filteredResults.map(result => {
+        // Coerce similarity to number - PostgREST may return it as a string
+        const rawSimilarity = result.similarity
+        const similarity = typeof rawSimilarity === 'number' 
+          ? rawSimilarity 
+          : typeof rawSimilarity === 'string' 
+            ? parseFloat(rawSimilarity) 
+            : 0
+
+        return {
         id: result.id?.toString() ?? `${result.file_id}:${result.chunk_index}`,
         content: result.content,
         metadata: includeMetadata
@@ -294,12 +316,12 @@ export class PgVectorStore implements IVectorStore {
               token_count: result.token_count ?? null
             }
           : {},
-        similarity: typeof result.similarity === 'number' ? result.similarity : 0,
-        distance: typeof result.similarity === 'number' ? 1 - result.similarity : 1,
+        similarity,
+        distance: 1 - similarity,
         fileId: result.file_id,
         fileName: fileNameMap.get(result.file_id) ?? 'Unknown',
         chunkIndex: result.chunk_index ?? 0
-      }))
+      }})
 
       // Log the search operation (non-blocking, must not crash search)
       try {
