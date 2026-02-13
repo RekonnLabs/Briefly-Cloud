@@ -22,12 +22,104 @@ import { BUDGETS, getBudgetForTier, type ChatBudget } from '@/app/lib/prompt/bud
 import { enforce as lintResponse } from '@/app/lib/prompt/responseLinter'
 import { routeModel, analyzeQuery, getModelConfig, type UserTier } from '@/app/lib/prompt/modelRouter'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Provenance types — every response carries provenance metadata
+// ─────────────────────────────────────────────────────────────────────────────
+type ProvenanceType = 'grounded' | 'general' | 'ungrounded'
+
+interface ProvenanceMetadata {
+  type: ProvenanceType
+  contextCount: number
+  citationsFound: number
+  sources: string[]
+  model: string
+  disclaimer?: string
+}
+
+/**
+ * Validate provenance: if context was provided, the LLM MUST cite at least one source.
+ * If it doesn't, mark the response as UNGROUNDED.
+ */
+function validateProvenance(
+  responseText: string,
+  contextSnippets: ContextSnippet[],
+  model: string
+): ProvenanceMetadata {
+  const contextCount = contextSnippets.length
+  const sourceNames = contextSnippets
+    .map(s => s.source)
+    .filter((s): s is string => !!s)
+  const uniqueSources = [...new Set(sourceNames)]
+
+  // Count how many [Source: ...] citations appear in the response
+  const citationPattern = /\[Source:\s*([^\]]+)\]/gi
+  const citations: string[] = []
+  let match: RegExpExecArray | null
+  while ((match = citationPattern.exec(responseText)) !== null) {
+    citations.push(match[1].trim())
+  }
+
+  if (contextCount === 0) {
+    // No documents were retrieved — this is a general-knowledge answer
+    return {
+      type: 'general',
+      contextCount: 0,
+      citationsFound: 0,
+      sources: [],
+      model,
+      disclaimer: 'This answer is based on general knowledge, not your uploaded documents.'
+    }
+  }
+
+  if (citations.length === 0) {
+    // Context was provided but the LLM failed to cite ANY source — UNGROUNDED
+    return {
+      type: 'ungrounded',
+      contextCount,
+      citationsFound: 0,
+      sources: uniqueSources,
+      model,
+      disclaimer: 'Warning: Document context was available but the response did not cite any sources. This answer may not be grounded in your documents.'
+    }
+  }
+
+  // Context was provided AND the LLM cited at least one source — grounded
+  return {
+    type: 'grounded',
+    contextCount,
+    citationsFound: citations.length,
+    sources: uniqueSources,
+    model
+  }
+}
+
 const chatSchema = z.object({
   message: z.string().min(1).max(2000),
   conversationId: z.string().uuid().optional(),
   stream: z.boolean().optional().default(true),
   boost: z.boolean().optional().default(false),
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Best-effort telemetry helper: wraps any async operation so failures are
+// logged but NEVER propagate to the caller. Retrieval is critical;
+// telemetry is best-effort.
+// ─────────────────────────────────────────────────────────────────────────────
+async function bestEffort<T>(
+  label: string,
+  fn: () => Promise<T>,
+  correlationId?: string
+): Promise<T | undefined> {
+  try {
+    return await fn()
+  } catch (err) {
+    console.warn(`[best-effort:${label}] Non-critical operation failed — swallowed`, {
+      error: err instanceof Error ? err.message : String(err),
+      correlationId
+    })
+    return undefined
+  }
+}
 
 async function chatHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
@@ -38,7 +130,6 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     return ApiResponse.unauthorized('User not authenticated')
   }
   
-  // Quest 3A: Log auth success
   console.log('[api:auth-success] User authenticated', {
     userId: user.id,
     email: user.email,
@@ -60,139 +151,106 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   try {
     const startTime = Date.now()
 
-    // Get user profile from app schema to determine tier
+    // ── Get user profile (CRITICAL — needed for tier routing) ──────────
     const userProfile = await withSchemaErrorHandling(
       () => usersRepo.getById(user.id),
       {
         schema: 'app',
         operation: 'get_user_profile',
-        table: 'users',
+        table: 'profiles',
         userId: user.id,
         correlationId: rid,
-        ...extractSchemaContext(request, 'get_user_profile', 'app', 'users')
+        ...extractSchemaContext(request, 'get_user_profile', 'app', 'profiles')
       }
     )
     if (!userProfile) {
       return ApiResponse.unauthorized('User profile not found')
     }
 
-    // Prepare conversation in app schema
+    // ── Create / reuse conversation (BEST-EFFORT — chat still works without persistence) ──
     let convoId = conversationId
     if (!convoId) {
-      const { data } = await withSchemaErrorHandling(
-        () => supabaseApp
+      const result = await bestEffort('create_conversation', async () => {
+        const { data, error } = await supabaseApp
           .from('conversations')
-          .insert({ user_id: user.id, title: message.slice(0, 80) })
+          .insert({ owner_id: user.id, title: message.slice(0, 80) })
           .select('id')
-          .single(),
-        {
-          schema: 'app',
-          operation: 'create_conversation',
-          table: 'conversations',
-          userId: user.id,
-          correlationId: rid,
-          ...extractSchemaContext(request, 'create_conversation', 'app', 'conversations')
-        }
-      )
-      convoId = data?.id
+          .single()
+        if (error) throw error
+        return data?.id as string | undefined
+      }, rid)
+      convoId = result
     }
 
-    // Save user message in app schema
+    // ── Save user message (BEST-EFFORT) ────────────────────────────────
     if (convoId) {
-      await withSchemaErrorHandling(
-        () => supabaseApp
-          .from('chat_messages')
-          .insert({ conversation_id: convoId, user_id: user.id, role: 'user', content: message }),
-        {
-          schema: 'app',
-          operation: 'save_user_message',
-          table: 'chat_messages',
-          userId: user.id,
-          correlationId: rid,
-          ...extractSchemaContext(request, 'save_user_message', 'app', 'chat_messages')
-        }
-      )
+      await bestEffort('save_user_message', async () => {
+        const { error } = await supabaseApp
+          .from('messages')
+          .insert({
+            conversation_id: convoId,
+            owner_id: user.id,
+            role: 'user',
+            content: message
+          })
+        if (error) throw error
+      }, rid)
     }
 
-    // Get budget based on user tier from app schema
+    // ── Context retrieval (CRITICAL — this is the core RAG path) ───────
     const tier = userProfile.subscription_tier as UserTier
     const budgetType = getBudgetForTier(tier)
     const budget = BUDGETS[budgetType]
 
-    // Enhanced context retrieval with guardrails
-    // Always attempt retrieval — even if no results, we still send to LLM
     const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
-    const contextResult = await withApiPerformanceMonitoring(() =>
-      getContextWithFallback(user.id, message, budget)
-    )()
+    const contextResult = await getContextWithFallback(user.id, message, budget)
 
     const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
     const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
 
-    // Log context retrieval outcome
     console.log('[chat:context-decision]', {
       hasDocumentContext: safeContextSnippets.length > 0,
       contextCount: safeContextSnippets.length,
-      wouldHaveBeenNeedMoreInfo: shouldUseNeedMoreInfo,
       correlationId: rid
     })
 
-    // NOTE: We no longer early-return for needMoreInfo.
-    // Instead, we ALWAYS send the query to the LLM.
-    // - If document context exists: LLM answers grounded in documents with citations
-    // - If no document context: LLM answers as a general assistant (like ChatGPT)
-    // The promptBuilder handles both cases with appropriate instructions.
-
-    // Get conversation history summary from app schema
+    // ── Get conversation history (BEST-EFFORT) ─────────────────────────
     let historySummary: string | undefined
     if (convoId) {
-      const { data: recentMessages } = await withSchemaErrorHandling(
-        () => supabaseApp
-          .from('chat_messages')
+      const historyResult = await bestEffort('get_conversation_history', async () => {
+        const { data, error } = await supabaseApp
+          .from('messages')
           .select('role, content')
           .eq('conversation_id', convoId)
-          .eq('user_id', user.id) // Ensure user isolation
+          .eq('owner_id', user.id)
           .order('created_at', { ascending: false })
-          .limit(4), // Last 2 exchanges
-        {
-          schema: 'app',
-          operation: 'get_conversation_history',
-          table: 'chat_messages',
-          userId: user.id,
-          correlationId: rid,
-          ...extractSchemaContext(request, 'get_conversation_history', 'app', 'chat_messages')
-        }
-      )
-      
-      if (recentMessages && recentMessages.length > 0) {
-        historySummary = recentMessages
+          .limit(4)
+        if (error) throw error
+        return data
+      }, rid)
+
+      if (historyResult && historyResult.length > 0) {
+        historySummary = historyResult
           .reverse()
-          .map(m => `${m.role}: ${m.content.slice(0, 100)}`)
+          .map((m: { role: string; content: string }) => `${m.role}: ${m.content.slice(0, 100)}`)
           .join(' | ')
       }
     }
     
-    // Analyze query for routing signals
+    // ── Model routing (CRITICAL) ───────────────────────────────────────
     const routingSignals = analyzeQuery(message, safeContextSnippets, [])
-    
-    // Route to appropriate model
     const routing = routeModel(tier, boost, routingSignals)
     const modelConfig = getModelConfig(routing.model)
     
-    // Quest 3A: Log model selection
     console.log('[api:model-selected]', {
       model: routing.model,
       tier,
       boost,
       reason: routing.reason,
-      estimatedCost: routing.estimatedCost,
       correlationId: rid
     })
 
-    // Build messages using Briefly Voice v1
-    // The promptBuilder automatically handles both cases:
-    // - With context: "Answer based on documents, cite sources"
-    // - Without context: "No documents found, provide general answer"
+    // ── Build prompt (CRITICAL) ────────────────────────────────────────
     const developerTask = "You are Briefly, an AI assistant that helps users understand their documents. Answer the user's question. When document context is provided, ground your answer in those documents and cite sources. When no document context is available, answer the question using your general knowledge — be helpful and conversational."
     const developerShape = "Format: Direct answer first, then supporting details. Use bullet points for lists. Cite document sources with [Source: filename] when referencing uploaded documents."
     
@@ -205,14 +263,11 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     })
 
     if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {
-      console.error('Invalid chat message payload', {
-        userId: user.id,
-        conversationId: convoId,
-      })
+      console.error('Invalid chat message payload', { userId: user.id, conversationId: convoId })
       return ApiResponse.internalError('Failed to prepare chat messages')
     }
 
-    // Generate response using routed model
+    // ── LLM generation (CRITICAL) ──────────────────────────────────────
     console.log('[chat-handler] About to call generateChatCompletion', {
       tier,
       messageCount: messages.length,
@@ -220,41 +275,42 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       hasDocumentContext: safeContextSnippets.length > 0
     })
     
-    const rawResponse = await withApiPerformanceMonitoring(() => {
-      console.log('[chat-handler] Arrow function called, about to invoke generateChatCompletion');
-      // Pass router-selected model explicitly to ensure telemetry matches actual model used
-      return generateChatCompletion(messages as any, tier, undefined, routing.model);
-    })()
+    const rawResponse = await generateChatCompletion(messages as any, tier, undefined, routing.model)
     
     console.log('[chat-handler] generateChatCompletion returned', {
       responseLength: rawResponse?.length || 0,
       hasContent: !!rawResponse
     })
-    
-    // Quest 3A: Log response status
-    console.log('[api:response-generated]', {
-      hasContent: !!rawResponse,
-      contentLength: rawResponse?.length || 0,
-      model: routing.model,
-      correlationId: rid
-    })
 
-    // Apply Briefly Voice linting
+    // ── Apply Briefly Voice linting ────────────────────────────────────
     const lintResult = lintResponse(rawResponse)
     const finalResponse = lintResult.output
 
-    // Calculate metrics
+    // ── Provenance validation (CRITICAL — enforces trust) ──────────────
+    const provenance = validateProvenance(finalResponse, safeContextSnippets, routing.model)
+
+    console.log('[chat:provenance]', {
+      type: provenance.type,
+      contextCount: provenance.contextCount,
+      citationsFound: provenance.citationsFound,
+      sources: provenance.sources,
+      correlationId: rid
+    })
+
+    // ── Calculate metrics ──────────────────────────────────────────────
     const latency = Date.now() - startTime
     const inputTokens = messages.reduce((sum, msg) => sum + Math.ceil(msg.content.length / 4), 0)
     const outputTokens = Math.ceil(finalResponse.length / 4)
 
-    // Log telemetry
+    // ── Telemetry logging (BEST-EFFORT) ────────────────────────────────
     console.log('Chat completion telemetry:', {
       modelRoute: routing.model,
       inputTokens,
       outputTokens,
       latency,
       contextCount: safeContextSnippets.length,
+      provenance: provenance.type,
+      citationsFound: provenance.citationsFound,
       linterApplied: lintResult.rewritten,
       boost,
       tier,
@@ -262,64 +318,79 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       retrievalStats
     })
 
-    // Save assistant response in app schema
+    // ── Save assistant response (BEST-EFFORT — uses correct table: app.messages) ──
     if (convoId) {
-      await withSchemaErrorHandling(
-        () => supabaseApp
-          .from('chat_messages')
-          .insert({ 
+      await bestEffort('save_assistant_message', async () => {
+        const { error } = await supabaseApp
+          .from('messages')
+          .insert({
             conversation_id: convoId,
-            user_id: user.id,
-            role: 'assistant', 
-            content: finalResponse, 
-            sources: safeContextSnippets.map(snippet => ({ 
-              source: snippet.source,
-              content: snippet.content.substring(0, 200), // Truncate for storage
-              relevance_score: snippet.relevance 
-            })),
-            metadata: {
-              modelRoute: routing.model,
-              inputTokens,
-              outputTokens,
-              latency,
-              linterApplied: lintResult.rewritten,
-              retrievalStats,
-              hadDocumentContext: safeContextSnippets.length > 0
-            }
-          }),
-        {
-          schema: 'app',
-          operation: 'save_final_assistant_message',
-          table: 'chat_messages',
-          userId: user.id,
-          correlationId: rid,
-          ...extractSchemaContext(request, 'save_final_assistant_message', 'app', 'chat_messages')
-        }
-      )
+            owner_id: user.id,
+            role: 'assistant',
+            content: finalResponse,
+            model: routing.model,
+            tokens_in: inputTokens,
+            tokens_out: outputTokens,
+            cost_usd: routing.estimatedCost
+          })
+        if (error) throw error
+      }, rid)
     }
 
+    // ── Increment chat_messages_count (BEST-EFFORT) ────────────────────
+    await bestEffort('increment_chat_count', async () => {
+      const currentCount = userProfile.chat_messages_count || 0
+      await usersRepo.updateUsage(user.id, {
+        chat_messages_count: currentCount + 1
+      })
+    }, rid)
+
+    // ── Build response ─────────────────────────────────────────────────
     if (stream) {
-      // For streaming responses, return the linted content as a stream
+      // Structured JSON envelope for streaming responses
+      // The frontend parses this to extract content + provenance
+      const responsePayload = JSON.stringify({
+        content: finalResponse,
+        provenance: {
+          type: provenance.type,
+          contextCount: provenance.contextCount,
+          citationsFound: provenance.citationsFound,
+          sources: provenance.sources,
+          disclaimer: provenance.disclaimer || null
+        },
+        conversationId: convoId || null
+      })
+
       const encoder = new TextEncoder()
       const readable = new ReadableStream({
         start(controller) {
-          controller.enqueue(encoder.encode(finalResponse))
+          controller.enqueue(encoder.encode(responsePayload))
           controller.close()
         },
       })
 
       return new NextResponse(readable, {
         headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Type': 'application/json; charset=utf-8',
           'Cache-Control': 'no-cache',
           'X-Model-Route': routing.model,
+          'X-Provenance': provenance.type,
+          'X-Context-Count': String(provenance.contextCount),
         },
       })
     }
 
+    // Non-streaming JSON response
     return ApiResponse.success({
       conversation_id: convoId,
       response: finalResponse,
+      provenance: {
+        type: provenance.type,
+        contextCount: provenance.contextCount,
+        citationsFound: provenance.citationsFound,
+        sources: provenance.sources,
+        disclaimer: provenance.disclaimer || null
+      },
       sources: safeContextSnippets.map(snippet => ({
         content: snippet.content,
         source: snippet.source,
@@ -336,13 +407,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
         outputTokens,
         latency,
         contextCount: safeContextSnippets.length,
+        provenance: provenance.type,
         linterApplied: lintResult.rewritten,
         retrievalStats
       }
     })
   
-  } catch (error) {
-    // Handle schema-specific errors
+  } catch (error: any) {
     if (error.name === 'SchemaError') {
       logSchemaError(error)
       logErr(rid, 'chat-handler-schema', error, { userId: user?.id, message: message?.slice(0, 100) })

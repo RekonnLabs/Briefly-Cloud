@@ -1,12 +1,26 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, FileText, ExternalLink } from 'lucide-react';
+import { Send, FileText, ExternalLink, ShieldCheck, ShieldAlert, Globe } from 'lucide-react';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provenance types — mirrors the backend ProvenanceMetadata
+// ─────────────────────────────────────────────────────────────────────────────
+type ProvenanceType = 'grounded' | 'general' | 'ungrounded'
+
+interface Provenance {
+  type: ProvenanceType
+  contextCount: number
+  citationsFound: number
+  sources: string[]
+  disclaimer: string | null
+}
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  provenance?: Provenance;
   sources?: Array<{
     file_id: string;
     file_name: string;
@@ -14,6 +28,66 @@ interface Message {
     relevance_score: number;
   }>;
   timestamp: Date;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provenance badge component
+// ─────────────────────────────────────────────────────────────────────────────
+function ProvenanceBadge({ provenance }: { provenance: Provenance }) {
+  if (provenance.type === 'grounded') {
+    return (
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+        <ShieldCheck className="w-3.5 h-3.5" />
+        <span>Grounded in documents</span>
+        <span className="text-emerald-500/60">·</span>
+        <span className="text-emerald-500/80">{provenance.citationsFound} citation{provenance.citationsFound !== 1 ? 's' : ''}</span>
+      </div>
+    )
+  }
+
+  if (provenance.type === 'general') {
+    return (
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/20">
+        <Globe className="w-3.5 h-3.5" />
+        <span>General answer</span>
+        <span className="text-blue-500/60">·</span>
+        <span className="text-blue-500/80">not from documents</span>
+      </div>
+    )
+  }
+
+  // UNGROUNDED — warning banner
+  return (
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">
+      <ShieldAlert className="w-3.5 h-3.5" />
+      <span>Ungrounded</span>
+      <span className="text-amber-500/60">·</span>
+      <span className="text-amber-500/80">docs available but not cited</span>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ungrounded warning banner
+// ─────────────────────────────────────────────────────────────────────────────
+function UngroundedBanner({ provenance }: { provenance: Provenance }) {
+  if (provenance.type !== 'ungrounded') return null
+
+  return (
+    <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300/90">
+      <div className="flex items-start gap-2">
+        <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-400" />
+        <div>
+          <p className="font-medium text-amber-400">Provenance Warning</p>
+          <p className="mt-0.5">
+            {provenance.contextCount} document chunk{provenance.contextCount !== 1 ? 's' : ''} were
+            available, but the response did not cite any sources. This answer may not be grounded in
+            your documents.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function ChatInterface() {
@@ -31,6 +105,28 @@ export function ChatInterface() {
     scrollToBottom();
   }, [messages, streamingMessage]);
 
+  /**
+   * Parse the response body. The backend now sends a JSON envelope:
+   * { content: string, provenance: Provenance, conversationId: string | null }
+   *
+   * For backward compatibility, if the response is not valid JSON, treat
+   * the entire body as plain-text content with no provenance.
+   */
+  function parseResponse(raw: string): { content: string; provenance?: Provenance } {
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed.content === 'string') {
+        return {
+          content: parsed.content,
+          provenance: parsed.provenance || undefined
+        }
+      }
+    } catch {
+      // Not JSON — fall through
+    }
+    return { content: raw }
+  }
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -47,7 +143,6 @@ export function ChatInterface() {
     setStreamingMessage('');
 
     try {
-      // Enhanced error handling with retry logic
       const { retryApiCall } = await import('@/app/lib/retry');
       const { captureApiError } = await import('@/app/lib/error-monitoring');
 
@@ -77,21 +172,38 @@ export function ChatInterface() {
       if (!reader) throw new Error('No response body');
 
       const decoder = new TextDecoder();
-      let assistantMessage = '';
+      let rawBody = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value);
-        assistantMessage += chunk;
-        setStreamingMessage(assistantMessage);
+        rawBody += chunk;
+
+        // Show raw content while streaming (best-effort preview)
+        // We'll parse the JSON envelope once streaming is complete
+        try {
+          const partial = JSON.parse(rawBody);
+          if (partial && typeof partial.content === 'string') {
+            setStreamingMessage(partial.content);
+          } else {
+            setStreamingMessage(rawBody);
+          }
+        } catch {
+          // Incomplete JSON during streaming — show raw text
+          setStreamingMessage(rawBody);
+        }
       }
+
+      // Parse the complete response
+      const { content, provenance } = parseResponse(rawBody);
 
       const assistantMessageObj: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: assistantMessage,
+        content,
+        provenance,
         timestamp: new Date()
       };
 
@@ -101,11 +213,9 @@ export function ChatInterface() {
     } catch (error) {
       console.error('Error sending message:', error);
       
-      // Capture error for monitoring
       const { captureApiError } = await import('@/app/lib/error-monitoring');
       captureApiError(error as Error, '/api/chat');
 
-      // Provide user-friendly error messages
       let errorContent = 'Sorry, I encountered an error. Please try again.';
       
       if (error instanceof Error) {
@@ -142,7 +252,6 @@ export function ChatInterface() {
   };
 
   const formatMessage = (content: string) => {
-    // Simple markdown-like formatting with dark theme support
     return content
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -180,12 +289,31 @@ export function ChatInterface() {
                   : 'bg-gray-800/50 text-gray-100 border border-gray-700/30'
               }`}
             >
+              {/* Provenance badge — shown above assistant messages */}
+              {message.role === 'assistant' && message.provenance && (
+                <div className="mb-2">
+                  <ProvenanceBadge provenance={message.provenance} />
+                </div>
+              )}
+
               <div
                 className="prose prose-sm max-w-none"
                 dangerouslySetInnerHTML={{
                   __html: formatMessage(message.content)
                 }}
               />
+
+              {/* Ungrounded warning banner */}
+              {message.role === 'assistant' && message.provenance && (
+                <UngroundedBanner provenance={message.provenance} />
+              )}
+
+              {/* General answer disclaimer */}
+              {message.role === 'assistant' && message.provenance?.type === 'general' && message.provenance.disclaimer && (
+                <div className="mt-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/15 text-xs text-blue-300/80">
+                  {message.provenance.disclaimer}
+                </div>
+              )}
               
               {message.sources && message.sources.length > 0 && (
                 <div className={`mt-3 pt-3 ${message.role === 'user' ? 'border-t border-blue-400/30' : 'border-t border-gray-600/50'}`}>

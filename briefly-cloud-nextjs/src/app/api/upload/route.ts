@@ -79,7 +79,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     
     if (!userProfile) {
       const profileData = await withSchemaErrorHandling(
-        () => withApiPerformanceMonitoring(() => usersRepo.getUsageStats(user.id)),
+        () => usersRepo.getUsageStats(user.id),
         {
           schema: 'app',
           operation: 'get_user_profile',
@@ -325,36 +325,27 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       })
     }
     
-    // Update user usage statistics using app schema repository
+    // Update user usage statistics (BEST-EFFORT — upload succeeds regardless)
+    // NOTE: Previously wrapped in withApiPerformanceMonitoring() which returned
+    // a function instead of calling it, so updateUsage was never executed.
     try {
-      await withSchemaErrorHandling(
-        () => withApiPerformanceMonitoring(() =>
-          usersRepo.updateUsage(user.id, {
-            documents_uploaded: currentFileCount + 1,
-            storage_used_bytes: currentStorage + file.size
-          })
-        ),
-        {
-          schema: 'app',
-          operation: 'update_user_usage',
-          table: 'users',
-          userId: user.id,
-          correlationId,
-          ...extractSchemaContext(request, 'update_user_usage', 'app', 'users')
-        }
-      )
-    } catch (usageError) {
-      const schemaError = handleSchemaError(usageError, {
-        schema: 'app',
-        operation: 'update_user_usage',
-        table: 'users',
-        userId: user.id,
-        correlationId,
-        originalError: usageError
+      await usersRepo.updateUsage(user.id, {
+        documents_uploaded: currentFileCount + 1,
+        storage_used_bytes: currentStorage + file.size
       })
-      logSchemaError(schemaError)
-      console.error('Usage update error:', usageError, { correlationId, userId: user.id })
-      // Don't fail the upload for this, just log it
+      console.log('[upload:usage-updated]', {
+        userId: user.id,
+        documents_uploaded: currentFileCount + 1,
+        storage_used_bytes: currentStorage + file.size,
+        correlationId
+      })
+    } catch (usageError) {
+      // Best-effort: log but don't fail the upload
+      console.error('[upload:usage-update-failed]', {
+        error: usageError instanceof Error ? usageError.message : String(usageError),
+        correlationId,
+        userId: user.id
+      })
     }
     
     // Invalidate user profile cache after update
