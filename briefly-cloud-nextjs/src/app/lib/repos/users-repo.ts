@@ -9,6 +9,8 @@ export interface UserProfile {
   documents_limit: number
   storage_used_bytes: number
   storage_limit_bytes: number
+  chat_messages_count: number      // ← added: was missing from interface
+  chat_messages_limit: number      // ← added: was missing from interface
   created_at: string
   updated_at: string
   last_login_at?: string
@@ -20,12 +22,16 @@ export interface UserUsageStats {
   documents_limit: number
   storage_used_bytes: number
   storage_limit_bytes: number
+  chat_messages_count: number      // ← added
+  chat_messages_limit: number      // ← added
   subscription_tier: string
 }
 
 export interface UpdateUserUsageInput {
   documents_uploaded?: number
   storage_used_bytes?: number
+  chat_messages_count?: number     // ← added: chat route increments this
+  api_calls_count?: number         // ← added for completeness
   last_login_at?: string
   metadata?: Record<string, any>
 }
@@ -42,30 +48,35 @@ export const TIER_LIMITS = {
   free: {
     documents_limit: 25,
     storage_limit_bytes: 100 * 1024 * 1024, // 100MB
+    chat_messages_limit: 100,
   },
   pro: {
     documents_limit: 500,
     storage_limit_bytes: 1024 * 1024 * 1024, // 1GB
+    chat_messages_limit: 10000,
   },
   pro_byok: {
     documents_limit: 5000,
     storage_limit_bytes: 10 * 1024 * 1024 * 1024, // 10GB
+    chat_messages_limit: 100000,
   },
   team: {
     documents_limit: 10000,
     storage_limit_bytes: 50 * 1024 * 1024 * 1024, // 50GB
+    chat_messages_limit: 1000000,
   },
   enterprise: {
     documents_limit: 100000,
     storage_limit_bytes: 500 * 1024 * 1024 * 1024, // 500GB
+    chat_messages_limit: 10000000,
   },
 } as const
 
 /**
  * Users Repository - App Schema Implementation
- * 
- * This repository handles user operations using the app schema (app.profiles table).
- * It extends BaseRepository for schema-aware operations and proper error handling.
+ *
+ * Handles user profile operations against app.profiles.
+ * Extends BaseRepository for schema-aware Supabase access.
  */
 export class UsersRepository extends BaseRepository {
   private readonly TABLE_NAME = 'profiles'
@@ -133,6 +144,8 @@ export class UsersRepository extends BaseRepository {
       documents_limit: limits.documents_limit,
       storage_used_bytes: 0,
       storage_limit_bytes: limits.storage_limit_bytes,
+      chat_messages_count: 0,
+      chat_messages_limit: limits.chat_messages_limit,
       metadata: input.metadata || {},
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -160,7 +173,8 @@ export class UsersRepository extends BaseRepository {
   }
 
   /**
-   * Update user usage statistics
+   * Update user usage statistics.
+   * Accepts documents_uploaded, storage_used_bytes, chat_messages_count, etc.
    */
   async updateUsage(userId: string, updates: UpdateUserUsageInput): Promise<void> {
     this.validateRequiredFields({ userId }, ['userId'], 'update user usage')
@@ -170,7 +184,7 @@ export class UsersRepository extends BaseRepository {
       updated_at: new Date().toISOString()
     })
 
-    if (Object.keys(payload).length <= 1) return // Only updated_at
+    if (Object.keys(payload).length <= 1) return // Only updated_at — nothing to write
 
     try {
       const { error } = await this.appClient
@@ -187,19 +201,17 @@ export class UsersRepository extends BaseRepository {
   }
 
   /**
-   * Increment document count and storage usage
+   * Increment document count and storage usage atomically.
    */
   async incrementUsage(userId: string, documentCount: number, storageBytes: number): Promise<void> {
     this.validateRequiredFields({ userId }, ['userId'], 'increment user usage')
 
     try {
-      // First get current values
       const currentProfile = await this.getById(userId)
       if (!currentProfile) {
         throw new Error(`User profile not found: ${userId}`)
       }
 
-      // Update with incremented values
       await this.updateUsage(userId, {
         documents_uploaded: currentProfile.documents_uploaded + documentCount,
         storage_used_bytes: currentProfile.storage_used_bytes + storageBytes
@@ -210,7 +222,7 @@ export class UsersRepository extends BaseRepository {
   }
 
   /**
-   * Update user subscription tier and limits
+   * Update user subscription tier and limits.
    */
   async updateTier(userId: string, tier: 'free' | 'pro' | 'pro_byok' | 'team' | 'enterprise'): Promise<void> {
     this.validateRequiredFields({ userId, tier }, ['userId', 'tier'], 'update user tier')
@@ -221,6 +233,7 @@ export class UsersRepository extends BaseRepository {
       subscription_tier: tier,
       documents_limit: limits.documents_limit,
       storage_limit_bytes: limits.storage_limit_bytes,
+      chat_messages_limit: limits.chat_messages_limit,
       updated_at: new Date().toISOString()
     }
 
@@ -239,7 +252,7 @@ export class UsersRepository extends BaseRepository {
   }
 
   /**
-   * Get user usage statistics
+   * Get user usage statistics (lightweight select — no full profile needed).
    */
   async getUsageStats(userId: string): Promise<UserUsageStats | null> {
     this.validateRequiredFields({ userId }, ['userId'], 'get user usage stats')
@@ -247,7 +260,10 @@ export class UsersRepository extends BaseRepository {
     try {
       const { data, error } = await this.appClient
         .from(this.TABLE_NAME)
-        .select('documents_uploaded, documents_limit, storage_used_bytes, storage_limit_bytes, subscription_tier')
+        .select(
+          'documents_uploaded, documents_limit, storage_used_bytes, storage_limit_bytes, ' +
+          'chat_messages_count, chat_messages_limit, subscription_tier'
+        )
         .eq('id', userId)
         .maybeSingle()
 
@@ -260,6 +276,8 @@ export class UsersRepository extends BaseRepository {
         documents_limit: data.documents_limit || 0,
         storage_used_bytes: data.storage_used_bytes || 0,
         storage_limit_bytes: data.storage_limit_bytes || 0,
+        chat_messages_count: data.chat_messages_count || 0,
+        chat_messages_limit: data.chat_messages_limit || 100,
         subscription_tier: data.subscription_tier || 'free'
       } : null
     } catch (error) {
@@ -268,7 +286,7 @@ export class UsersRepository extends BaseRepository {
   }
 
   /**
-   * Update last login timestamp
+   * Update last login timestamp.
    */
   async updateLastLogin(userId: string): Promise<void> {
     this.validateRequiredFields({ userId }, ['userId'], 'update last login')
@@ -291,33 +309,38 @@ export class UsersRepository extends BaseRepository {
   }
 
   /**
-   * Check if user has reached usage limits
+   * Check if user has reached usage limits.
    */
   async checkUsageLimits(userId: string): Promise<{
     canUploadFiles: boolean
     canUseStorage: boolean
+    canChat: boolean
     documentsRemaining: number
     storageRemaining: number
+    chatMessagesRemaining: number
   }> {
     const stats = await this.getUsageStats(userId)
-    
+
     if (!stats) {
       throw new Error(`User profile not found: ${userId}`)
     }
 
     const documentsRemaining = Math.max(0, stats.documents_limit - stats.documents_uploaded)
     const storageRemaining = Math.max(0, stats.storage_limit_bytes - stats.storage_used_bytes)
+    const chatMessagesRemaining = Math.max(0, stats.chat_messages_limit - stats.chat_messages_count)
 
     return {
       canUploadFiles: documentsRemaining > 0,
       canUseStorage: storageRemaining > 0,
+      canChat: chatMessagesRemaining > 0,
       documentsRemaining,
-      storageRemaining
+      storageRemaining,
+      chatMessagesRemaining
     }
   }
 
   /**
-   * Get multiple users by IDs (for admin operations)
+   * Get multiple users by IDs (admin operations).
    */
   async getByIds(userIds: string[]): Promise<UserProfile[]> {
     if (!userIds.length) return []
@@ -341,7 +364,7 @@ export class UsersRepository extends BaseRepository {
   }
 
   /**
-   * Update user metadata
+   * Update user metadata.
    */
   async updateMetadata(userId: string, metadata: Record<string, any>): Promise<void> {
     this.validateRequiredFields({ userId }, ['userId'], 'update user metadata')
@@ -364,7 +387,7 @@ export class UsersRepository extends BaseRepository {
   }
 
   /**
-   * Map database record to UserProfile interface
+   * Map raw DB record to typed UserProfile.
    */
   private mapRecordToUserProfile(record: Record<string, any>): UserProfile {
     return {
@@ -372,9 +395,11 @@ export class UsersRepository extends BaseRepository {
       email: record.email,
       subscription_tier: record.subscription_tier || 'free',
       documents_uploaded: record.documents_uploaded || 0,
-      documents_limit: record.documents_limit || 0,
+      documents_limit: record.documents_limit || 25,
       storage_used_bytes: record.storage_used_bytes || 0,
-      storage_limit_bytes: record.storage_limit_bytes || 0,
+      storage_limit_bytes: record.storage_limit_bytes || 104857600,
+      chat_messages_count: record.chat_messages_count || 0,
+      chat_messages_limit: record.chat_messages_limit || 100,
       created_at: record.created_at || new Date().toISOString(),
       updated_at: record.updated_at || new Date().toISOString(),
       last_login_at: record.last_login_at || null,

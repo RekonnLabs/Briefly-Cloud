@@ -37,8 +37,22 @@ interface ProvenanceMetadata {
 }
 
 /**
- * Validate provenance: if context was provided, the LLM MUST cite at least one source.
- * If it doesn't, mark the response as UNGROUNDED.
+ * Normalize a source string for comparison.
+ * Sources come as "filename.txt #3" from context-retrieval.
+ * LLM may cite as "filename.txt", "filename.txt #3", or just "filename".
+ * We strip chunk indices and extensions for fuzzy matching.
+ */
+function normalizeSource(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\s*#\d+$/i, '')     // strip chunk index: "foo.txt #3" → "foo.txt"
+    .toLowerCase()
+}
+
+/**
+ * Validate provenance: if context was provided, the LLM MUST cite at least one
+ * source that actually exists in the retrieved context. Hallucinated citations
+ * (filenames not in the retrieved set) do NOT count.
  */
 function validateProvenance(
   responseText: string,
@@ -51,12 +65,35 @@ function validateProvenance(
     .filter((s): s is string => !!s)
   const uniqueSources = [...new Set(sourceNames)]
 
-  // Count how many [Source: ...] citations appear in the response
+  // Build a set of normalized source names from the ACTUAL retrieved context
+  const retrievedSourcesNormalized = new Set(
+    uniqueSources.map(normalizeSource)
+  )
+
+  // Extract all [Source: ...] citations from the LLM response
   const citationPattern = /\[Source:\s*([^\]]+)\]/gi
-  const citations: string[] = []
+  const rawCitations: string[] = []
   let match: RegExpExecArray | null
   while ((match = citationPattern.exec(responseText)) !== null) {
-    citations.push(match[1].trim())
+    rawCitations.push(match[1].trim())
+  }
+
+  // Validate each citation against the actual retrieved source list
+  // A citation only counts if it matches a real retrieved source
+  const validatedCitations = rawCitations.filter(citation => {
+    const normalized = normalizeSource(citation)
+    return retrievedSourcesNormalized.has(normalized)
+  })
+  const hallucinatedCitations = rawCitations.filter(citation => {
+    const normalized = normalizeSource(citation)
+    return !retrievedSourcesNormalized.has(normalized)
+  })
+
+  if (hallucinatedCitations.length > 0) {
+    console.warn('[provenance:hallucinated-citations]', {
+      hallucinated: hallucinatedCitations,
+      validRetrievedSources: uniqueSources
+    })
   }
 
   if (contextCount === 0) {
@@ -71,23 +108,26 @@ function validateProvenance(
     }
   }
 
-  if (citations.length === 0) {
-    // Context was provided but the LLM failed to cite ANY source — UNGROUNDED
+  if (validatedCitations.length === 0) {
+    // Context was provided but the LLM failed to cite ANY valid source — UNGROUNDED
+    // (raw citations may exist but they don't match retrieved sources)
     return {
       type: 'ungrounded',
       contextCount,
       citationsFound: 0,
       sources: uniqueSources,
       model,
-      disclaimer: 'Warning: Document context was available but the response did not cite any sources. This answer may not be grounded in your documents.'
+      disclaimer: rawCitations.length > 0
+        ? 'Warning: The response cited sources that were not in the retrieved documents. This answer may not be grounded in your documents.'
+        : 'Warning: Document context was available but the response did not cite any sources. This answer may not be grounded in your documents.'
     }
   }
 
-  // Context was provided AND the LLM cited at least one source — grounded
+  // Context was provided AND the LLM cited at least one VALIDATED source — grounded
   return {
     type: 'grounded',
     contextCount,
-    citationsFound: citations.length,
+    citationsFound: validatedCitations.length,
     sources: uniqueSources,
     model
   }
@@ -165,6 +205,30 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     )
     if (!userProfile) {
       return ApiResponse.unauthorized('User profile not found')
+    }
+
+    // ── Check chat usage limits (CRITICAL — enforce tier quotas) ─────
+    try {
+      const limits = await usersRepo.checkUsageLimits(user.id)
+      if (!limits.canChat) {
+        return ApiResponse.forbidden(
+          'You have reached your chat message limit for this billing period. ' +
+          'Please upgrade your plan or wait for the next cycle.',
+          'CHAT_LIMIT_REACHED'
+        )
+      }
+      console.log('[chat:limits]', {
+        canChat: limits.canChat,
+        chatMessagesRemaining: limits.chatMessagesRemaining,
+        correlationId: rid
+      })
+    } catch (limitErr) {
+      // If limit check fails, allow the request through (fail-open for now)
+      // but log it so we can monitor
+      console.warn('[chat:limits] Limit check failed — allowing request (fail-open)', {
+        error: limitErr instanceof Error ? limitErr.message : String(limitErr),
+        correlationId: rid
+      })
     }
 
     // ── Create / reuse conversation (BEST-EFFORT — chat still works without persistence) ──
@@ -319,6 +383,9 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     })
 
     // ── Save assistant response (BEST-EFFORT — uses correct table: app.messages) ──
+    // NOTE: cost_usd is an ESTIMATE derived from routing.estimatedCost (our internal
+    // pricing table based on model + token counts). It is NOT sourced from the
+    // provider's usage response. Treat as approximate for analytics, not billing.
     if (convoId) {
       await bestEffort('save_assistant_message', async () => {
         const { error } = await supabaseApp
@@ -331,25 +398,34 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
             model: routing.model,
             tokens_in: inputTokens,
             tokens_out: outputTokens,
-            cost_usd: routing.estimatedCost
+            cost_usd: routing.estimatedCost  // estimated, not provider-sourced
           })
         if (error) throw error
       }, rid)
     }
 
-    // ── Increment chat_messages_count (BEST-EFFORT) ────────────────────
+    // ── Increment chat_messages_count (BEST-EFFORT, post-success only) ──
+    // This runs AFTER successful LLM generation + provenance validation.
+    // Uses SQL increment to avoid read-then-write race conditions.
     await bestEffort('increment_chat_count', async () => {
-      const currentCount = userProfile.chat_messages_count || 0
-      await usersRepo.updateUsage(user.id, {
-        chat_messages_count: currentCount + 1
-      })
+      const { error } = await supabaseApp
+        .rpc('increment_chat_count', { p_user_id: user.id })
+      if (error) {
+        // Fallback to direct update if RPC doesn't exist yet
+        const currentCount = userProfile.chat_messages_count || 0
+        await usersRepo.updateUsage(user.id, {
+          chat_messages_count: currentCount + 1
+        })
+      }
     }, rid)
 
     // ── Build response ─────────────────────────────────────────────────
     if (stream) {
       // Structured JSON envelope for streaming responses
       // The frontend parses this to extract content + provenance
+      // v: envelope version — increment when changing provenance schema
       const responsePayload = JSON.stringify({
+        v: 1,
         content: finalResponse,
         provenance: {
           type: provenance.type,
@@ -382,6 +458,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
 
     // Non-streaming JSON response
     return ApiResponse.success({
+      v: 1,
       conversation_id: convoId,
       response: finalResponse,
       provenance: {
