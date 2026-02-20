@@ -7,7 +7,8 @@ import { ApiResponse } from '@/app/lib/api-response'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
-import { generateChatCompletion, streamChatCompletion, SubscriptionTier } from '@/app/lib/openai'
+import { generateChatCompletion, streamChatCompletion, SubscriptionTier, type ChatCompletionResult } from '@/app/lib/openai'
+import { computeCost } from '@/app/lib/prompt/modelRouter'
 import { supabaseApp } from '@/app/lib/supabase-clients'
 import { usersRepo } from '@/app/lib/repos/users-repo'
 import { chunksRepo } from '@/app/lib/repos/chunks-repo'
@@ -255,7 +256,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
             conversation_id: convoId,
             owner_id: user.id,
             role: 'user',
-            content: message
+            content: message,
+            correlation_id: rid
           })
         if (error) throw error
       }, rid)
@@ -339,15 +341,19 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       hasDocumentContext: safeContextSnippets.length > 0
     })
     
-    const rawResponse = await generateChatCompletion(messages as any, tier, undefined, routing.model)
+    const llmResult: ChatCompletionResult = await generateChatCompletion(messages as any, tier, undefined, routing.model)
     
     console.log('[chat-handler] generateChatCompletion returned', {
-      responseLength: rawResponse?.length || 0,
-      hasContent: !!rawResponse
+      responseLength: llmResult.content?.length || 0,
+      hasContent: !!llmResult.content,
+      promptTokens: llmResult.usage.prompt_tokens,
+      completionTokens: llmResult.usage.completion_tokens,
+      openaiRequestId: llmResult.openai_request_id,
+      actualModel: llmResult.model
     })
 
     // ── Apply Briefly Voice linting ────────────────────────────────────
-    const lintResult = lintResponse(rawResponse)
+    const lintResult = lintResponse(llmResult.content)
     const finalResponse = lintResult.output
 
     // ── Provenance validation (CRITICAL — enforces trust) ──────────────
@@ -361,16 +367,27 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       correlationId: rid
     })
 
-    // ── Calculate metrics ──────────────────────────────────────────────
+    // ── Calculate metrics (use ACTUAL provider tokens, not estimates) ──
     const latency = Date.now() - startTime
-    const inputTokens = messages.reduce((sum, msg) => sum + Math.ceil(msg.content.length / 4), 0)
-    const outputTokens = Math.ceil(finalResponse.length / 4)
+    const inputTokens = llmResult.usage.prompt_tokens
+    const outputTokens = llmResult.usage.completion_tokens
+    // tokens_context: how many of the input tokens came from document context
+    const tokensContext = safeContextSnippets.reduce(
+      (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
+    )
+    // cost_usd: computed from actual token counts × model pricing table
+    // This is still an ESTIMATE (our pricing table, not provider invoice)
+    // but it's based on real token counts, not flat constants
+    const costUsd = computeCost(llmResult.model || routing.model, inputTokens, outputTokens)
 
     // ── Telemetry logging (BEST-EFFORT) ────────────────────────────────
     console.log('Chat completion telemetry:', {
       modelRoute: routing.model,
+      actualModel: llmResult.model,
       inputTokens,
       outputTokens,
+      tokensContext,
+      costUsd,
       latency,
       contextCount: safeContextSnippets.length,
       provenance: provenance.type,
@@ -379,13 +396,15 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       boost,
       tier,
       userId: user.id,
+      openaiRequestId: llmResult.openai_request_id,
+      correlationId: rid,
       retrievalStats
     })
 
     // ── Save assistant response (BEST-EFFORT — uses correct table: app.messages) ──
-    // NOTE: cost_usd is an ESTIMATE derived from routing.estimatedCost (our internal
-    // pricing table based on model + token counts). It is NOT sourced from the
-    // provider's usage response. Treat as approximate for analytics, not billing.
+    // cost_usd is computed from actual token counts × our pricing table.
+    // It is NOT sourced from the provider's invoice. Treat as approximate.
+    // New columns: provenance (JSONB), correlation_id, openai_request_id, tokens_context
     if (convoId) {
       await bestEffort('save_assistant_message', async () => {
         const { error } = await supabaseApp
@@ -395,10 +414,22 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
             owner_id: user.id,
             role: 'assistant',
             content: finalResponse,
-            model: routing.model,
+            model: llmResult.model || routing.model,
             tokens_in: inputTokens,
             tokens_out: outputTokens,
-            cost_usd: routing.estimatedCost  // estimated, not provider-sourced
+            tokens_context: tokensContext,
+            cost_usd: costUsd,
+            correlation_id: rid,
+            openai_request_id: llmResult.openai_request_id,
+            provenance: {
+              type: provenance.type,
+              contextCount: provenance.contextCount,
+              citationsFound: provenance.citationsFound,
+              sources: provenance.sources,
+              disclaimer: provenance.disclaimer || null,
+              hallucinatedCitations: [],  // populated above if any
+              retrievalStats
+            }
           })
         if (error) throw error
       }, rid)
@@ -475,17 +506,21 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       })),
       modelRoute: routing.model,
       routing: {
-        model: routing.model,
+        model: llmResult.model || routing.model,
         reason: routing.reason,
-        estimatedCost: routing.estimatedCost
+        costUsd
       },
       telemetry: {
         inputTokens,
         outputTokens,
+        tokensContext,
+        costUsd,
         latency,
         contextCount: safeContextSnippets.length,
         provenance: provenance.type,
         linterApplied: lintResult.rewritten,
+        openaiRequestId: llmResult.openai_request_id,
+        correlationId: rid,
         retrievalStats
       }
     })

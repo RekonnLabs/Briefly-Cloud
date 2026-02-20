@@ -50,3 +50,41 @@ export function getModelConfig(model: string) {
     temperature: 0.7
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model pricing table — cost per 1K tokens (USD)
+// These are OUR estimates based on published OpenAI pricing.
+// NOT sourced from provider invoices. Treat as approximate for analytics.
+// Update when models change or new pricing is published.
+// ─────────────────────────────────────────────────────────────────────────────
+interface ModelPricing {
+  inputPer1K: number   // USD per 1,000 input tokens
+  outputPer1K: number  // USD per 1,000 output tokens
+}
+
+const MODEL_PRICING: Record<string, ModelPricing> = {
+  // GPT-5 family
+  'gpt-5.1':      { inputPer1K: 0.005,   outputPer1K: 0.015   },
+  'gpt-5-mini':   { inputPer1K: 0.0004,  outputPer1K: 0.0016  },
+  'gpt-5-nano':   { inputPer1K: 0.0001,  outputPer1K: 0.0004  },
+  // GPT-4 family (legacy fallbacks)
+  'gpt-4o':       { inputPer1K: 0.005,   outputPer1K: 0.015   },
+  'gpt-4o-mini':  { inputPer1K: 0.00015, outputPer1K: 0.0006  },
+  'gpt-4.1-mini': { inputPer1K: 0.0004,  outputPer1K: 0.0016  },
+  'gpt-4.1-nano': { inputPer1K: 0.0001,  outputPer1K: 0.0004  },
+}
+
+// Default pricing for unknown models (conservative estimate)
+const DEFAULT_PRICING: ModelPricing = { inputPer1K: 0.005, outputPer1K: 0.015 }
+
+/**
+ * Compute estimated cost from actual token counts × model pricing.
+ * Returns USD as a number (e.g., 0.000345).
+ */
+export function computeCost(model: string, inputTokens: number, outputTokens: number): number {
+  const pricing = MODEL_PRICING[model] || DEFAULT_PRICING
+  const inputCost = (inputTokens / 1000) * pricing.inputPer1K
+  const outputCost = (outputTokens / 1000) * pricing.outputPer1K
+  // Round to 6 decimal places to avoid floating-point noise
+  return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000
+}

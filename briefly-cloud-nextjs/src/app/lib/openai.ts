@@ -88,12 +88,25 @@ export async function generateEmbeddings(
 }
 
 // Generate chat completion
+// Rich response from generateChatCompletion — includes usage + traceability
+export interface ChatCompletionResult {
+  content: string
+  usage: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
+  openai_request_id: string | null
+  model: string
+  system_fingerprint: string | null
+}
+
 export async function generateChatCompletion(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   tier: SubscriptionTier,
   userApiKey?: string,
   explicitModel?: string // NEW: Allow explicit model override from router
-): Promise<string> {
+): Promise<ChatCompletionResult> {
   console.log('[OpenAI] generateChatCompletion ENTERED', {
     tier,
     messageCount: messages.length,
@@ -145,7 +158,11 @@ export async function generateChatCompletion(
       choices: response.choices.length,
       finishReason: response.choices[0]?.finish_reason,
       contentLength: response.choices[0]?.message?.content?.length || 0,
-      hasContent: !!response.choices[0]?.message?.content
+      hasContent: !!response.choices[0]?.message?.content,
+      promptTokens: response.usage?.prompt_tokens,
+      completionTokens: response.usage?.completion_tokens,
+      requestId: response.id,
+      systemFingerprint: response.system_fingerprint
     })
     
     const content = response.choices[0]?.message?.content
@@ -153,10 +170,26 @@ export async function generateChatCompletion(
       console.error('[OpenAI] Empty response received!', {
         response: JSON.stringify(response, null, 2)
       })
-      return 'No response generated'
+      return {
+        content: 'No response generated',
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        openai_request_id: response.id || null,
+        model: response.model || model,
+        system_fingerprint: response.system_fingerprint || null
+      }
     }
     
-    return content
+    return {
+      content,
+      usage: {
+        prompt_tokens: response.usage?.prompt_tokens ?? 0,
+        completion_tokens: response.usage?.completion_tokens ?? 0,
+        total_tokens: response.usage?.total_tokens ?? 0
+      },
+      openai_request_id: response.id || null,
+      model: response.model || model,
+      system_fingerprint: response.system_fingerprint || null
+    }
   } catch (error: any) {
     console.error('Error generating chat completion:', error)
     
