@@ -78,11 +78,43 @@ const MODEL_PRICING: Record<string, ModelPricing> = {
 const DEFAULT_PRICING: ModelPricing = { inputPer1K: 0.005, outputPer1K: 0.015 }
 
 /**
+ * Normalize versioned model names to their base pricing key.
+ * Providers return versioned names like "gpt-5.1-2025-11-13" but our
+ * pricing table uses base names like "gpt-5.1". Without normalization,
+ * new model versions silently fall back to DEFAULT_PRICING.
+ *
+ * Strategy: try exact match first, then progressively strip suffixes
+ * until we find a match or exhaust options.
+ */
+function normalizeModelName(model: string): string {
+  // Exact match — fast path
+  if (MODEL_PRICING[model]) return model
+
+  // Strip date suffixes: "gpt-5.1-2025-11-13" → "gpt-5.1"
+  // Strip snapshot suffixes: "gpt-5.1-preview" → "gpt-5.1"
+  // Strategy: split on '-', try progressively shorter prefixes
+  const parts = model.split('-')
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const candidate = parts.slice(0, i).join('-')
+    if (MODEL_PRICING[candidate]) return candidate
+  }
+
+  // Handle dot-versioned names: "gpt-5.1" should match even if
+  // the table has "gpt-5" (future-proofing)
+  // But don't over-normalize — if no match found, return as-is
+  // and let DEFAULT_PRICING handle it
+  console.warn(`[modelRouter:pricing] Unknown model "${model}" — using default pricing`)
+  return model
+}
+
+/**
  * Compute estimated cost from actual token counts × model pricing.
  * Returns USD as a number (e.g., 0.000345).
+ * Model names are normalized to handle versioned strings from the provider.
  */
 export function computeCost(model: string, inputTokens: number, outputTokens: number): number {
-  const pricing = MODEL_PRICING[model] || DEFAULT_PRICING
+  const normalized = normalizeModelName(model)
+  const pricing = MODEL_PRICING[normalized] || DEFAULT_PRICING
   const inputCost = (inputTokens / 1000) * pricing.inputPer1K
   const outputCost = (outputTokens / 1000) * pricing.outputPer1K
   // Round to 6 decimal places to avoid floating-point noise
