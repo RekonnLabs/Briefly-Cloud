@@ -22,6 +22,7 @@ import { buildMessages, buildDeveloper, type ContextSnippet } from '@/app/lib/pr
 import { BUDGETS, getBudgetForTier, type ChatBudget } from '@/app/lib/prompt/budgets'
 import { enforce as lintResponse } from '@/app/lib/prompt/responseLinter'
 import { routeModel, analyzeQuery, getModelConfig, type UserTier } from '@/app/lib/prompt/modelRouter'
+import { selectMemory, MEMORY_TOKEN_BUDGET } from '@/app/lib/prompt/conversationMemory'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provenance types — every response carries provenance metadata
@@ -280,28 +281,37 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       correlationId: rid
     })
 
-    // ── Get conversation history (BEST-EFFORT) ─────────────────────────
-    let historySummary: string | undefined
-    if (convoId) {
-      const historyResult = await bestEffort('get_conversation_history', async () => {
-        const { data, error } = await supabaseApp
-          .from('messages')
-          .select('role, content')
-          .eq('conversation_id', convoId)
-          .eq('owner_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(4)
-        if (error) throw error
-        return data
-      }, rid)
+    // ── Conversation Memory (BEST-EFFORT — chat works without memory) ──
+    // Selective window: fetch prior turns, gate by embedding relevance,
+    // respect token budget. Memory shrinks if RAG context is large.
+    const contextTokensUsed = safeContextSnippets.reduce(
+      (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
+    )
+    // If RAG context is large, reduce memory budget proportionally
+    const memoryBudget = Math.max(200, MEMORY_TOKEN_BUDGET - Math.max(0, contextTokensUsed - budget.contextTokenLimit))
 
-      if (historyResult && historyResult.length > 0) {
-        historySummary = historyResult
-          .reverse()
-          .map((m: { role: string; content: string }) => `${m.role}: ${m.content.slice(0, 100)}`)
-          .join(' | ')
-      }
+    const memoryResult = await bestEffort('select_memory', () =>
+      selectMemory(user.id, convoId, message, memoryBudget)
+    , rid)
+
+    const memoryMessages = memoryResult?.messages || []
+    const memoryStats = memoryResult?.stats || {
+      memoryEnabled: false,
+      memoryCandidates: 0,
+      memoryIncluded: 0,
+      memoryTokensEstimated: 0,
+      memoryGate: 'none' as const
     }
+
+    console.log('[chat:memory]', {
+      enabled: memoryStats.memoryEnabled,
+      candidates: memoryStats.memoryCandidates,
+      included: memoryStats.memoryIncluded,
+      tokensEstimated: memoryStats.memoryTokensEstimated,
+      gate: memoryStats.memoryGate,
+      memoryBudget,
+      correlationId: rid
+    })
     
     // ── Model routing (CRITICAL) ───────────────────────────────────────
     const routingSignals = analyzeQuery(message, safeContextSnippets, [])
@@ -324,7 +334,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       developerTask,
       developerShape,
       contextSnippets: safeContextSnippets,
-      historySummary,
+      memoryMessages: memoryMessages.length > 0 ? memoryMessages : undefined,
       userMessage: message
     })
 
@@ -428,7 +438,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
               sources: provenance.sources,
               disclaimer: provenance.disclaimer || null,
               hallucinatedCitations: [],  // populated above if any
-              retrievalStats
+              retrievalStats,
+              // M1: Conversation memory telemetry
+              memoryEnabled: memoryStats.memoryEnabled,
+              memoryCandidates: memoryStats.memoryCandidates,
+              memoryIncluded: memoryStats.memoryIncluded,
+              memoryTokensEstimated: memoryStats.memoryTokensEstimated,
+              memoryGate: memoryStats.memoryGate
             }
           })
         if (error) throw error
@@ -463,7 +479,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
           contextCount: provenance.contextCount,
           citationsFound: provenance.citationsFound,
           sources: provenance.sources,
-          disclaimer: provenance.disclaimer || null
+          disclaimer: provenance.disclaimer || null,
+          memory: {
+            enabled: memoryStats.memoryEnabled,
+            included: memoryStats.memoryIncluded,
+            tokensEstimated: memoryStats.memoryTokensEstimated,
+            gate: memoryStats.memoryGate
+          }
         },
         conversationId: convoId || null
       })

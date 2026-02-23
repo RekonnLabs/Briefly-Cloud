@@ -5,14 +5,26 @@ export function buildPrompt(messages: ChatMsg[], system?: string): ChatMsg[] {
   return system ? [{ role: 'system', content: system }, ...messages] : messages
 }
 
+/**
+ * Build the full message array for the LLM.
+ *
+ * Message order (OpenAI chat format):
+ *   1. System prompt (task + shape + document context if any)
+ *   2. Memory messages (prior turns, role-alternating user/assistant)
+ *   3. Current user message
+ *
+ * Memory messages are injected as proper role messages, NOT as text in the
+ * system prompt. This gives the LLM natural conversational context without
+ * polluting the system instructions.
+ */
 export function buildMessages(params: {
   developerTask: string
   developerShape: string
   contextSnippets: ContextSnippet[]
-  historySummary?: string
+  memoryMessages?: ChatMsg[]
   userMessage: string
 }): ChatMsg[] {
-  const { developerTask, developerShape, contextSnippets, historySummary, userMessage } = params
+  const { developerTask, developerShape, contextSnippets, memoryMessages, userMessage } = params
   
   // Build context with source attribution for each snippet
   const hasContext = contextSnippets && contextSnippets.length > 0
@@ -43,12 +55,26 @@ ${contextBlock}`
   }
   
   systemPrompt += `\n\n${developerShape}`
-  
-  if (historySummary) {
-    systemPrompt += `\n\nConversation History:\n${historySummary}`
+
+  // If memory is present, add a brief note to the system prompt
+  if (memoryMessages && memoryMessages.length > 0) {
+    systemPrompt += `\n\nCONVERSATION CONTEXT: Prior relevant messages from this conversation are included below. Use them for continuity but prioritize the current question and document context.`
   }
   
-  return buildPrompt([{ role: 'user', content: userMessage }], systemPrompt)
+  // Assemble: system → memory turns → current user message
+  const allMessages: ChatMsg[] = [
+    { role: 'system', content: systemPrompt }
+  ]
+
+  // Inject memory messages as proper role messages
+  if (memoryMessages && memoryMessages.length > 0) {
+    allMessages.push(...memoryMessages)
+  }
+
+  // Current user message
+  allMessages.push({ role: 'user', content: userMessage })
+
+  return allMessages
 }
 
 export function buildDeveloper(query: string): string {
