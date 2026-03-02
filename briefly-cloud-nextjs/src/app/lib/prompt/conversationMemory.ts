@@ -330,32 +330,58 @@ export async function selectMemory(
   }
 
   // ── Enforce N_TURNS_MIN: always include at least the last turn if it passed gate ──
-  // If no turns passed the gate but the last turn exists, check if it meets
-  // the minimum inclusion criteria
-  const includedTurns = scoredTurns.filter(s => s.included)
+  // If no turns passed the embedding gate, run the heuristic gate as a secondary
+  // check before giving up. This handles cases like "Where else does that appear?"
+  // where embedding similarity is low but the follow-up signal is clear.
+  let includedTurns = scoredTurns.filter(s => s.included)
   if (includedTurns.length === 0 && scoredTurns.length > 0) {
-    const lastScored = scoredTurns[scoredTurns.length - 1]
-    // For N_TURNS_MIN: include last turn if it has ANY relevance signal
-    // (embedding score > 0.5 or heuristic detected follow-up)
-    if (gateType === 'embedding' && lastScored.score >= 0.50) {
-      lastScored.included = true
-      console.log('[memory:min-turn] Including last turn via N_TURNS_MIN relaxation', {
-        score: lastScored.score,
+    if (gateType === 'embedding') {
+      // Secondary: run heuristic gate on turns that the embedding gate excluded
+      console.log('[memory:secondary-heuristic] Embedding gate returned 0 — running heuristic as secondary check', {
         conversationId
       })
-    }
-    // For heuristic: if the new message looks like a follow-up, include last turn
-    if (gateType === 'heuristic') {
+
+      const heuristicRescored = scoredTurns.map((s, i) => {
+        const isLast = i === scoredTurns.length - 1
+        const heuristicPass = heuristicRelevance(newUserMessage, s.turn.userMessage, isLast)
+        return { ...s, included: heuristicPass }
+      })
+
+      const heuristicIncluded = heuristicRescored.filter(s => s.included)
+      if (heuristicIncluded.length > 0) {
+        // Use heuristic results instead
+        scoredTurns.forEach((s, i) => { s.included = heuristicRescored[i].included })
+        gateType = 'heuristic'
+        console.log('[memory:secondary-heuristic] Heuristic gate included turns', {
+          included: heuristicIncluded.length,
+          conversationId
+        })
+      } else {
+        // Final fallback: N_TURNS_MIN — include last turn if embedding score >= 0.40
+        const lastScored = scoredTurns[scoredTurns.length - 1]
+        if (lastScored.score >= 0.40) {
+          lastScored.included = true
+          console.log('[memory:min-turn] Including last turn via N_TURNS_MIN relaxation', {
+            score: lastScored.score,
+            conversationId
+          })
+        }
+      }
+    } else if (gateType === 'heuristic') {
+      // For heuristic: if the new message looks like a follow-up, include last turn
       const newLower = newUserMessage.toLowerCase()
       const words = newLower.split(/\s+/)
       const hasFollowUp = words.some(w => FOLLOW_UP_SIGNALS.has(w))
       if (hasFollowUp) {
+        const lastScored = scoredTurns[scoredTurns.length - 1]
         lastScored.included = true
         console.log('[memory:min-turn] Including last turn via follow-up signal', {
           conversationId
         })
       }
     }
+    // Recompute includedTurns after secondary checks
+    includedTurns = scoredTurns.filter(s => s.included)
   }
 
   // ── Token budgeting: fit selected turns within budget ───────────────
