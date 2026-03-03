@@ -366,10 +366,18 @@ export function ChatInterface() {
                   : 'bg-gray-800/50 text-gray-100 border border-gray-700/30'
               }`}
             >
-              {/* Provenance badge */}
+              {/* Provenance badge + mode badge */}
               {message.role === 'assistant' && message.provenance && (
-                <div className="mb-2">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
                   <ProvenanceBadge provenance={message.provenance} />
+                  {message.provenance.intentMode && message.provenance.intentMode !== 'qa' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/20">
+                      {(() => {
+                        const { label, Icon } = MODE_LABELS[message.provenance.intentMode!]
+                        return <><Icon className="w-3 h-3" />{label}</>
+                      })()}
+                    </span>
+                  )}
                 </div>
               )}
 

@@ -23,6 +23,7 @@ import { BUDGETS, getBudgetForTier, type ChatBudget } from '@/app/lib/prompt/bud
 import { enforce as lintResponse } from '@/app/lib/prompt/responseLinter'
 import { routeModel, analyzeQuery, getModelConfig, type UserTier } from '@/app/lib/prompt/modelRouter'
 import { selectMemory, MEMORY_TOKEN_BUDGET } from '@/app/lib/prompt/conversationMemory'
+import { dispatchTask } from '@/app/lib/tasks'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provenance types — every response carries provenance metadata
@@ -322,6 +323,16 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       correlationId: rid
     })
     
+    // ── Task dispatch (CRITICAL — for non-qa modes) ─────────────────
+    const taskResult = dispatchTask(intent.mode, message, safeContextSnippets)
+    if (taskResult) {
+      console.log('[chat:task-dispatch]', {
+        mode: taskResult.mode,
+        meta: taskResult.meta,
+        correlationId: rid
+      })
+    }
+
     // ── Model routing (CRITICAL) ───────────────────────────────────────
     const routingSignals = analyzeQuery(message, safeContextSnippets, [])
     const routing = routeModel(tier, boost, routingSignals)
@@ -340,7 +351,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       contextSnippets: safeContextSnippets,
       memoryMessages: memoryMessages.length > 0 ? memoryMessages : undefined,
       userMessage: message,
-      intentMode: intent.mode
+      intentMode: intent.mode,
+      taskInstruction: taskResult?.systemInstruction
     })
 
     if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {

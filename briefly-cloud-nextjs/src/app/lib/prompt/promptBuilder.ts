@@ -149,27 +149,37 @@ ${contextBlock}`
  *   2. Memory messages (prior turns, role-alternating user/assistant)
  *   3. Current user message
  */
+const DEFAULT_DEVELOPER_TASK = 'You are Briefly, an AI assistant that helps users understand and work with their uploaded documents.'
+const DEFAULT_DEVELOPER_SHAPE = 'Respond clearly and concisely. Use markdown formatting where appropriate. Always cite your sources using [Source: filename] notation when answering from documents.'
+
 export function buildMessages(params: {
-  developerTask: string
-  developerShape: string
+  developerTask?: string
+  developerShape?: string
   contextSnippets: ContextSnippet[]
   memoryMessages?: ChatMsg[]
   userMessage: string
   intentMode?: IntentMode
+  taskInstruction?: string
 }): ChatMsg[] {
   const {
-    developerTask,
-    developerShape,
+    developerTask = DEFAULT_DEVELOPER_TASK,
+    developerShape = DEFAULT_DEVELOPER_SHAPE,
     contextSnippets,
     memoryMessages,
     userMessage,
-    intentMode = 'qa'
+    intentMode = 'qa',
+    taskInstruction
   } = params
 
   const hasMemory = (memoryMessages?.length ?? 0) > 0
 
+  // If a task module provided a specific instruction, prepend it to the system prompt
+  const effectiveDeveloperTask = taskInstruction
+    ? `${taskInstruction}\n\n${developerTask}`
+    : developerTask
+
   const systemPrompt = buildSystemPrompt(
-    developerTask,
+    effectiveDeveloperTask,
     developerShape,
     contextSnippets,
     intentMode,
