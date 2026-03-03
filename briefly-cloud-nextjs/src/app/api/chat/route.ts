@@ -239,7 +239,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     console.log('[chat:intent]', {
       mode: intent.mode,
       confidence: intent.confidence,
-      targets: intent.targets,
+      signals: intent.signals,
       correlationId: rid
     })
 
@@ -280,7 +280,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     const budget = BUDGETS[budgetType]
 
     const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
-    const contextResult = await getContextWithFallback(user.id, message, budget, intent.mode)
+    const contextResult = await getContextWithFallback(user.id, message, budget, intent.mode, intent.topK)
 
     const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
     const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []

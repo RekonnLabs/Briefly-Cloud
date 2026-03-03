@@ -20,23 +20,30 @@ export interface ContextRetrievalResult {
 export async function getRelevantContext(
   userId: string,
   query: string,
-  budget: ChatBudget
+  budget: ChatBudget,
+  intentMode?: string,
+  topKOverride?: number
 ): Promise<ContextRetrievalResult> {
   // Import searchDocuments dynamically to avoid circular dependencies
   const { searchDocuments } = await import('@/app/lib/vector/document-processor')
   
+  // Effective topK: intent override takes priority over budget default
+  const effectiveTopK = topKOverride ?? budget.topK
+
   // Quest 3D: Log retrieval start
   console.log('[retrieval:start]', {
     userId,
     query: query.slice(0, 100),
     budgetTopK: budget.topK,
+    effectiveTopK,
+    intentMode: intentMode ?? 'qa',
     budgetThreshold: budget.similarityThreshold,
     budgetTokenLimit: budget.contextTokenLimit
   })
   
   // Search for documents with a higher limit to allow for filtering
   const searchResults = await searchDocuments(userId, query, {
-    limit: budget.topK * 2, // Get more results to filter from
+    limit: effectiveTopK * 2, // Get more results to filter from
     threshold: 0.3, // Use a lower threshold initially, we'll filter later
   })
   
@@ -138,7 +145,9 @@ You can also try asking a more general question to see what information is avail
 export async function getContextWithFallback(
   userId: string,
   query: string,
-  budget: ChatBudget
+  budget: ChatBudget,
+  intentMode?: string,
+  topKOverride?: number
 ): Promise<{
   contextSnippets: ContextSnippet[]
   shouldUseNeedMoreInfo: boolean
@@ -148,7 +157,7 @@ export async function getContextWithFallback(
     filteredByTokenLimit: number
   }
 }> {
-  const result = await getRelevantContext(userId, query, budget)
+  const result = await getRelevantContext(userId, query, budget, intentMode, topKOverride)
   
   return {
     contextSnippets: result.contextSnippets,
