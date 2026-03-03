@@ -233,19 +233,23 @@ export async function generateChatCompletion(
   }
 }
 
-// Stream chat completion (for better UX)
+// Stream chat completion with real SSE token delivery
+// onToken callback fires for each content token as it arrives
+// Returns ChatCompletionResult with actual usage after stream completes
 export async function streamChatCompletion(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   tier: SubscriptionTier,
-  userApiKey?: string
-) {
+  userApiKey?: string,
+  modelOverride?: string,
+  onToken?: (token: string) => void
+): Promise<ChatCompletionResult> {
   // Validate API key availability
   if (!process.env.OPENAI_API_KEY && !userApiKey) {
     throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable or provide a user API key.')
   }
 
   const client = userApiKey ? createUserOpenAIClient(userApiKey) : openai
-  const model = resolveChatModel(tier)
+  const model = modelOverride || resolveChatModel(tier)
   
   try {
     // GPT-5 models use max_completion_tokens instead of max_tokens
@@ -255,6 +259,7 @@ export async function streamChatCompletion(
       model,
       messages,
       stream: true,
+      stream_options: { include_usage: true },  // get usage in final chunk
     }
     
     // Only add temperature for non-GPT-5 models
@@ -271,46 +276,79 @@ export async function streamChatCompletion(
     
     const stream = await client.chat.completions.create(streamParams)
     
-    return stream
+    let fullContent = ''
+    let finalModel = model
+    let systemFingerprint: string | null = null
+    let requestId: string | null = null
+    let promptTokens = 0
+    let completionTokens = 0
+    let totalTokens = 0
+
+    for await (const chunk of stream) {
+      // Capture request ID from first chunk
+      if (!requestId && chunk.id) requestId = chunk.id
+      if (chunk.model) finalModel = chunk.model
+      if (chunk.system_fingerprint) systemFingerprint = chunk.system_fingerprint
+
+      // Accumulate usage from final chunk (stream_options: include_usage)
+      if (chunk.usage) {
+        promptTokens = chunk.usage.prompt_tokens ?? promptTokens
+        completionTokens = chunk.usage.completion_tokens ?? completionTokens
+        totalTokens = chunk.usage.total_tokens ?? totalTokens
+      }
+
+      const token = chunk.choices[0]?.delta?.content
+      if (token) {
+        fullContent += token
+        onToken?.(token)
+      }
+    }
+
+    if (!fullContent || fullContent.trim().length === 0) {
+      console.error('[OpenAI] Empty stream response received')
+      return {
+        content: 'No response generated',
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        openai_request_id: requestId,
+        model: finalModel,
+        system_fingerprint: systemFingerprint
+      }
+    }
+
+    return {
+      content: fullContent,
+      usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens },
+      openai_request_id: requestId,
+      model: finalModel,
+      system_fingerprint: systemFingerprint
+    }
+
   } catch (error: any) {
     console.error('Error streaming chat completion:', error)
     
     // Extract error details
     const errorCode = error?.error?.code || error?.code
-    const errorType = error?.error?.type || error?.type
     const errorParam = error?.error?.param || error?.param
     const errorMessage = error?.error?.message || error?.message || String(error)
     const status = error?.status || error?.statusCode
     
-    console.error('[OpenAI] Stream error details:', {
-      status,
-      code: errorCode,
-      type: errorType,
-      param: errorParam,
-      message: errorMessage
-    })
+    console.error('[OpenAI] Stream error details:', { status, code: errorCode, param: errorParam, message: errorMessage })
     
-    // Handle specific error types
     if (status === 400 && errorCode === 'unsupported_value') {
       throw new Error(`Invalid parameter for model "${model}": ${errorParam} - ${errorMessage}`)
     }
-    
     if (status === 401 || errorMessage.includes('API key') || errorMessage.includes('Incorrect API key')) {
       throw new Error('Invalid OpenAI API key. Please check your API key configuration.')
     }
-    
     if (status === 403 || errorMessage.includes('access')) {
       throw new Error(`Access denied to model "${model}". Please check your API access level.`)
     }
-    
     if (status === 404 || errorCode === 'model_not_found') {
       throw new Error(`Model "${model}" not found. The model may have been renamed or deprecated.`)
     }
-    
     if (status === 429 || errorMessage.includes('quota') || errorMessage.includes('rate limit')) {
       throw new Error('OpenAI API quota or rate limit exceeded. Please check your billing and usage limits.')
     }
-    
     throw new Error(`Failed to stream chat response: ${errorMessage}`)
   }
 }

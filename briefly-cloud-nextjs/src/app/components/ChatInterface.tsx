@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { Send, FileText, ExternalLink, ShieldCheck, ShieldAlert, Globe } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, FileText, ShieldCheck, ShieldAlert, Globe, Zap, BarChart2, BookOpen, FileOutput, Scissors } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Provenance types — mirrors the backend ProvenanceMetadata
+// Types
 // ─────────────────────────────────────────────────────────────────────────────
 type ProvenanceType = 'grounded' | 'general' | 'ungrounded'
+type IntentMode = 'qa' | 'comparison' | 'summary' | 'report' | 'extraction'
 
 interface Provenance {
   type: ProvenanceType
@@ -14,6 +15,13 @@ interface Provenance {
   citationsFound: number
   sources: string[]
   disclaimer: string | null
+  intentMode?: IntentMode
+  memory?: {
+    enabled: boolean
+    included: number
+    tokensEstimated: number
+    gate: string
+  }
 }
 
 interface Message {
@@ -21,17 +29,12 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   provenance?: Provenance;
-  sources?: Array<{
-    file_id: string;
-    file_name: string;
-    chunk_index: number;
-    relevance_score: number;
-  }>;
   timestamp: Date;
+  streaming?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Provenance badge component
+// Provenance badge
 // ─────────────────────────────────────────────────────────────────────────────
 function ProvenanceBadge({ provenance }: { provenance: Provenance }) {
   if (provenance.type === 'grounded') {
@@ -56,7 +59,6 @@ function ProvenanceBadge({ provenance }: { provenance: Provenance }) {
     )
   }
 
-  // UNGROUNDED — warning banner
   return (
     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">
       <ShieldAlert className="w-3.5 h-3.5" />
@@ -68,11 +70,32 @@ function ProvenanceBadge({ provenance }: { provenance: Provenance }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Mode badge — shown in input area for non-QA modes
+// ─────────────────────────────────────────────────────────────────────────────
+const MODE_LABELS: Record<IntentMode, { label: string; Icon: React.ComponentType<{ className?: string }> }> = {
+  qa: { label: 'Q&A', Icon: BookOpen },
+  comparison: { label: 'Comparison mode', Icon: BarChart2 },
+  summary: { label: 'Summary mode', Icon: FileText },
+  report: { label: 'Report mode', Icon: FileOutput },
+  extraction: { label: 'Extraction mode', Icon: Scissors },
+}
+
+function ModeBadge({ mode }: { mode: IntentMode }) {
+  if (mode === 'qa') return null
+  const { label, Icon } = MODE_LABELS[mode]
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-gray-400 ml-2">
+      <Icon className="w-3 h-3" />
+      {label}
+    </span>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Ungrounded warning banner
 // ─────────────────────────────────────────────────────────────────────────────
 function UngroundedBanner({ provenance }: { provenance: Provenance }) {
   if (provenance.type !== 'ungrounded') return null
-
   return (
     <div className="mt-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300/90">
       <div className="flex items-start gap-2">
@@ -90,42 +113,78 @@ function UngroundedBanner({ provenance }: { provenance: Provenance }) {
   )
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Typing indicator — shown while waiting for first token
+// ─────────────────────────────────────────────────────────────────────────────
+function TypingIndicator() {
+  return (
+    <div className="flex justify-start">
+      <div className="rounded-2xl px-4 py-3 bg-gray-800/50 text-gray-100 border border-gray-700/30">
+        <div className="flex items-center gap-1 h-5">
+          <span className="text-xs text-gray-400 mr-1">Briefly is thinking</span>
+          <span className="typing-dot" />
+          <span className="typing-dot" style={{ animationDelay: '0.2s' }} />
+          <span className="typing-dot" style={{ animationDelay: '0.4s' }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Detect intent mode from message text (client-side, mirrors intentRouter)
+// Used only for the mode badge hint — actual routing is server-side
+// ─────────────────────────────────────────────────────────────────────────────
+function detectModeHint(text: string): IntentMode {
+  const lower = text.toLowerCase()
+  if (/\bcompare\b|\bvs\.?\b|\bversus\b|\bdifference(s)?\b/.test(lower)) return 'comparison'
+  if (/\bsummar(ize|ise|y)\b|\boverview\b|\bbrief(ly)?\b/.test(lower)) return 'summary'
+  if (/\bdraft\b|\bwrite\b|\breport\b|\bmemo\b|\bproposal\b/.test(lower)) return 'report'
+  if (/\bextract\b|\blist all\b|\bfind all\b|\bpull out\b/.test(lower)) return 'extraction'
+  return 'qa'
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Format message content (markdown-lite)
+// ─────────────────────────────────────────────────────────────────────────────
+function formatMessage(content: string): string {
+  return content
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-gray-200 px-1 rounded">$1</code>')
+    .replace(/\n/g, '<br>')
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main component
+// ─────────────────────────────────────────────────────────────────────────────
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState('');
+  const [isWaitingForFirstToken, setIsWaitingForFirstToken] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [detectedMode, setDetectedMode] = useState<IntentMode>('qa');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingMessage]);
+  }, [messages, streamingContent, isWaitingForFirstToken, scrollToBottom]);
 
-  /**
-   * Parse the response body. The backend now sends a JSON envelope:
-   * { content: string, provenance: Provenance, conversationId: string | null }
-   *
-   * For backward compatibility, if the response is not valid JSON, treat
-   * the entire body as plain-text content with no provenance.
-   */
-  function parseResponse(raw: string): { content: string; provenance?: Provenance } {
-    try {
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed.content === 'string') {
-        return {
-          content: parsed.content,
-          provenance: parsed.provenance || undefined
-        }
-      }
-    } catch {
-      // Not JSON — fall through
+  // Update mode hint as user types
+  useEffect(() => {
+    if (input.trim()) {
+      setDetectedMode(detectModeHint(input))
+    } else {
+      setDetectedMode('qa')
     }
-    return { content: raw }
-  }
+  }, [input])
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -138,125 +197,143 @@ export function ChatInterface() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input.trim();
     setInput('');
     setIsLoading(true);
-    setStreamingMessage('');
+    setIsWaitingForFirstToken(true);
+    setStreamingContent('');
+
+    // Create abort controller for this request
+    abortControllerRef.current = new AbortController();
 
     try {
-      const { retryApiCall } = await import('@/app/lib/retry');
-      const { captureApiError } = await import('@/app/lib/error-monitoring');
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentInput,
+          conversationId: conversationId || undefined,
+          stream: true
+        }),
+        signal: abortControllerRef.current.signal
+      });
 
-      const makeRequest = async () => {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: userMessage.content,
-            stream: true
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        return response;
-      };
-
-      const response = await retryApiCall(makeRequest);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No response body');
 
       const decoder = new TextDecoder();
-      let rawBody = '';
+      let buffer = '';
+      let finalContent = '';
+      let finalProvenance: Provenance | undefined;
 
+      // ── SSE reader loop ──────────────────────────────────────────────
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        rawBody += chunk;
+        buffer += decoder.decode(value, { stream: true });
 
-        // Show raw content while streaming (best-effort preview)
-        // We'll parse the JSON envelope once streaming is complete
-        try {
-          const partial = JSON.parse(rawBody);
-          if (partial && typeof partial.content === 'string') {
-            setStreamingMessage(partial.content);
-          } else {
-            setStreamingMessage(rawBody);
+        // Process complete SSE lines from buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? ''; // keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+
+          try {
+            const event = JSON.parse(data);
+
+            if (event.type === 'start') {
+              // Server acknowledged — conversation ID established
+              if (event.conversationId) setConversationId(event.conversationId);
+              setIsWaitingForFirstToken(false);
+            }
+
+            if (event.type === 'token') {
+              // First token received — hide typing indicator, show streaming bubble
+              setIsWaitingForFirstToken(false);
+              finalContent += event.content;
+              setStreamingContent(finalContent);
+            }
+
+            if (event.type === 'done') {
+              // Stream complete — use final assembled content from server
+              finalContent = event.content || finalContent;
+              finalProvenance = event.provenance;
+              if (event.conversationId) setConversationId(event.conversationId);
+            }
+
+            if (event.type === 'error') {
+              throw new Error(event.message || 'Stream error');
+            }
+          } catch (parseErr) {
+            // Ignore malformed SSE lines
           }
-        } catch {
-          // Incomplete JSON during streaming — show raw text
-          setStreamingMessage(rawBody);
         }
       }
 
-      // Parse the complete response
-      const { content, provenance } = parseResponse(rawBody);
-
-      const assistantMessageObj: Message = {
+      // ── Commit final message ─────────────────────────────────────────
+      const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content,
-        provenance,
+        content: finalContent || 'No response received.',
+        provenance: finalProvenance,
         timestamp: new Date()
       };
 
-      setMessages(prev => [...prev, assistantMessageObj]);
-      setStreamingMessage('');
+      setMessages(prev => [...prev, assistantMessage]);
+      setStreamingContent('');
 
-    } catch (error) {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // User cancelled — clean up silently
+        setStreamingContent('');
+        setMessages(prev => prev.slice(0, -1)); // remove user message
+        setInput(currentInput); // restore input
+        return;
+      }
+
       console.error('Error sending message:', error);
-      
-      const { captureApiError } = await import('@/app/lib/error-monitoring');
-      captureApiError(error as Error, '/api/chat');
 
       let errorContent = 'Sorry, I encountered an error. Please try again.';
-      
       if (error instanceof Error) {
-        if (error.message.includes('rate limit')) {
+        if (error.message.includes('rate limit') || error.message.includes('429')) {
           errorContent = 'You\'re sending messages too quickly. Please wait a moment and try again.';
         } else if (error.message.includes('timeout')) {
           errorContent = 'The request timed out. Please try again.';
-        } else if (error.message.includes('BYOK')) {
-          errorContent = 'There was an issue with your API key. Please check your settings.';
-        } else if (error.message.includes('usage limit')) {
-          errorContent = 'You\'ve reached your usage limit. Please upgrade your plan to continue.';
-        } else if (error.message.includes('network')) {
+        } else if (error.message.includes('CHAT_LIMIT_REACHED') || error.message.includes('usage limit')) {
+          errorContent = 'You\'ve reached your chat message limit. Please upgrade your plan to continue.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
           errorContent = 'Network error. Please check your connection and try again.';
         }
       }
 
-      const errorMessage: Message = {
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: errorContent,
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      }]);
+      setStreamingContent('');
     } finally {
       setIsLoading(false);
+      setIsWaitingForFirstToken(false);
+      abortControllerRef.current = null;
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
-  };
-
-  const formatMessage = (content: string) => {
-    return content
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-gray-200 px-1 rounded">$1</code>')
-      .replace(/\n/g, '<br>');
   };
 
   return (
@@ -269,7 +346,7 @@ export function ChatInterface() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
+        {messages.length === 0 && !isWaitingForFirstToken && !streamingContent && (
           <div className="text-center text-gray-400 py-8">
             <FileText className="w-12 h-12 mx-auto mb-4 text-gray-600" />
             <p className="text-lg font-medium mb-2 text-white">No conversation yet</p>
@@ -289,7 +366,7 @@ export function ChatInterface() {
                   : 'bg-gray-800/50 text-gray-100 border border-gray-700/30'
               }`}
             >
-              {/* Provenance badge — shown above assistant messages */}
+              {/* Provenance badge */}
               {message.role === 'assistant' && message.provenance && (
                 <div className="mb-2">
                   <ProvenanceBadge provenance={message.provenance} />
@@ -297,13 +374,11 @@ export function ChatInterface() {
               )}
 
               <div
-                className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: formatMessage(message.content)
-                }}
+                className="prose prose-sm max-w-none prose-invert"
+                dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
               />
 
-              {/* Ungrounded warning banner */}
+              {/* Ungrounded warning */}
               {message.role === 'assistant' && message.provenance && (
                 <UngroundedBanner provenance={message.provenance} />
               )}
@@ -314,46 +389,26 @@ export function ChatInterface() {
                   {message.provenance.disclaimer}
                 </div>
               )}
-              
-              {message.sources && message.sources.length > 0 && (
-                <div className={`mt-3 pt-3 ${message.role === 'user' ? 'border-t border-blue-400/30' : 'border-t border-gray-600/50'}`}>
-                  <p className="text-xs font-medium mb-2 opacity-80">Sources:</p>
-                  <div className="space-y-1">
-                    {message.sources.map((source, index) => (
-                      <div key={index} className="flex items-center space-x-2 text-xs opacity-70">
-                        <FileText className="w-3 h-3" />
-                        <span>{source.file_name}</span>
-                        <span>•</span>
-                        <span>
-                          Chunk {source.chunk_index}
-                        </span>
-                        <span>•</span>
-                        <span>
-                          {Math.round(source.relevance_score * 100)}% relevant
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              <div className="text-xs opacity-70 mt-2">
+
+              <div className="text-xs opacity-50 mt-2">
                 {message.timestamp.toLocaleTimeString()}
               </div>
             </div>
           </div>
         ))}
 
-        {streamingMessage && (
+        {/* Typing indicator — shown while waiting for first token */}
+        {isWaitingForFirstToken && <TypingIndicator />}
+
+        {/* Streaming bubble — progressive token render with cursor blink */}
+        {streamingContent && !isWaitingForFirstToken && (
           <div className="flex justify-start">
             <div className="max-w-3xl rounded-2xl px-4 py-3 bg-gray-800/50 text-gray-100 border border-gray-700/30">
               <div
                 className="prose prose-sm max-w-none prose-invert"
-                dangerouslySetInnerHTML={{
-                  __html: formatMessage(streamingMessage)
-                }}
+                dangerouslySetInnerHTML={{ __html: formatMessage(streamingContent) }}
               />
-              <div className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse" />
+              <span className="streaming-cursor" />
             </div>
           </div>
         )}
@@ -368,7 +423,7 @@ export function ChatInterface() {
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               placeholder="Ask a question about your documents..."
               className="w-full px-4 py-3 border border-gray-600 bg-gray-800/50 text-white placeholder-gray-400 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               rows={3}
@@ -383,8 +438,10 @@ export function ChatInterface() {
             <Send className="w-5 h-5" />
           </button>
         </div>
-        <div className="mt-2 text-xs text-gray-400">
-          Press Enter to send, Shift+Enter for new line
+        <div className="mt-2 flex items-center text-xs text-gray-400">
+          <span>Press Enter to send, Shift+Enter for new line</span>
+          {/* Mode hint badge — read-only for MVP */}
+          <ModeBadge mode={detectedMode} />
         </div>
       </div>
     </div>

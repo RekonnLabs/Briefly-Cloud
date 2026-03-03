@@ -55,6 +55,8 @@ function normalizeSource(raw: string): string {
  * Validate provenance: if context was provided, the LLM MUST cite at least one
  * source that actually exists in the retrieved context. Hallucinated citations
  * (filenames not in the retrieved set) do NOT count.
+ *
+ * IMPORTANT: This must run on the COMPLETE assembled response, not partial tokens.
  */
 function validateProvenance(
   responseText: string,
@@ -112,7 +114,6 @@ function validateProvenance(
 
   if (validatedCitations.length === 0) {
     // Context was provided but the LLM failed to cite ANY valid source — UNGROUNDED
-    // (raw citations may exist but they don't match retrieved sources)
     return {
       type: 'ungrounded',
       contextCount,
@@ -225,15 +226,24 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
         correlationId: rid
       })
     } catch (limitErr) {
-      // If limit check fails, allow the request through (fail-open for now)
-      // but log it so we can monitor
+      // If limit check fails, allow the request through (fail-open)
       console.warn('[chat:limits] Limit check failed — allowing request (fail-open)', {
         error: limitErr instanceof Error ? limitErr.message : String(limitErr),
         correlationId: rid
       })
     }
 
-    // ── Create / reuse conversation (BEST-EFFORT — chat still works without persistence) ──
+    // ── Intent detection (zero LLM calls — rule-based only) ───────────
+    const { detectIntent } = await import('@/app/lib/prompt/intentRouter')
+    const intent = detectIntent(message)
+    console.log('[chat:intent]', {
+      mode: intent.mode,
+      confidence: intent.confidence,
+      targets: intent.targets,
+      correlationId: rid
+    })
+
+    // ── Create / reuse conversation (BEST-EFFORT) ──────────────────────
     let convoId = conversationId
     if (!convoId) {
       const result = await bestEffort('create_conversation', async () => {
@@ -264,13 +274,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       }, rid)
     }
 
-    // ── Context retrieval (CRITICAL — this is the core RAG path) ───────
+    // ── Context retrieval (CRITICAL — core RAG path) ───────────────────
     const tier = userProfile.subscription_tier as UserTier
     const budgetType = getBudgetForTier(tier)
     const budget = BUDGETS[budgetType]
 
     const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
-    const contextResult = await getContextWithFallback(user.id, message, budget)
+    const contextResult = await getContextWithFallback(user.id, message, budget, intent.mode)
 
     const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
     const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
@@ -278,16 +288,15 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     console.log('[chat:context-decision]', {
       hasDocumentContext: safeContextSnippets.length > 0,
       contextCount: safeContextSnippets.length,
-      correlationId: rid
+      intentMode: intent.mode,
+      correlationId: rid,
+      retrievalStats
     })
 
-    // ── Conversation Memory (BEST-EFFORT — chat works without memory) ──
-    // Selective window: fetch prior turns, gate by embedding relevance,
-    // respect token budget. Memory shrinks if RAG context is large.
+    // ── Conversation Memory (BEST-EFFORT) ──────────────────────────────
     const contextTokensUsed = safeContextSnippets.reduce(
       (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
     )
-    // If RAG context is large, reduce memory budget proportionally
     const memoryBudget = Math.max(200, MEMORY_TOKEN_BUDGET - Math.max(0, contextTokensUsed - budget.contextTokenLimit))
 
     const memoryResult = await bestEffort('select_memory', () =>
@@ -327,15 +336,11 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     })
 
     // ── Build prompt (CRITICAL) ────────────────────────────────────────
-    const developerTask = "You are Briefly, an AI assistant that helps users understand their documents. Answer the user's question. When document context is provided, ground your answer in those documents and cite sources. When no document context is available, answer the question using your general knowledge — be helpful and conversational."
-    const developerShape = "Format: Direct answer first, then supporting details. Use bullet points for lists. Cite document sources with [Source: filename] when referencing uploaded documents."
-    
     const messages = buildMessages({
-      developerTask,
-      developerShape,
       contextSnippets: safeContextSnippets,
       memoryMessages: memoryMessages.length > 0 ? memoryMessages : undefined,
-      userMessage: message
+      userMessage: message,
+      intentMode: intent.mode
     })
 
     if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {
@@ -343,78 +348,213 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       return ApiResponse.internalError('Failed to prepare chat messages')
     }
 
-    // ── LLM generation (CRITICAL) ──────────────────────────────────────
-    console.log('[chat-handler] About to call generateChatCompletion', {
+    // ── LLM generation ─────────────────────────────────────────────────
+    // STREAMING PATH: Real SSE — tokens arrive progressively from OpenAI
+    if (stream) {
+      const encoder = new TextEncoder()
+
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            // 1. Send start event immediately so the frontend knows we're alive
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ type: 'start', conversationId: convoId || null })}\n\n`
+            ))
+
+            // 2. Stream content tokens from OpenAI — onToken fires per token
+            let fullContent = ''
+            const streamResult = await streamChatCompletion(
+              messages as any,
+              tier,
+              undefined,
+              routing.model,
+              (token: string) => {
+                fullContent += token
+                controller.enqueue(encoder.encode(
+                  `data: ${JSON.stringify({ type: 'token', content: token })}\n\n`
+                ))
+              }
+            )
+
+            // 3. Run linting + provenance on COMPLETE assembled content
+            const lintResult = lintResponse(fullContent)
+            const finalContent = lintResult.output
+            const provenance = validateProvenance(finalContent, safeContextSnippets, streamResult.model || routing.model)
+
+            console.log('[chat:provenance]', {
+              type: provenance.type,
+              contextCount: provenance.contextCount,
+              citationsFound: provenance.citationsFound,
+              intentMode: intent.mode,
+              correlationId: rid
+            })
+
+            // 4. Send done event with full provenance metadata
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({
+                type: 'done',
+                v: 1,
+                content: finalContent,
+                provenance: {
+                  type: provenance.type,
+                  contextCount: provenance.contextCount,
+                  citationsFound: provenance.citationsFound,
+                  sources: provenance.sources,
+                  disclaimer: provenance.disclaimer || null,
+                  intentMode: intent.mode,
+                  memory: {
+                    enabled: memoryStats.memoryEnabled,
+                    included: memoryStats.memoryIncluded,
+                    tokensEstimated: memoryStats.memoryTokensEstimated,
+                    gate: memoryStats.memoryGate
+                  }
+                },
+                conversationId: convoId || null
+              })}\n\n`
+            ))
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+
+            // 5. Post-stream telemetry (best-effort, after response sent to user)
+            const latency = Date.now() - startTime
+            const inputTokens = streamResult.usage.prompt_tokens
+            const outputTokens = streamResult.usage.completion_tokens
+            const tokensContext = safeContextSnippets.reduce(
+              (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
+            )
+            const costUsd = computeCost(streamResult.model || routing.model, inputTokens, outputTokens)
+
+            console.log('Chat completion telemetry (stream):', {
+              modelRoute: routing.model,
+              actualModel: streamResult.model,
+              inputTokens,
+              outputTokens,
+              tokensContext,
+              costUsd,
+              latency,
+              contextCount: safeContextSnippets.length,
+              provenance: provenance.type,
+              intentMode: intent.mode,
+              citationsFound: provenance.citationsFound,
+              linterApplied: lintResult.rewritten,
+              boost,
+              tier,
+              userId: user.id,
+              openaiRequestId: streamResult.openai_request_id,
+              correlationId: rid,
+              retrievalStats
+            })
+
+            if (convoId) {
+              await bestEffort('save_assistant_message', async () => {
+                const { error } = await supabaseApp
+                  .from('messages')
+                  .insert({
+                    conversation_id: convoId,
+                    owner_id: user.id,
+                    role: 'assistant',
+                    content: finalContent,
+                    model: streamResult.model || routing.model,
+                    tokens_in: inputTokens,
+                    tokens_out: outputTokens,
+                    tokens_context: tokensContext,
+                    cost_usd: costUsd,
+                    correlation_id: rid,
+                    openai_request_id: streamResult.openai_request_id,
+                    intent_mode: intent.mode,
+                    provenance: {
+                      type: provenance.type,
+                      contextCount: provenance.contextCount,
+                      citationsFound: provenance.citationsFound,
+                      sources: provenance.sources,
+                      disclaimer: provenance.disclaimer || null,
+                      intentMode: intent.mode,
+                      intentConfidence: intent.confidence,
+                      retrievalStats,
+                      memoryEnabled: memoryStats.memoryEnabled,
+                      memoryCandidates: memoryStats.memoryCandidates,
+                      memoryIncluded: memoryStats.memoryIncluded,
+                      memoryTokensEstimated: memoryStats.memoryTokensEstimated,
+                      memoryGate: memoryStats.memoryGate
+                    }
+                  })
+                if (error) throw error
+              }, rid)
+            }
+
+            await bestEffort('increment_chat_count', async () => {
+              const { error } = await supabaseApp
+                .rpc('increment_chat_count', { p_user_id: user.id })
+              if (error) {
+                const currentCount = userProfile.chat_messages_count || 0
+                await usersRepo.updateUsage(user.id, { chat_messages_count: currentCount + 1 })
+              }
+            }, rid)
+
+          } catch (err) {
+            console.error('[chat:stream-error]', err)
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ type: 'error', message: 'Stream failed' })}\n\n`
+            ))
+            controller.close()
+          }
+        }
+      })
+
+      return new NextResponse(readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'X-Model-Route': routing.model,
+          'X-Intent-Mode': intent.mode,
+        },
+      })
+    }
+
+    // ── NON-STREAMING PATH ─────────────────────────────────────────────
+    console.log('[chat-handler] Non-streaming path', {
       tier,
       messageCount: messages.length,
       model: routing.model,
-      hasDocumentContext: safeContextSnippets.length > 0
+      intentMode: intent.mode
     })
     
     const llmResult: ChatCompletionResult = await generateChatCompletion(messages as any, tier, undefined, routing.model)
-    
-    console.log('[chat-handler] generateChatCompletion returned', {
-      responseLength: llmResult.content?.length || 0,
-      hasContent: !!llmResult.content,
-      promptTokens: llmResult.usage.prompt_tokens,
-      completionTokens: llmResult.usage.completion_tokens,
-      openaiRequestId: llmResult.openai_request_id,
-      actualModel: llmResult.model
-    })
 
-    // ── Apply Briefly Voice linting ────────────────────────────────────
     const lintResult = lintResponse(llmResult.content)
     const finalResponse = lintResult.output
-
-    // ── Provenance validation (CRITICAL — enforces trust) ──────────────
     const provenance = validateProvenance(finalResponse, safeContextSnippets, routing.model)
 
     console.log('[chat:provenance]', {
       type: provenance.type,
       contextCount: provenance.contextCount,
       citationsFound: provenance.citationsFound,
-      sources: provenance.sources,
+      intentMode: intent.mode,
       correlationId: rid
     })
 
-    // ── Calculate metrics (use ACTUAL provider tokens, not estimates) ──
     const latency = Date.now() - startTime
     const inputTokens = llmResult.usage.prompt_tokens
     const outputTokens = llmResult.usage.completion_tokens
-    // tokens_context: how many of the input tokens came from document context
     const tokensContext = safeContextSnippets.reduce(
       (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
     )
-    // cost_usd: computed from actual token counts × model pricing table
-    // This is still an ESTIMATE (our pricing table, not provider invoice)
-    // but it's based on real token counts, not flat constants
     const costUsd = computeCost(llmResult.model || routing.model, inputTokens, outputTokens)
 
-    // ── Telemetry logging (BEST-EFFORT) ────────────────────────────────
-    console.log('Chat completion telemetry:', {
+    console.log('Chat completion telemetry (non-stream):', {
       modelRoute: routing.model,
       actualModel: llmResult.model,
-      inputTokens,
-      outputTokens,
-      tokensContext,
-      costUsd,
-      latency,
+      inputTokens, outputTokens, tokensContext, costUsd, latency,
       contextCount: safeContextSnippets.length,
       provenance: provenance.type,
-      citationsFound: provenance.citationsFound,
+      intentMode: intent.mode,
       linterApplied: lintResult.rewritten,
-      boost,
-      tier,
-      userId: user.id,
+      boost, tier, userId: user.id,
       openaiRequestId: llmResult.openai_request_id,
-      correlationId: rid,
-      retrievalStats
+      correlationId: rid, retrievalStats
     })
 
-    // ── Save assistant response (BEST-EFFORT — uses correct table: app.messages) ──
-    // cost_usd is computed from actual token counts × our pricing table.
-    // It is NOT sourced from the provider's invoice. Treat as approximate.
-    // New columns: provenance (JSONB), correlation_id, openai_request_id, tokens_context
     if (convoId) {
       await bestEffort('save_assistant_message', async () => {
         const { error } = await supabaseApp
@@ -431,15 +571,16 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
             cost_usd: costUsd,
             correlation_id: rid,
             openai_request_id: llmResult.openai_request_id,
+            intent_mode: intent.mode,
             provenance: {
               type: provenance.type,
               contextCount: provenance.contextCount,
               citationsFound: provenance.citationsFound,
               sources: provenance.sources,
               disclaimer: provenance.disclaimer || null,
-              hallucinatedCitations: [],  // populated above if any
+              intentMode: intent.mode,
+              intentConfidence: intent.confidence,
               retrievalStats,
-              // M1: Conversation memory telemetry
               memoryEnabled: memoryStats.memoryEnabled,
               memoryCandidates: memoryStats.memoryCandidates,
               memoryIncluded: memoryStats.memoryIncluded,
@@ -451,65 +592,15 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       }, rid)
     }
 
-    // ── Increment chat_messages_count (BEST-EFFORT, post-success only) ──
-    // This runs AFTER successful LLM generation + provenance validation.
-    // Uses SQL increment to avoid read-then-write race conditions.
     await bestEffort('increment_chat_count', async () => {
       const { error } = await supabaseApp
         .rpc('increment_chat_count', { p_user_id: user.id })
       if (error) {
-        // Fallback to direct update if RPC doesn't exist yet
         const currentCount = userProfile.chat_messages_count || 0
-        await usersRepo.updateUsage(user.id, {
-          chat_messages_count: currentCount + 1
-        })
+        await usersRepo.updateUsage(user.id, { chat_messages_count: currentCount + 1 })
       }
     }, rid)
 
-    // ── Build response ─────────────────────────────────────────────────
-    if (stream) {
-      // Structured JSON envelope for streaming responses
-      // The frontend parses this to extract content + provenance
-      // v: envelope version — increment when changing provenance schema
-      const responsePayload = JSON.stringify({
-        v: 1,
-        content: finalResponse,
-        provenance: {
-          type: provenance.type,
-          contextCount: provenance.contextCount,
-          citationsFound: provenance.citationsFound,
-          sources: provenance.sources,
-          disclaimer: provenance.disclaimer || null,
-          memory: {
-            enabled: memoryStats.memoryEnabled,
-            included: memoryStats.memoryIncluded,
-            tokensEstimated: memoryStats.memoryTokensEstimated,
-            gate: memoryStats.memoryGate
-          }
-        },
-        conversationId: convoId || null
-      })
-
-      const encoder = new TextEncoder()
-      const readable = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(responsePayload))
-          controller.close()
-        },
-      })
-
-      return new NextResponse(readable, {
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Cache-Control': 'no-cache',
-          'X-Model-Route': routing.model,
-          'X-Provenance': provenance.type,
-          'X-Context-Count': String(provenance.contextCount),
-        },
-      })
-    }
-
-    // Non-streaming JSON response
     return ApiResponse.success({
       v: 1,
       conversation_id: convoId,
@@ -519,7 +610,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
         contextCount: provenance.contextCount,
         citationsFound: provenance.citationsFound,
         sources: provenance.sources,
-        disclaimer: provenance.disclaimer || null
+        disclaimer: provenance.disclaimer || null,
+        intentMode: intent.mode
       },
       sources: safeContextSnippets.map(snippet => ({
         content: snippet.content,
@@ -533,17 +625,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
         costUsd
       },
       telemetry: {
-        inputTokens,
-        outputTokens,
-        tokensContext,
-        costUsd,
-        latency,
+        inputTokens, outputTokens, tokensContext, costUsd, latency,
         contextCount: safeContextSnippets.length,
         provenance: provenance.type,
+        intentMode: intent.mode,
         linterApplied: lintResult.rewritten,
         openaiRequestId: llmResult.openai_request_id,
-        correlationId: rid,
-        retrievalStats
+        correlationId: rid, retrievalStats
       }
     })
   
