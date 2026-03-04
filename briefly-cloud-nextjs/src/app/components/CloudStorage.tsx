@@ -158,6 +158,8 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
   const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
   const [showPlanBanner, setShowPlanBanner] = useState(true);
   const [isApideckEnabled, setIsApideckEnabled] = useState(false);
+  // Tracks which provider to auto-import after OAuth callback + status refresh
+  const [autoImportProvider, setAutoImportProvider] = useState<string | null>(null);
   const { openVault, isLoading: isVaultLoading, error: vaultError } = useVault();
 
   // Function to refresh connection status
@@ -217,99 +219,90 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     }
   }, []);
 
+  // Effect 1: Detect OAuth callback on mount — set intent, refresh status
+  // Does NOT read `providers` state directly (avoids stale closure)
   useEffect(() => {
-    // Check connection status, plan status, and Apideck status on mount
     checkConnectionStatus();
     checkPlanStatus();
     checkApideckStatus();
-    
-    // Check for OAuth success/error indicators in URL
+
     const urlParams = new URLSearchParams(window.location.search);
     const connectedProvider = urlParams.get('connected');
     const errorCode = urlParams.get('error');
-    
+
     if (connectedProvider) {
       console.log('[oauth-callback] Detected successful OAuth connection:', {
         provider: connectedProvider,
         timestamp: new Date().toISOString()
       });
-      
+
       if (connectedProvider === 'apideck') {
         showSuccess('Cloud storage connected successfully!', 'You can now import files from your connected providers.');
       } else {
         const providerName = connectedProvider === 'google' ? 'Google Drive' : 'OneDrive';
         showSuccess(`${providerName} connected successfully!`, 'You can now import files from your cloud storage.');
       }
-      
-      // Clean up URL parameters
+
+      // Clean up URL before anything async
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('connected');
       window.history.replaceState({}, '', newUrl.toString());
-      
-      // Refresh connection status after successful OAuth
-      setTimeout(async () => {
-        console.log('[auto-import] Starting connection status refresh');
-        await refreshConnectionStatus();
-        console.log('[auto-import] Connection status refresh complete');
-        
-        // Auto-trigger import for newly connected provider
-        // Wait a bit for React state to propagate
-        setTimeout(() => {
-          if (connectedProvider === '1' || connectedProvider === 'apideck') {
-            // For Apideck, we need to determine which provider was connected
-            const googleProvider = providers.find(p => p.id === 'google');
-            const msProvider = providers.find(p => p.id === 'microsoft');
-            
-            console.log('[auto-import] Connection status after refresh:', {
-              google: googleProvider?.connected,
-              microsoft: msProvider?.connected
-            });
-            
-            if (googleProvider?.connected) {
-              console.log('[auto-import] Triggering automatic import for Google Drive');
-              startBatchImport('google', 'root');
-            }
-            if (msProvider?.connected) {
-              console.log('[auto-import] Triggering automatic import for OneDrive');
-              startBatchImport('microsoft', 'root');
-            }
-            
-            if (!googleProvider?.connected && !msProvider?.connected) {
-              console.warn('[auto-import] No providers connected after OAuth - auto-import skipped');
-            }
-          } else if (connectedProvider === 'google') {
-            const googleProvider = providers.find(p => p.id === 'google');
-            console.log('[auto-import] Google Drive connection status:', googleProvider?.connected);
-            if (googleProvider?.connected) {
-              console.log('[auto-import] Triggering automatic import for Google Drive');
-              startBatchImport('google', 'root');
-            } else {
-              console.warn('[auto-import] Google Drive not connected - auto-import skipped');
-            }
-          } else if (connectedProvider === 'microsoft') {
-            const msProvider = providers.find(p => p.id === 'microsoft');
-            console.log('[auto-import] OneDrive connection status:', msProvider?.connected);
-            if (msProvider?.connected) {
-              console.log('[auto-import] Triggering automatic import for OneDrive');
-              startBatchImport('microsoft', 'root');
-            } else {
-              console.warn('[auto-import] OneDrive not connected - auto-import skipped');
-            }
-          }
-        }, 1000);
-      }, 1000);
+
+      // Record import intent, then refresh — Effect 2 will fire when providers state updates
+      setAutoImportProvider(connectedProvider);
+      refreshConnectionStatus();
     }
-    
+
     if (errorCode) {
       const errorMessage = getErrorMessage(errorCode);
       showError('Connection failed', errorMessage);
-      
-      // Clean up URL parameters
+
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('error');
       window.history.replaceState({}, '', newUrl.toString());
     }
   }, [showSuccess, showError, refreshConnectionStatus, checkPlanStatus, checkApideckStatus]);
+
+  // Effect 2: Trigger auto-import once providers state reflects the new connection
+  // Runs whenever providers or autoImportProvider changes — safe to read providers here
+  useEffect(() => {
+    if (!autoImportProvider) return;
+
+    const isApideck = autoImportProvider === 'apideck' || autoImportProvider === '1';
+
+    if (isApideck) {
+      const googleProvider = providers.find(p => p.id === 'google');
+      const msProvider = providers.find(p => p.id === 'microsoft');
+
+      // Only proceed if at least one provider is now connected
+      if (!googleProvider?.connected && !msProvider?.connected) return;
+
+      console.log('[auto-import] Apideck connection confirmed, triggering imports', {
+        google: googleProvider?.connected,
+        microsoft: msProvider?.connected
+      });
+
+      setAutoImportProvider(null);
+
+      if (googleProvider?.connected) startBatchImport('google', 'root');
+      if (msProvider?.connected) startBatchImport('microsoft', 'root');
+
+    } else {
+      const provider = providers.find(p => p.id === autoImportProvider);
+
+      // Wait for next providers update if not connected yet
+      if (!provider?.connected) return;
+
+      console.log(`[auto-import] ${autoImportProvider} connection confirmed, triggering import`);
+
+      setAutoImportProvider(null);
+
+      startBatchImport(autoImportProvider as 'google' | 'microsoft', 'root');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // startBatchImport intentionally omitted — not memoized, changes every render,
+  // and is always current at the point this effect fires
+  }, [providers, autoImportProvider]);
 
   // Function to map error codes to user-friendly messages
   const getErrorMessage = (errorCode: string): string => {

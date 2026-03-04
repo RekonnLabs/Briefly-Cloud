@@ -16,6 +16,8 @@ import { GoogleDriveProvider } from '@/app/lib/cloud-storage/providers/google-dr
 import { OneDriveProvider } from '@/app/lib/cloud-storage/providers/onedrive'
 import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
+import { extractTextFromBuffer } from '@/app/lib/document-extractor'
+import { indexFile } from '@/app/lib/indexing/indexingPipeline'
 
 // Helper function for database errors since createError.database might not exist
 const createDatabaseError = (message: string, originalError?: any) => {
@@ -645,7 +647,32 @@ export class ImportJobManager {
         meta: ingestMeta,
       })
 
-      // Record processing history
+       // Extract text from the downloaded buffer
+      const extraction = await extractTextFromBuffer(
+        fileBuffer,
+        file.mimeType || 'application/octet-stream',
+        file.name
+      )
+
+      // Run full indexing pipeline: chunk → embed → vector write
+      const indexingResult = await indexFile({
+        user_id: job.userId,
+        file_id: fileMetadata.id,
+        source: job.provider,
+        external_id: file.id,
+        filename: file.name,
+        mime_type: file.mimeType || 'application/octet-stream',
+        content: extraction.text,
+        last_modified: file.modifiedTime,
+      })
+
+      if (!indexingResult.success) {
+        throw new Error(`Indexing pipeline failed: ${indexingResult.error}`)
+      }
+
+      const chunksCreated = indexingResult.stages.chunking.chunk_count ?? 0
+
+      // Record processing history with actual chunk count
       await supabaseAdmin
         .from('file_processing_history')
         .insert({
@@ -659,19 +686,12 @@ export class ImportJobManager {
           file_size: fileBuffer.length,
           mime_type: file.mimeType,
           status: 'completed',
-          chunks_created: 0, // Will be updated by document processing
+          chunks_created: chunksCreated,
           app_file_id: fileMetadata.id,
           processed_at: new Date()
         })
 
-      // TODO: Process file content into chunks and embeddings
-      // This would involve:
-      // 1. Text extraction based on MIME type
-      // 2. Chunking the content
-      // 3. Generating embeddings
-      // 4. Storing in document_chunks table
-      // For now, we'll mark the file as processed
-
+      // Mark ingest record as ready
       await fileIngestRepo.upsert({
         file_id: fileMetadata.id,
         owner_id: job.userId,
@@ -680,21 +700,24 @@ export class ImportJobManager {
         meta: {
           ...ingestMeta,
           processed_at: new Date().toISOString(),
+          chunks_created: chunksCreated,
         },
       })
 
-      logger.info('File processed successfully', {
+      logger.info('File indexed successfully via ImportJobManager', {
         jobId: job.id,
         fileId: file.id,
+        appFileId: fileMetadata.id,
         fileName: file.name,
         size: fileBuffer.length,
-        contentHash
+        contentHash,
+        chunksCreated,
       })
 
       return {
         success: true,
         status: 'completed',
-        chunksCreated: 0, // Will be updated when chunking is implemented
+        chunksCreated,
         appFileId: fileMetadata.id
       }
 
