@@ -160,14 +160,15 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
   const [isApideckEnabled, setIsApideckEnabled] = useState(false);
   // Tracks which provider to auto-import after OAuth callback + status refresh
   const [autoImportProvider, setAutoImportProvider] = useState<string | null>(null);
-  const { openVault, isLoading: isVaultLoading, error: vaultError } = useVault();
-
   // Function to refresh connection status
   const refreshConnectionStatus = useCallback(async () => {
     console.log('[refresh-status] Starting connection status refresh');
     await checkConnectionStatus();
     console.log('[refresh-status] Connection status refresh complete');
   }, []);
+
+  // useVault must come after refreshConnectionStatus so the callback reference is defined
+  const { openVault, isLoading: isVaultLoading, error: vaultError } = useVault({ onSuccess: refreshConnectionStatus });
 
   // Function to check plan status
   const checkPlanStatus = useCallback(async () => {

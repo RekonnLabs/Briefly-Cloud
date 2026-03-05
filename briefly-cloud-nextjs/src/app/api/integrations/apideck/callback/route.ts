@@ -394,3 +394,71 @@ const handler = async (_req: Request, ctx: ApiContext) => {
 };
 
 export const GET = createProtectedApiHandler(handler);
+
+// POST handler: called inline by useVault's onConnectionChange.
+// Runs the same connection-persistence logic but returns JSON instead of
+// redirecting, so the user stays on the dashboard.
+const postHandler = async (req: Request, ctx: ApiContext) => {
+  if (!isApideckEnabled()) {
+    return NextResponse.json({ error: 'Apideck integration disabled' }, { status: 503 });
+  }
+
+  if (!ctx.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const logger = createCallbackLogger({
+    userId: ctx.user.id,
+    correlationId: ctx.correlationId,
+    operation: 'oauth_callback_post'
+  });
+
+  try {
+    const json = await retryApiCall(async () => {
+      const response = await Apideck.listConnections(ctx.user!.id);
+      logger.logApiCallComplete(response);
+      return response;
+    }, {
+      maxAttempts: 3,
+      baseDelay: 1000,
+      onRetry: (attempt, error, delay) => {
+        logger.logApiRetry(attempt, error, delay);
+      }
+    }) as any;
+
+    const connections = json?.data ?? [];
+    let successCount = 0;
+
+    for (const connection of connections) {
+      if (!connection?.connection_id || !connection?.service_id) continue;
+
+      const provider = mapServiceIdToProvider(connection.service_id);
+      const result = await upsertConnection({
+        user: ctx.user.id,
+        provider,
+        consumer: ctx.user.id,
+        conn: connection.connection_id,
+        status: connection.status ?? 'connected'
+      }, logger.createChildLogger({ provider, connectionId: connection.connection_id }));
+
+      if (result.success) successCount++;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      connectionsProcessed: connections.length,
+      successCount
+    });
+
+  } catch (error) {
+    captureApiError(
+      error instanceof Error ? error : new Error('Unknown callback error'),
+      'apideck-callback-post',
+      ctx.user.id,
+      ctx.correlationId
+    );
+    return NextResponse.json({ error: 'Failed to process connections' }, { status: 500 });
+  }
+};
+
+export const POST = createProtectedApiHandler(postHandler);
