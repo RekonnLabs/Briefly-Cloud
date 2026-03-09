@@ -108,14 +108,33 @@ export function useVault(options: UseVaultOptions = {}) {
           onSuccess?.()
         },
 
-        // Reliable path: always fires when the modal closes.
-        // Only calls onSuccess if onConnectionChange did not already fire.
-        onClose: () => {
+        // Reliable fallback path: always fires when the modal closes.
+        // If onConnectionChange did not fire (common in this SDK version),
+        // this path POSTs to the callback route to persist the connection
+        // before calling onSuccess to refresh UI state.
+        onClose: async () => {
           console.log('[vault] Vault closed')
           setLoading(false)
 
           if (!connectionChangeFired) {
-            console.log('[vault] onConnectionChange did not fire — triggering onSuccess via onClose')
+            console.log('[vault] onConnectionChange did not fire — persisting via onClose fallback')
+
+            try {
+              const callbackRes = await fetch('/api/integrations/apideck/callback', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' }
+              })
+
+              if (!callbackRes.ok) {
+                console.error('[vault] Callback POST failed:', callbackRes.status)
+              } else {
+                console.log('[vault] Connection persisted via onClose fallback')
+              }
+            } catch (err) {
+              console.error('[vault] Error calling callback route:', err)
+            }
+
             onSuccess?.()
           }
         }
