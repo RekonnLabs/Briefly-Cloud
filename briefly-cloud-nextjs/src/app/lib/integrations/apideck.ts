@@ -130,7 +130,7 @@ export const Apideck = {
   },
 
   async listConnections(consumerId: string) {
-    const res = await fetch(`${API}/unified/connections`, { headers: apideckHeaders(consumerId) });
+    const res = await fetch(`${VAULT}/connections`, { headers: apideckHeaders(consumerId) });
     if (!res.ok) throw new Error(`connections failed: ${res.status} ${await res.text()}`);
     return res.json();
   },
