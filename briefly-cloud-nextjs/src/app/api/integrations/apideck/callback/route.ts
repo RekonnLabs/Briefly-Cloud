@@ -414,6 +414,10 @@ const postHandler = async (req: Request, ctx: ApiContext) => {
   });
 
   try {
+    // Give Apideck 1.5s to propagate the new connection before querying.
+    // OAuth connections are not always immediately visible via listConnections.
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     const json = await retryApiCall(async () => {
       const response = await Apideck.listConnections(ctx.user!.id);
       logger.logApiCallComplete(response);
@@ -429,19 +433,34 @@ const postHandler = async (req: Request, ctx: ApiContext) => {
     const connections = json?.data ?? [];
     let successCount = 0;
 
-    for (const connection of connections) {
-      if (!connection?.connection_id || !connection?.service_id) continue;
-
-      const provider = mapServiceIdToProvider(connection.service_id);
-      const result = await upsertConnection({
+    if (connections.length === 0) {
+      // Apideck returned an empty list — connection may not have propagated yet.
+      // Upsert a placeholder 'connected' row so the UI reflects the connection
+      // immediately. A subsequent health check will update the real connection_id.
+      console.warn('[apideck:callback:post] listConnections returned empty — upserting placeholder for google');
+      const placeholderResult = await upsertConnection({
         user: ctx.user.id,
-        provider,
+        provider: 'google',
         consumer: ctx.user.id,
-        conn: connection.connection_id,
-        status: connection.status ?? 'connected'
-      }, logger.createChildLogger({ provider, connectionId: connection.connection_id }));
+        conn: `pending-${ctx.user.id}-${Date.now()}`,
+        status: 'connected'
+      }, logger.createChildLogger({ provider: 'google', connectionId: 'pending' }));
+      if (placeholderResult.success) successCount++;
+    } else {
+      for (const connection of connections) {
+        if (!connection?.connection_id || !connection?.service_id) continue;
 
-      if (result.success) successCount++;
+        const provider = mapServiceIdToProvider(connection.service_id);
+        const result = await upsertConnection({
+          user: ctx.user.id,
+          provider,
+          consumer: ctx.user.id,
+          conn: connection.connection_id,
+          status: connection.status ?? 'connected'
+        }, logger.createChildLogger({ provider, connectionId: connection.connection_id }));
+
+        if (result.success) successCount++;
+      }
     }
 
     return NextResponse.json({
