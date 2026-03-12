@@ -414,10 +414,6 @@ const postHandler = async (req: Request, ctx: ApiContext) => {
   });
 
   try {
-    // Give Apideck 1.5s to propagate the new connection before querying.
-    // OAuth connections are not always immediately visible via listConnections.
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
     const json = await retryApiCall(async () => {
       const response = await Apideck.listConnections(ctx.user!.id);
       logger.logApiCallComplete(response);

@@ -167,8 +167,32 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     console.log('[refresh-status] Connection status refresh complete');
   }, []);
 
-  // useVault must come after refreshConnectionStatus so the callback reference is defined
-  const { openVault, isLoading: isVaultLoading, error: vaultError } = useVault({ onSuccess: refreshConnectionStatus });
+  // Flip the target provider card to connected immediately — no network wait
+  const handleOptimisticConnect = useCallback((provider: 'google' | 'microsoft') => {
+    console.log('[optimistic] Marking provider connected:', provider);
+    setProviders(prev => prev.map(p =>
+      p.id === provider
+        ? { ...p, connected: true, errorMessage: undefined }
+        : p
+    ));
+  }, []);
+
+  // Called if the background POST fails all retries — roll back the optimistic state
+  const handleConnectionError = useCallback((provider: 'google' | 'microsoft', errorMsg: string) => {
+    console.error('[optimistic] Rolling back provider state:', provider, errorMsg);
+    setProviders(prev => prev.map(p =>
+      p.id === provider
+        ? { ...p, connected: false, errorMessage: errorMsg }
+        : p
+    ));
+    showError('Connection failed', errorMsg);
+  }, [showError]);
+
+  const { openVault, isLoading: isVaultLoading, error: vaultError } = useVault({
+    onOptimisticConnect: handleOptimisticConnect,
+    onSuccess: refreshConnectionStatus,
+    onConnectionError: handleConnectionError
+  });
 
   // Function to check plan status
   const checkPlanStatus = useCallback(async () => {
