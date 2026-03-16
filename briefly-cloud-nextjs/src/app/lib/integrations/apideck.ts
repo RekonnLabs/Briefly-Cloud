@@ -61,10 +61,24 @@ export function validateApideckConfig() {
   if (missing.length) throw new Error(`Missing Apideck env: ${missing.join(', ')}`);
 }
 
-export function mapServiceIdToProvider(svc: string): 'google'|'microsoft'|string {
-  if (svc === 'googledrive' || svc === 'google-drive') return 'google';
-  if (svc === 'onedrive') return 'microsoft';
-  return svc;
+export function mapServiceIdToProvider(svc: string): 'google' | 'microsoft' | 'dropbox' | 'box' | 'sharepoint' {
+  // Normalize: lowercase and strip separators so google-drive, google_drive,
+  // and googledrive all resolve the same way.
+  const normalized = svc.toLowerCase().replace(/[-_\s]/g, '');
+
+  if (normalized === 'googledrive')        return 'google';
+  if (normalized === 'onedrive')           return 'microsoft';
+  if (normalized === 'microsoftonedrive')  return 'microsoft';
+  if (normalized === 'sharepoint')         return 'sharepoint';
+  if (normalized === 'dropbox')            return 'dropbox';
+  if (normalized === 'box')                return 'box';
+
+  // Log unrecognized service IDs loudly so future gaps are caught immediately.
+  console.error('[apideck:mapServiceId] Unrecognized service_id — cannot map to valid provider:', svc);
+
+  // Default to google rather than passing through an invalid value that will
+  // violate the CHECK constraint and fail silently.
+  return 'google';
 }
 
 export interface ListFilesParams { 

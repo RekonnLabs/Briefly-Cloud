@@ -155,7 +155,20 @@ const upsertConnection = async (
 
   } catch (error) {
     const errorCategory = categorizeError(error);
-    
+
+    // Plain console.error so the failure is immediately visible in Vercel logs
+    // without needing to decode structured log objects.
+    console.error('[apideck:upsertConnection:FAILED]', {
+      provider: params.provider,
+      connectionId: params.conn,
+      userId: params.user,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      code: (error as any)?.code,
+      details: (error as any)?.details,
+      category: errorCategory.category,
+      retryable: errorCategory.retryable
+    });
+
     // Log final failure
     logger.logDatabaseOperation('error', {
       provider: params.provider,
