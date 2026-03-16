@@ -445,11 +445,7 @@ const postHandler = async (req: Request, ctx: ApiContext) => {
       jsonKeys: Object.keys(json ?? {}),
       dataType: typeof json?.data,
       connectionCount: connections.length,
-      connections: connections.map((c: any) => ({
-        service_id: c?.service_id,
-        connection_id: c?.connection_id,
-        status: c?.status
-      }))
+      rawData: json?.data
     }));
     let successCount = 0;
 
