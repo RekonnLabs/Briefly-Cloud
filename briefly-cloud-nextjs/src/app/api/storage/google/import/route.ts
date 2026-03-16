@@ -4,6 +4,8 @@ import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { google } from 'googleapis'
 import { TokenStore } from '@/app/lib/oauth/token-store'
+import { Apideck } from '@/app/lib/integrations/apideck'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { extractTextFromBuffer } from '@/app/lib/document-extractor'
 import { computeBufferHash } from '@/app/lib/utils/content-hash'
@@ -12,30 +14,72 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
 
-  const body = await request.json().catch(() => ({})) as { fileId?: string }
+  const body = await request.json().catch(() => ({})) as {
+    fileId?: string
+    fileName?: string
+    mimeType?: string
+  }
   if (!body.fileId) return ApiResponse.badRequest('fileId is required')
 
   const token = await TokenStore.getToken(user.id, 'google')
-  if (!token) return ApiResponse.badRequest('Google account not connected')
 
-  const oauth2Client = new google.auth.OAuth2()
-  oauth2Client.setCredentials({ access_token: token.accessToken, refresh_token: token.refreshToken ?? undefined })
-  const drive = google.drive({ version: 'v3', auth: oauth2Client })
+  let buffer: Buffer
+  let fileName: string
+  let mimeType: string
+  let fileSize: number
+  let providerFileId: string = body.fileId
 
-  const meta = await drive.files.get({ fileId: body.fileId, fields: 'id, name, mimeType, size' })
-  const res = await drive.files.get({ fileId: body.fileId, alt: 'media' }, { responseType: 'arraybuffer' })
-  const buffer = Buffer.from(res.data as ArrayBuffer)
+  if (token) {
+    // Legacy direct Google Drive path
+    const oauth2Client = new google.auth.OAuth2()
+    oauth2Client.setCredentials({ access_token: token.accessToken, refresh_token: token.refreshToken ?? undefined })
+    const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-  // Compute checksum for deduplication (Quest 3B)
+    const meta = await drive.files.get({ fileId: body.fileId, fields: 'id, name, mimeType, size' })
+    const res = await drive.files.get({ fileId: body.fileId, alt: 'media' }, { responseType: 'arraybuffer' })
+
+    buffer = Buffer.from(res.data as ArrayBuffer)
+    fileName = meta.data.name ?? body.fileId
+    mimeType = meta.data.mimeType ?? 'application/octet-stream'
+    fileSize = Number(meta.data.size ?? buffer.byteLength)
+    providerFileId = meta.data.id ?? body.fileId
+  } else {
+    // Apideck unified path — token not present, use Apideck to download
+    const { data: conn } = await supabaseAdmin
+      .from('apideck_connections')
+      .select('connection_id')
+      .eq('user_id', user.id)
+      .eq('provider', 'google')
+      .single()
+
+    if (!conn) return ApiResponse.badRequest('Google account not connected')
+
+    // connection_id is stored as 'file-storage+google-drive' — extract service id
+    const serviceId = conn.connection_id.replace('file-storage+', '')
+
+    try {
+      buffer = await Apideck.downloadFile(user.id, serviceId, body.fileId)
+    } catch (e) {
+      console.error('[google-import:apideck-download-failed]', e)
+      return ApiResponse.internalError('Failed to download file via Apideck')
+    }
+
+    // Apideck download doesn't return metadata — use values passed from the UI
+    fileName = body.fileName ?? body.fileId
+    mimeType = body.mimeType ?? 'application/octet-stream'
+    fileSize = buffer.byteLength
+  }
+
+  // Compute checksum for deduplication
   const contentHash = computeBufferHash(buffer)
 
-  // Use ensureFileRow for idempotent file creation (Quest 3B)
+  // Use ensureFileRow for idempotent file creation
   const { file: createdFile, isNew } = await filesRepo.ensureFileRow({
     ownerId: user.id,
-    name: meta.data.name ?? body.fileId,
-    path: `google:${meta.data.id}`,
-    sizeBytes: Number(meta.data.size ?? buffer.byteLength),
-    mimeType: meta.data.mimeType ?? null,
+    name: fileName,
+    path: `google:${providerFileId}`,
+    sizeBytes: fileSize,
+    mimeType,
     checksum: contentHash,
     source: 'google',
     createdAt: new Date().toISOString(),
@@ -45,7 +89,7 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
     console.log('[google-import:deduped]', {
       userId: user.id,
       fileId: createdFile.id,
-      fileName: meta.data.name,
+      fileName,
       contentHash
     })
   }
@@ -56,11 +100,11 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
     status: 'pending',
     source: 'google',
     meta: {
-      providerFileId: meta.data.id,
-      publicUrl: `https://drive.google.com/file/d/${meta.data.id}/view`,
-      mimeType: meta.data.mimeType,
-      sizeBytes: Number(meta.data.size ?? buffer.byteLength),
-      fileName: meta.data.name,
+      providerFileId,
+      publicUrl: `https://drive.google.com/file/d/${providerFileId}/view`,
+      mimeType,
+      sizeBytes: fileSize,
+      fileName,
     },
   })
 
@@ -70,11 +114,11 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
     processingStatus = 'processing'
     await fileIngestRepo.updateStatus(user.id, createdFile.id, 'processing', null)
 
-    const extraction = await extractTextFromBuffer(buffer, meta.data.mimeType ?? 'application/octet-stream', meta.data.name ?? body.fileId)
+    const extraction = await extractTextFromBuffer(buffer, mimeType, fileName)
     const { processDocument } = await import('@/app/lib/vector/document-processor')
-    await processDocument(user.id, createdFile.id, meta.data.name ?? body.fileId, extraction.text, {
+    await processDocument(user.id, createdFile.id, fileName, extraction.text, {
       source: 'google',
-      mimeType: meta.data.mimeType,
+      mimeType,
       externalId: body.fileId,
       importedAt: new Date().toISOString(),
     })
@@ -91,7 +135,7 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
     )
   }
 
-  return ApiResponse.success({ file_id: createdFile.id, name: meta.data.name ?? body.fileId, status: processingStatus })
+  return ApiResponse.success({ file_id: createdFile.id, name: fileName, status: processingStatus })
 }
 
 export const POST = createProtectedApiHandler(importGoogleFileHandler, {

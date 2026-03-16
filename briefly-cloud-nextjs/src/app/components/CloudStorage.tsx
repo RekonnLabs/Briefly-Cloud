@@ -659,7 +659,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     navigateToFolder(providerId, folderId);
   };
 
-  const importFile = async (providerId: 'google' | 'microsoft', fileId: string, fileName: string) => {
+  const importFile = async (providerId: 'google' | 'microsoft', fileId: string, fileName: string, mimeType?: string) => {
     setImportingFiles(prev => new Set(prev).add(fileId));
 
     try {
@@ -672,7 +672,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fileId })
+        body: JSON.stringify({ fileId, fileName, mimeType })
       });
 
       if (response.ok) {
@@ -1260,7 +1260,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                           </a>
                         )}
                         <button
-                          onClick={() => importFile(provider.id, file.id, file.name)}
+                          onClick={() => importFile(provider.id, file.id, file.name, file.mimeType)}
                           disabled={importingFiles.has(file.id)}
                           className="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
