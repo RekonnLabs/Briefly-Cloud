@@ -440,6 +440,7 @@ const postHandler = async (req: Request, ctx: ApiContext) => {
     }) as any;
 
     const connections = json?.data ?? [];
+    console.log('[apideck:callback:post] connections array:', JSON.stringify(connections));
     let successCount = 0;
 
     if (connections.length === 0) {
