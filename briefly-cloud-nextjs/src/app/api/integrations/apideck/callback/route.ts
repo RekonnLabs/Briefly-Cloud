@@ -464,16 +464,17 @@ const postHandler = async (req: Request, ctx: ApiContext) => {
       if (placeholderResult.success) successCount++;
     } else {
       for (const connection of connections) {
-        if (!connection?.connection_id || !connection?.service_id) continue;
+        if (!connection?.id || !connection?.service_id) continue;
 
         const provider = mapServiceIdToProvider(connection.service_id);
+        const connStatus = connection.health === 'ok' ? 'connected' : connection.health ?? 'connected';
         const result = await upsertConnection({
           user: ctx.user.id,
           provider,
           consumer: ctx.user.id,
-          conn: connection.connection_id,
-          status: connection.status ?? 'connected'
-        }, logger.createChildLogger({ provider, connectionId: connection.connection_id }));
+          conn: connection.id,
+          status: connStatus
+        }, logger.createChildLogger({ provider, connectionId: connection.id }));
 
         if (result.success) successCount++;
       }
