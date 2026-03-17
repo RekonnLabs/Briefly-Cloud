@@ -288,6 +288,18 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     }
   }, [showSuccess, showError, refreshConnectionStatus, checkPlanStatus, checkApideckStatus]);
 
+  // Effect 3: Auto-load files when a provider first connects (files empty = just connected)
+  // Dependency key only changes when connected state changes, so this fires exactly once per provider flip
+  useEffect(() => {
+    providers.forEach(provider => {
+      if (provider.connected && provider.files.length === 0 &&
+          provider.folders.length === 0 && !provider.loading) {
+        loadFiles(provider.id as 'google' | 'microsoft')
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providers.map(p => p.connected).join(',')])
+
   // Effect 2: Trigger auto-import once providers state reflects the new connection
   // Runs whenever providers or autoImportProvider changes — safe to read providers here
   useEffect(() => {
