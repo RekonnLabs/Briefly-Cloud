@@ -38,7 +38,7 @@ async function listGoogleFilesApideck(req: Request, ctx: ApiContext) {
     return NextResponse.json({ error: 'not_connected' }, { status: 400 });
   }
 
-  const resp = await Apideck.listFiles(data.consumer_id, data.connection_id, { folder_id: folderId || 'root', cursor, limit }); // explicit root scopes to My Drive only
+  const resp = await Apideck.listFiles(data.consumer_id, data.connection_id, { folder_id: folderId, cursor, limit });
 
   const items = (resp?.data ?? []);
   const files = items.filter((i: any) => i.type !== 'folder').map((i: any) => ({
