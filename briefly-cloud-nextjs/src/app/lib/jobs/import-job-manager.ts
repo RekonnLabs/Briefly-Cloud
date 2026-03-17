@@ -19,11 +19,13 @@ import { createError } from '@/app/lib/api-errors'
 import { extractTextFromBuffer } from '@/app/lib/document-extractor'
 import { indexFile } from '@/app/lib/indexing/indexingPipeline'
 
+import { Apideck, apideckHeaders } from '@/app/lib/integrations/apideck'
+import type { CloudStorageFile, CloudStorageProvider } from '@/app/lib/cloud-storage/types'
+
 // Helper function for database errors since createError.database might not exist
 const createDatabaseError = (message: string, originalError?: any) => {
   return createError.internal(`Database error: ${message}`, originalError)
 }
-import type { CloudStorageFile, CloudStorageProvider } from '@/app/lib/cloud-storage/types'
 
 // Job interfaces
 export interface ImportJob {
@@ -73,6 +75,20 @@ export class ImportJobManager {
     google: new GoogleDriveProvider(),
     microsoft: new OneDriveProvider()
   }
+
+  private static readonly SUPPORTED_MIME_TYPES = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+    'text/plain', 'text/markdown', 'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.google-apps.document',
+    'application/vnd.google-apps.spreadsheet',
+    'application/vnd.google-apps.presentation'
+  ]
 
   /**
    * Create a new import job
@@ -387,42 +403,64 @@ export class ImportJobManager {
    * Get all files to import from the specified folder
    */
   private static async getAllFilesToImport(job: ImportJob): Promise<CloudStorageFile[]> {
+    const folderId = (job.inputData.folderId as string) || 'root'
+
+    // Check for Apideck connection first
+    const { data: conn } = await supabaseAdmin
+      .from('apideck_connections')
+      .select('connection_id, consumer_id')
+      .eq('user_id', job.userId)
+      .eq('provider', job.provider === 'google' ? 'google' : 'microsoft')
+      .single()
+
+    if (conn?.connection_id) {
+      // Apideck path — use unified file-storage API
+      let allFiles: CloudStorageFile[] = []
+      let cursor: string | undefined
+
+      do {
+        const resp = await Apideck.listFiles(
+          conn.consumer_id || job.userId,
+          conn.connection_id,
+          { folder_id: folderId !== 'root' ? folderId : undefined, cursor, limit: 100 }
+        )
+
+        const items = resp?.data ?? []
+        for (const item of items) {
+          if (item.type === 'folder') continue
+          allFiles.push({
+            id: item.id,
+            name: item.name,
+            mimeType: item.mime_type || 'application/octet-stream',
+            size: item.size,
+            modifiedTime: item.updated_at,
+            webViewLink: item.web_url
+          })
+        }
+
+        cursor = resp?.meta?.cursors?.next || undefined
+      } while (cursor)
+
+      return allFiles.filter(f => this.SUPPORTED_MIME_TYPES.includes(f.mimeType || ''))
+    }
+
+    // Legacy provider fallback
     const provider = this.providers[job.provider]
     if (!provider) {
       throw createError.badRequest(`Unsupported provider: ${job.provider}`)
     }
 
-    const folderId = (job.inputData.folderId as string) || 'root'
     let allFiles: CloudStorageFile[] = []
     let pageToken: string | undefined
 
-    // Fetch all pages of files
     do {
       const response = await provider.listFiles(job.userId, folderId, pageToken, 100)
       allFiles.push(...response.files)
       pageToken = response.nextPageToken || undefined
     } while (pageToken)
 
-    // Filter out unsupported file types
-    const supportedMimeTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword',
-      'text/plain',
-      'text/markdown',
-      'text/csv',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.ms-powerpoint',
-      // Google Docs formats
-      'application/vnd.google-apps.document',
-      'application/vnd.google-apps.spreadsheet',
-      'application/vnd.google-apps.presentation'
-    ]
-
-    return allFiles.filter(file => 
-      file.mimeType && supportedMimeTypes.includes(file.mimeType)
+    return allFiles.filter(file =>
+      file.mimeType && this.SUPPORTED_MIME_TYPES.includes(file.mimeType)
     )
   }
 
@@ -581,7 +619,7 @@ export class ImportJobManager {
       }
 
       // Download file content with streaming support
-      const fileBuffer = await this.downloadFileWithStreaming(provider, job.userId, file)
+      const fileBuffer = await this.downloadFileWithStreaming(provider, job.userId, file, job.provider)
       
       // Calculate content hash for deduplication
       const contentHash = createHash('sha256').update(fileBuffer).digest('hex')
@@ -756,21 +794,44 @@ export class ImportJobManager {
   private static async downloadFileWithStreaming(
     provider: CloudStorageProvider,
     userId: string,
-    file: CloudStorageFile
+    file: CloudStorageFile,
+    jobProvider: 'google' | 'microsoft'
   ): Promise<Buffer> {
     try {
-      // For now, use the existing download method
-      // In a full streaming implementation, we would:
-      // 1. Use Node.js streams to download in chunks
-      // 2. Process chunks as they arrive
-      // 3. Avoid loading entire file into memory
-      const buffer = await provider.downloadFile(userId, file.id)
-      
-      // Validate buffer size
-      if (buffer.length === 0) {
-        throw new Error('Downloaded file is empty')
+      // Check for Apideck connection first
+      const { data: conn } = await supabaseAdmin
+        .from('apideck_connections')
+        .select('connection_id, consumer_id')
+        .eq('user_id', userId)
+        .eq('provider', jobProvider === 'google' ? 'google' : 'microsoft')
+        .single()
+
+      if (conn?.connection_id) {
+        const GOOGLE_NATIVE_EXPORT_MAP: Record<string, string> = {
+          'application/vnd.google-apps.document':     'text/plain',
+          'application/vnd.google-apps.spreadsheet':  'text/csv',
+          'application/vnd.google-apps.presentation': 'text/plain',
+        }
+
+        const exportMime = file.mimeType ? GOOGLE_NATIVE_EXPORT_MAP[file.mimeType] : undefined
+
+        if (exportMime) {
+          const res = await fetch(
+            `${process.env.APIDECK_API_BASE_URL}/file-storage/files/${encodeURIComponent(file.id)}/export?format=${encodeURIComponent(exportMime)}`,
+            { headers: { ...apideckHeaders(conn.consumer_id || userId), 'x-apideck-connection-id': conn.connection_id } }
+          )
+          if (!res.ok) throw new Error(`Apideck export failed: ${res.status} ${await res.text()}`)
+          // Update mimeType on file object so extractor handles it correctly
+          file.mimeType = exportMime
+          return Buffer.from(await res.arrayBuffer())
+        }
+
+        return await Apideck.downloadFile(conn.consumer_id || userId, conn.connection_id, file.id)
       }
 
+      // Legacy provider fallback
+      const buffer = await provider.downloadFile(userId, file.id)
+      if (buffer.length === 0) throw new Error('Downloaded file is empty')
       return buffer
     } catch (error) {
       logger.error('Error downloading file with streaming', {
