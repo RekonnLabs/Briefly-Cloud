@@ -643,7 +643,7 @@ export class ImportJobManager {
       const { data: fileMetadata, error: fileError } = await supabaseAdmin
         .from('files')
         .insert({
-          user_id: job.userId,
+          owner_id: job.userId,
           name: file.name,
           path: file.name, // Use name as path for cloud storage files
           size_bytes: fileBuffer.length,
