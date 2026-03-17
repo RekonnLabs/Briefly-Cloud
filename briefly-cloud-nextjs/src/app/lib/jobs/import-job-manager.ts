@@ -752,6 +752,7 @@ export class ImportJobManager {
       })
 
       // Increment profile usage counters — fire-and-forget, don't block on failure
+      console.log('[usage-counter] calling increment_document_usage', job.userId, fileBuffer.length)
       supabaseAdmin.rpc('increment_document_usage', {
         p_user_id: job.userId,
         p_bytes: fileBuffer.length
