@@ -646,7 +646,7 @@ export class ImportJobManager {
           user_id: job.userId,
           name: file.name,
           path: file.name, // Use name as path for cloud storage files
-          size: fileBuffer.length,
+          size_bytes: fileBuffer.length,
           mime_type: file.mimeType,
           source: job.provider === 'google' ? 'google' : 'microsoft',
           external_id: file.id,
