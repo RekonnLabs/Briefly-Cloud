@@ -11,7 +11,7 @@
 import 'server-only'
 import { createHash } from 'crypto'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
-import { fileIngestRepo } from '@/app/lib/repos'
+import { fileIngestRepo, usersRepo } from '@/app/lib/repos'
 import { GoogleDriveProvider } from '@/app/lib/cloud-storage/providers/google-drive'
 import { OneDriveProvider } from '@/app/lib/cloud-storage/providers/onedrive'
 import { logger } from '@/app/lib/logger'
@@ -519,6 +519,11 @@ export class ImportJobManager {
           status: 'completed'
         })
 
+        // Recalculate and push progress after each completed file so the UI
+        // reflects accurate counts without waiting for the end of the batch
+        const updatedProgress = await this.calculateProgress(job.id)
+        await this.updateJobProgress(job.id, updatedProgress)
+
         return result
 
       } catch (error) {
@@ -744,6 +749,11 @@ export class ImportJobManager {
           processed_at: new Date().toISOString(),
           chunks_created: chunksCreated,
         },
+      })
+
+      // Increment profile usage counters — fire-and-forget, don't block on failure
+      usersRepo.incrementUsage(job.userId, 1, fileBuffer.length).catch((usageErr: unknown) => {
+        console.error('[job-manager:usage-sync-failed]', { userId: job.userId, error: usageErr instanceof Error ? usageErr.message : String(usageErr) })
       })
 
       logger.info('File indexed successfully via ImportJobManager', {

@@ -1140,6 +1140,140 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                 )}
               </div>
 
+              {/* Batch Import Jobs — always visible when a job exists, regardless of file list state */}
+              {Array.from(batchJobs.values())
+                .filter(job => job.provider === (provider.id === 'google' ? 'google' : 'microsoft'))
+                .map((job) => (
+                <div key={job.jobId} className="p-4 bg-gray-800/70 rounded-xl border border-gray-600/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      {getJobStatusIcon(job.status)}
+                      <div>
+                        <h5 className="font-medium text-white">Batch Import Job</h5>
+                        <p className="text-xs text-gray-400">
+                          Started {new Date(job.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setShowJobDetails(showJobDetails === job.jobId ? null : job.jobId)}
+                        className="px-3 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition-colors"
+                      >
+                        {showJobDetails === job.jobId ? 'Hide Details' : 'Show Details'}
+                      </button>
+                      {['pending', 'processing'].includes(job.status) && (
+                        <button
+                          onClick={() => cancelBatchImport(job.jobId, provider.id)}
+                          className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-sm text-gray-300 mb-1">
+                      <span>Progress: {job.progress.percentage}%</span>
+                      <span>
+                        {job.progress.processed + job.progress.failed + job.progress.skipped} / {job.progress.total}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${job.progress.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Current File */}
+                  {job.progress.current_file && job.status === 'processing' && (
+                    <div className="mb-3 text-sm text-gray-300">
+                      <span className="text-gray-400">Processing:</span> {job.progress.current_file}
+                    </div>
+                  )}
+
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-4 gap-4 text-center text-sm">
+                    <div>
+                      <div className="text-green-400 font-medium">{job.progress.processed}</div>
+                      <div className="text-gray-400">Processed</div>
+                    </div>
+                    <div>
+                      <div className="text-red-400 font-medium">{job.progress.failed}</div>
+                      <div className="text-gray-400">Failed</div>
+                    </div>
+                    <div>
+                      <div className="text-orange-400 font-medium">{job.progress.skipped}</div>
+                      <div className="text-gray-400">Skipped</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-400 font-medium">{job.progress.total}</div>
+                      <div className="text-gray-400">Total</div>
+                    </div>
+                  </div>
+
+                  {/* Final Results */}
+                  {job.status === 'completed' && job.outputData && (
+                    <div className="mt-3 p-3 bg-green-900/20 border border-green-700/50 rounded-lg">
+                      <div className="text-green-400 font-medium mb-2">Import Completed!</div>
+                      <div className="text-sm text-gray-300">
+                        Successfully processed {job.outputData.processedFiles} files
+                        {job.outputData.duplicateFiles > 0 && `, skipped ${job.outputData.duplicateFiles} duplicates`}
+                        {job.outputData.failedFiles > 0 && `, ${job.outputData.failedFiles} failed`}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error Message */}
+                  {job.status === 'failed' && job.errorMessage && (
+                    <div className="mt-3 p-3 bg-red-900/20 border border-red-700/50 rounded-lg">
+                      <div className="text-red-400 font-medium mb-2">Import Failed</div>
+                      <div className="text-sm text-gray-300">{job.errorMessage}</div>
+                    </div>
+                  )}
+
+                  {/* File Details */}
+                  {showJobDetails === job.jobId && job.fileStatuses.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <h6 className="font-medium text-white">File Status Details</h6>
+                      <div className="max-h-60 overflow-y-auto space-y-1">
+                        {job.fileStatuses.map((fileStatus, index) => (
+                          <div
+                            key={`${fileStatus.fileId}-${index}`}
+                            className="flex items-center justify-between p-2 bg-gray-700/50 rounded text-sm"
+                          >
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              {getFileStatusIcon(fileStatus.status)}
+                              <span className="text-white truncate">{fileStatus.fileName}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                fileStatus.status === 'completed' ? 'bg-green-600 text-white' :
+                                fileStatus.status === 'failed' ? 'bg-red-600 text-white' :
+                                fileStatus.status === 'processing' ? 'bg-blue-600 text-white' :
+                                fileStatus.status === 'duplicate' ? 'bg-gray-600 text-white' :
+                                'bg-yellow-600 text-white'
+                              }`}>
+                                {fileStatus.status}
+                              </span>
+                              {fileStatus.error && (
+                                <span className="text-red-400 text-xs" title={fileStatus.error}>
+                                  <AlertCircle className="w-3 h-3" />
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
               {/* Sync Manager - Show for connected providers */}
               {isApideckEnabled && (
                 <SyncManager
@@ -1294,139 +1428,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                     </div>
                   )}
 
-                  {/* Batch Import Jobs */}
-                  {Array.from(batchJobs.values())
-                    .filter(job => job.provider === (provider.id === 'google' ? 'google' : 'microsoft'))
-                    .map((job) => (
-                    <div key={job.jobId} className="mt-6 p-4 bg-gray-800/70 rounded-xl border border-gray-600/50">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          {getJobStatusIcon(job.status)}
-                          <div>
-                            <h5 className="font-medium text-white">Batch Import Job</h5>
-                            <p className="text-xs text-gray-400">
-                              Started {new Date(job.createdAt).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setShowJobDetails(showJobDetails === job.jobId ? null : job.jobId)}
-                            className="px-3 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition-colors"
-                          >
-                            {showJobDetails === job.jobId ? 'Hide Details' : 'Show Details'}
-                          </button>
-                          {['pending', 'processing'].includes(job.status) && (
-                            <button
-                              onClick={() => cancelBatchImport(job.jobId, provider.id)}
-                              className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Progress Bar */}
-                      <div className="mb-3">
-                        <div className="flex justify-between text-sm text-gray-300 mb-1">
-                          <span>Progress: {job.progress.percentage}%</span>
-                          <span>
-                            {job.progress.processed + job.progress.failed + job.progress.skipped} / {job.progress.total}
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${job.progress.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Current File */}
-                      {job.progress.current_file && job.status === 'processing' && (
-                        <div className="mb-3 text-sm text-gray-300">
-                          <span className="text-gray-400">Processing:</span> {job.progress.current_file}
-                        </div>
-                      )}
-
-                      {/* Summary Stats */}
-                      <div className="grid grid-cols-4 gap-4 text-center text-sm">
-                        <div>
-                          <div className="text-green-400 font-medium">{job.progress.processed}</div>
-                          <div className="text-gray-400">Processed</div>
-                        </div>
-                        <div>
-                          <div className="text-red-400 font-medium">{job.progress.failed}</div>
-                          <div className="text-gray-400">Failed</div>
-                        </div>
-                        <div>
-                          <div className="text-orange-400 font-medium">{job.progress.skipped}</div>
-                          <div className="text-gray-400">Skipped</div>
-                        </div>
-                        <div>
-                          <div className="text-gray-400 font-medium">{job.progress.total}</div>
-                          <div className="text-gray-400">Total</div>
-                        </div>
-                      </div>
-
-                      {/* Final Results */}
-                      {job.status === 'completed' && job.outputData && (
-                        <div className="mt-3 p-3 bg-green-900/20 border border-green-700/50 rounded-lg">
-                          <div className="text-green-400 font-medium mb-2">Import Completed!</div>
-                          <div className="text-sm text-gray-300">
-                            Successfully processed {job.outputData.processedFiles} files
-                            {job.outputData.duplicateFiles > 0 && `, skipped ${job.outputData.duplicateFiles} duplicates`}
-                            {job.outputData.failedFiles > 0 && `, ${job.outputData.failedFiles} failed`}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Error Message */}
-                      {job.status === 'failed' && job.errorMessage && (
-                        <div className="mt-3 p-3 bg-red-900/20 border border-red-700/50 rounded-lg">
-                          <div className="text-red-400 font-medium mb-2">Import Failed</div>
-                          <div className="text-sm text-gray-300">{job.errorMessage}</div>
-                        </div>
-                      )}
-
-                      {/* File Details */}
-                      {showJobDetails === job.jobId && job.fileStatuses.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                          <h6 className="font-medium text-white">File Status Details</h6>
-                          <div className="max-h-60 overflow-y-auto space-y-1">
-                            {job.fileStatuses.map((fileStatus, index) => (
-                              <div
-                                key={`${fileStatus.fileId}-${index}`}
-                                className="flex items-center justify-between p-2 bg-gray-700/50 rounded text-sm"
-                              >
-                                <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                  {getFileStatusIcon(fileStatus.status)}
-                                  <span className="text-white truncate">{fileStatus.fileName}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className={`px-2 py-1 rounded text-xs ${
-                                    fileStatus.status === 'completed' ? 'bg-green-600 text-white' :
-                                    fileStatus.status === 'failed' ? 'bg-red-600 text-white' :
-                                    fileStatus.status === 'processing' ? 'bg-blue-600 text-white' :
-                                    fileStatus.status === 'duplicate' ? 'bg-gray-600 text-white' :
-                                    'bg-yellow-600 text-white'
-                                  }`}>
-                                    {fileStatus.status}
-                                  </span>
-                                  {fileStatus.error && (
-                                    <span className="text-red-400 text-xs" title={fileStatus.error}>
-                                      <AlertCircle className="w-3 h-3" />
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-400">

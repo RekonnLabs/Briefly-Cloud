@@ -54,7 +54,7 @@ export const DEFAULT_CHUNKING_CONFIGS: Record<ChunkingStrategy, ChunkingConfig> 
   paragraph: {
     strategy: 'paragraph',
     maxChunkSize: 1000,
-    minChunkSize: 100,
+    minChunkSize: 10,  // lowered from 100 — small files (emails, notes) are ~10 tokens and still worth indexing
     preserveStructure: true,
     respectBoundaries: true,
   },

@@ -560,12 +560,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             </div>
           )}
 
-          {/* New Quota Status Component */}
-          <div className="mt-6">
-            <ErrorBoundary>
-              <QuotaStatus />
-            </ErrorBoundary>
-          </div>
+
         </header>
 
         <main className="flex-1 p-6">

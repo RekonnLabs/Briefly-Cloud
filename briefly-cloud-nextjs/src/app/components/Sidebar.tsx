@@ -1,9 +1,9 @@
 "use client";
-
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   MessageSquare,
   FileText,
+  HardDrive,
   Cloud,
   Settings,
   LogOut,
@@ -13,6 +13,39 @@ import {
 } from 'lucide-react';
 import { CompleteUserData } from '@/app/lib/user-data-types';
 import { useSignout } from '@/app/lib/auth/use-signout';
+
+interface CompactQuota {
+  files: { used: number; limit: number; percentage: number; limitReached: boolean };
+  storage: { used: number; limit: number; percentage: number; limitReached: boolean };
+  chat: { used: number; limit: number; percentage: number; limitReached: boolean };
+  tier: string;
+  trial: { active: boolean; daysRemaining: number };
+}
+
+function useCompactQuota() {
+  const [quota, setQuota] = useState<CompactQuota | null>(null);
+  useEffect(() => {
+    fetch('/api/usage/quota', { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.success && d?.data) setQuota(d.data); })
+      .catch(() => {});
+  }, []);
+  return quota;
+}
+
+function bar(pct: number, reached: boolean) {
+  if (reached || pct >= 100) return 'bg-red-500';
+  if (pct >= 90) return 'bg-orange-500';
+  if (pct >= 70) return 'bg-yellow-500';
+  return 'bg-green-500';
+}
+
+function barText(pct: number, reached: boolean) {
+  if (reached || pct >= 100) return 'text-red-400';
+  if (pct >= 90) return 'text-orange-400';
+  if (pct >= 70) return 'text-yellow-400';
+  return 'text-green-400';
+}
 
 interface SidebarProps {
   activeTab: 'chat' | 'files' | 'storage';
@@ -84,9 +117,11 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
     }
   ];
 
+  const quota = useCompactQuota();
+
   return (
     <div className="w-64 bg-gray-900/80 backdrop-blur-sm border-r border-gray-700/50 flex flex-col">
-      {/* Logo */}
+      {/* Logo */
       <div className="p-6 border-b border-gray-700/50">
         <div className="flex items-center space-x-3">
           <img
@@ -128,6 +163,65 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
           );
         })}
       </nav>
+
+      {/* Compact Usage Widget */}
+      {quota && (
+        <div className="px-4 pb-3">
+          <div className="bg-gray-800/60 border border-gray-700/40 rounded-xl p-3 space-y-2.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-gray-300 capitalize">{quota.tier} Plan</span>
+              {quota.trial.active && (
+                <span className="text-xs text-blue-300">{quota.trial.daysRemaining}d left</span>
+              )}
+            </div>
+            {/* Files bar */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-1.5 text-gray-400">
+                  <FileText className="w-3 h-3" />
+                  <span>Files</span>
+                </div>
+                <span className={`font-medium ${barText(quota.files.percentage, quota.files.limitReached)}`}>
+                  {quota.files.used}/{quota.files.limit}
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+                <div className={`h-full ${bar(quota.files.percentage, quota.files.limitReached)} transition-all`} style={{ width: `${Math.min(quota.files.percentage, 100)}%` }} />
+              </div>
+            </div>
+            {/* Storage bar */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-1.5 text-gray-400">
+                  <HardDrive className="w-3 h-3" />
+                  <span>Storage</span>
+                </div>
+                <span className={`font-medium ${barText(quota.storage.percentage, quota.storage.limitReached)}`}>
+                  {quota.storage.used.toFixed(1)}/{quota.storage.limit} MB
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+                <div className={`h-full ${bar(quota.storage.percentage, quota.storage.limitReached)} transition-all`} style={{ width: `${Math.min(quota.storage.percentage, 100)}%` }} />
+              </div>
+            </div>
+            {/* Messages bar */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-1.5 text-gray-400">
+                  <MessageSquare className="w-3 h-3" />
+                  <span>Messages</span>
+                </div>
+                <span className={`font-medium ${barText(quota.chat.percentage, quota.chat.limitReached)}`}>
+                  {quota.chat.used}/{quota.chat.limit}
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+                <div className={`h-full ${bar(quota.chat.percentage, quota.chat.limitReached)} transition-all`} style={{ width: `${Math.min(quota.chat.percentage, 100)}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* User Menu */}
       <div className="p-4 border-t border-gray-700/50">
