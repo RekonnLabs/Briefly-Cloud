@@ -71,7 +71,7 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
       if (exportMime) {
         // Native Google format — export via Apideck export endpoint
         const res = await fetch(
-          `${process.env.APIDECK_API_BASE_URL}/file-storage/files/${encodeURIComponent(body.fileId)}/export?mimeType=${encodeURIComponent(exportMime)}`,
+          `${process.env.APIDECK_API_BASE_URL}/file-storage/files/${encodeURIComponent(body.fileId)}/export?format=${encodeURIComponent(exportMime)}`,
           { headers: { ...apideckHeaders(user.id), 'x-apideck-connection-id': conn.connection_id } }
         )
         if (!res.ok) throw new Error(`export failed: ${res.status} ${await res.text()}`)
