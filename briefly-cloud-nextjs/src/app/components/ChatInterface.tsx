@@ -349,8 +349,8 @@ export function ChatInterface() {
         {messages.length === 0 && !isWaitingForFirstToken && !streamingContent && (
           <div className="text-center text-gray-400 py-8">
             <FileText className="w-12 h-12 mx-auto mb-4 text-gray-600" />
-            <p className="text-lg font-medium mb-2 text-white">No conversation yet</p>
-            <p className="text-sm">Upload some documents and start chatting!</p>
+            <p className="text-lg font-medium mb-2 text-white">Get started</p>
+            <p className="text-sm">Connect Google Drive to import your documents, or upload files directly. Then ask questions in the chat.</p>
           </div>
         )}
 

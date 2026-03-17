@@ -440,13 +440,6 @@ const postHandler = async (req: Request, ctx: ApiContext) => {
     }) as any;
 
     const connections = json?.data ?? [];
-    // DIAGNOSTIC — remove after confirming connections flow
-    console.log('[apideck:callback:post:DIAGNOSTIC]', JSON.stringify({
-      jsonKeys: Object.keys(json ?? {}),
-      dataType: typeof json?.data,
-      connectionCount: connections.length,
-      rawData: json?.data
-    }));
     let successCount = 0;
 
     if (connections.length === 0) {

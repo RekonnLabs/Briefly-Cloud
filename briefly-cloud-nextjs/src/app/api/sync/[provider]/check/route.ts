@@ -18,14 +18,15 @@ import { createError } from '@/app/lib/api-errors'
  * - deleted: Files in our DB but no longer in provider
  * - nextCursor: Delta cursor for next sync
  */
-export const POST = createProtectedApiHandler(async (req: NextRequest, user) => {
+export const POST = createProtectedApiHandler(async (req: NextRequest, ctx) => {
+  const { user, correlationId: ctxCorrelationId } = ctx
   const provider = req.nextUrl.pathname.split('/')[3] as 'gdrive' | 'onedrive' | 'dropbox'
 
   if (!['gdrive', 'onedrive', 'dropbox'].includes(provider)) {
-    throw createError.badRequest(`Invalid provider: ${provider}`)
+    throw createError.validation(`Invalid provider: ${provider}`)
   }
 
-  const correlationId = `sync_check_${Date.now()}_${Math.random().toString(36).substring(7)}`
+  const correlationId = ctxCorrelationId || `sync_check_${Date.now()}_${Math.random().toString(36).substring(7)}`
 
   logger.info('[SYNC_CHECK] Starting', {
     correlationId,
@@ -65,7 +66,7 @@ export const POST = createProtectedApiHandler(async (req: NextRequest, user) => 
         status: response.status,
         error: errorText
       })
-      throw createError.serverError(`Cloud provider API error: ${response.status}`)
+      throw createError.internal(`Cloud provider API error: ${response.status}`)
     }
 
     const apideckData = await response.json()

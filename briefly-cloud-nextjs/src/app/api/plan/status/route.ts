@@ -12,6 +12,27 @@ async function getPlanStatusHandler(req: Request, context: ApiContext): Promise<
     )
   }
 
+  // Internal testers get Pro access regardless of Stripe/trial status
+  const INTERNAL_TESTERS = [
+    'rekonnlabs@gmail.com',
+    'mosssixenterprises@gmail.com',
+    // add co-worker emails here
+  ]
+
+  if (INTERNAL_TESTERS.includes(user.email ?? '')) {
+    return NextResponse.json({
+      success: true,
+      data: {
+        trialActive: false,
+        paidActive: true,
+        trialEndsAt: null,
+        hasStorageAccess: true,
+        subscriptionTier: 'pro',
+        subscriptionStatus: 'active'
+      }
+    })
+  }
+
   try {
     // Use admin client to bypass RLS and query app schema directly
     const { data: userProfile, error: profileError } = await supabaseAppAdmin
