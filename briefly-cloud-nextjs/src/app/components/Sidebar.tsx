@@ -121,7 +121,7 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
 
   return (
     <div className="w-64 bg-gray-900/80 backdrop-blur-sm border-r border-gray-700/50 flex flex-col">
-      {/* Logo */
+      {/* Logo */}
       <div className="p-6 border-b border-gray-700/50">
         <div className="flex items-center space-x-3">
           <img
