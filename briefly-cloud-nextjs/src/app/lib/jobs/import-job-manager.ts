@@ -406,12 +406,16 @@ export class ImportJobManager {
     const folderId = (job.inputData.folderId as string) || 'root'
 
     // Check for Apideck connection first
-    const { data: conn } = await supabaseAdmin
+    const { data: conn, error: connError } = await supabaseAdmin
       .from('apideck_connections')
       .select('connection_id, consumer_id')
       .eq('user_id', job.userId)
       .eq('provider', job.provider === 'google' ? 'google' : 'microsoft')
-      .single()
+      .maybeSingle()
+
+    if (connError) {
+      console.error('[job-manager:apideck-lookup-failed]', { userId: job.userId, provider: job.provider, error: connError.message })
+    }
 
     if (conn?.connection_id) {
       // Apideck path — use unified file-storage API
@@ -798,13 +802,17 @@ export class ImportJobManager {
     jobProvider: 'google' | 'microsoft'
   ): Promise<Buffer> {
     try {
-      // Check for Apideck connection first
-      const { data: conn } = await supabaseAdmin
+            // Check for Apideck connection
+      const { data: conn, error: connError } = await supabaseAdmin
         .from('apideck_connections')
         .select('connection_id, consumer_id')
         .eq('user_id', userId)
         .eq('provider', jobProvider === 'google' ? 'google' : 'microsoft')
-        .single()
+        .maybeSingle()
+
+      if (connError) {
+        console.error('[job-manager:apideck-download-lookup-failed]', { userId, provider: jobProvider, error: connError.message })
+      }
 
       if (conn?.connection_id) {
         const GOOGLE_NATIVE_EXPORT_MAP: Record<string, string> = {
