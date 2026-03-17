@@ -151,7 +151,7 @@ export const Apideck = {
 
   async listFiles(consumerId: string, connectionId: string, params?: ListFilesParams) {
     const q = new URLSearchParams();
-    if (params?.folder_id) q.set('filter[folderId]', params.folder_id);
+    if (params?.folder_id) q.set('filter[folder_id]', params.folder_id);
     if (params?.cursor)   q.set('cursor', params.cursor);
     if (params?.limit)    q.set('limit', String(params.limit));
     const res = await fetch(`${API}/file-storage/files?${q.toString()}`, {

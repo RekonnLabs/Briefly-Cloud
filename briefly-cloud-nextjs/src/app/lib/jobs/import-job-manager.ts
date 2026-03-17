@@ -752,8 +752,11 @@ export class ImportJobManager {
       })
 
       // Increment profile usage counters — fire-and-forget, don't block on failure
-      usersRepo.incrementUsage(job.userId, 1, fileBuffer.length).catch((usageErr: unknown) => {
-        console.error('[job-manager:usage-sync-failed]', { userId: job.userId, error: usageErr instanceof Error ? usageErr.message : String(usageErr) })
+      supabaseAdmin.rpc('increment_document_usage', {
+        p_user_id: job.userId,
+        p_bytes: fileBuffer.length
+      }).then(({ error: usageErr }) => {
+        if (usageErr) console.error('[job-manager:usage-sync-failed]', { userId: job.userId, error: usageErr.message })
       })
 
       logger.info('File indexed successfully via ImportJobManager', {
