@@ -404,8 +404,22 @@ export class ImportJobManager {
    */
   private static async getAllFilesToImport(job: ImportJob): Promise<CloudStorageFile[]> {
     const folderId = (job.inputData.folderId as string) || 'root'
+    return await this.listFilesRecursive(job, folderId)
+  }
 
-    // Check for Apideck connection first
+  /**
+   * Recursively list files from a folder and all subfolders.
+   * Apideck path recurses into subfolders in parallel.
+   * Legacy provider path stays flat (no recursion — different API pattern).
+   */
+  private static async listFilesRecursive(
+    job: ImportJob,
+    folderId: string,
+    depth: number = 0
+  ): Promise<CloudStorageFile[]> {
+    // Guard against runaway recursion
+    if (depth > 10) return []
+
     const { data: conn, error: connError } = await supabaseAdmin
       .from('apideck_connections')
       .select('connection_id, consumer_id')
@@ -417,55 +431,61 @@ export class ImportJobManager {
       console.error('[job-manager:apideck-lookup-failed]', { userId: job.userId, provider: job.provider, error: connError.message })
     }
 
-    if (conn?.connection_id) {
-      // Apideck path — use unified file-storage API
-      let allFiles: CloudStorageFile[] = []
-      let cursor: string | undefined
+    let allItems: any[] = []
+    let cursor: string | undefined
 
+    if (conn?.connection_id) {
+      // Apideck path — list files and folders
       do {
         const resp = await Apideck.listFiles(
           conn.consumer_id || job.userId,
           conn.connection_id,
-          { folder_id: folderId !== 'root' ? folderId : undefined, cursor, limit: 100 }
+          { folder_id: folderId, cursor, limit: 100 }
         )
-
-        const items = resp?.data ?? []
-        for (const item of items) {
-          if (item.type === 'folder') continue
-          allFiles.push({
-            id: item.id,
-            name: item.name,
-            mimeType: item.mime_type || 'application/octet-stream',
-            size: item.size,
-            modifiedTime: item.updated_at,
-            webViewLink: item.web_url
-          })
-        }
-
+        allItems.push(...(resp?.data ?? []))
         cursor = resp?.meta?.cursors?.next || undefined
       } while (cursor)
-
-      return allFiles.filter(f => this.SUPPORTED_MIME_TYPES.includes(f.mimeType || ''))
+    } else {
+      // Legacy provider path — flat listing, no recursion
+      const provider = this.providers[job.provider]
+      if (!provider) throw createError.badRequest(`Unsupported provider: ${job.provider}`)
+      let pageToken: string | undefined
+      do {
+        const response = await provider.listFiles(job.userId, folderId, pageToken, 100)
+        allItems.push(...response.files)
+        pageToken = response.nextPageToken || undefined
+      } while (pageToken)
+      return allItems.filter(f => this.SUPPORTED_MIME_TYPES.includes(f.mimeType || ''))
     }
 
-    // Legacy provider fallback
-    const provider = this.providers[job.provider]
-    if (!provider) {
-      throw createError.badRequest(`Unsupported provider: ${job.provider}`)
+    const files: CloudStorageFile[] = []
+    const subfolderPromises: Promise<CloudStorageFile[]>[] = []
+
+    for (const item of allItems) {
+      if (item.type === 'folder') {
+        // Recurse into subfolder
+        subfolderPromises.push(
+          this.listFilesRecursive(job, item.id, depth + 1)
+        )
+      } else if (this.SUPPORTED_MIME_TYPES.includes(item.mime_type || '')) {
+        files.push({
+          id: item.id,
+          name: item.name,
+          mimeType: item.mime_type || 'application/octet-stream',
+          size: item.size,
+          modifiedTime: item.updated_at,
+          webViewLink: item.web_url
+        })
+      }
     }
 
-    let allFiles: CloudStorageFile[] = []
-    let pageToken: string | undefined
+    // Resolve all subfolder listings in parallel
+    const subfolderResults = await Promise.all(subfolderPromises)
+    for (const subFiles of subfolderResults) {
+      files.push(...subFiles)
+    }
 
-    do {
-      const response = await provider.listFiles(job.userId, folderId, pageToken, 100)
-      allFiles.push(...response.files)
-      pageToken = response.nextPageToken || undefined
-    } while (pageToken)
-
-    return allFiles.filter(file =>
-      file.mimeType && this.SUPPORTED_MIME_TYPES.includes(file.mimeType)
-    )
+    return files
   }
 
   /**
