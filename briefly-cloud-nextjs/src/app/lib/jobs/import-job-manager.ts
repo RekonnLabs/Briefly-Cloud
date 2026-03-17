@@ -458,16 +458,10 @@ export class ImportJobManager {
       return allItems.filter(f => this.SUPPORTED_MIME_TYPES.includes(f.mimeType || ''))
     }
 
+    // Extract files from the listing (filter[folder_id] only returns files, not folders)
     const files: CloudStorageFile[] = []
-    const subfolderPromises: Promise<CloudStorageFile[]>[] = []
-
     for (const item of allItems) {
-      if (item.type === 'folder') {
-        // Recurse into subfolder
-        subfolderPromises.push(
-          this.listFilesRecursive(job, item.id, depth + 1)
-        )
-      } else if (this.SUPPORTED_MIME_TYPES.includes(item.mime_type || '')) {
+      if (this.SUPPORTED_MIME_TYPES.includes(item.mime_type || '')) {
         files.push({
           id: item.id,
           name: item.name,
@@ -477,6 +471,27 @@ export class ImportJobManager {
           webViewLink: item.web_url
         })
       }
+    }
+
+    // Discover subfolders via the /file-storage/folders/{id} endpoint
+    const subfolderPromises: Promise<CloudStorageFile[]>[] = []
+    try {
+      const foldersResp = await fetch(
+        `${process.env.APIDECK_API_BASE_URL}/file-storage/folders/${encodeURIComponent(folderId)}`,
+        { headers: { ...apideckHeaders(conn.consumer_id || job.userId),
+                      'x-apideck-connection-id': conn.connection_id } }
+      )
+      if (foldersResp.ok) {
+        const foldersData = await foldersResp.json()
+        const subfolders = foldersData?.data?.files?.filter((i: any) => i.type === 'folder') ?? []
+        for (const folder of subfolders) {
+          subfolderPromises.push(this.listFilesRecursive(job, folder.id, depth + 1))
+        }
+      } else {
+        console.error('[job-manager:folders-endpoint-failed]', { folderId, status: foldersResp.status })
+      }
+    } catch (folderErr) {
+      console.error('[job-manager:folders-endpoint-error]', { folderId, error: folderErr instanceof Error ? folderErr.message : String(folderErr) })
     }
 
     // Resolve all subfolder listings in parallel
