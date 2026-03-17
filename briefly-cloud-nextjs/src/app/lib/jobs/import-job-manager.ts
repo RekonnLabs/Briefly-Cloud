@@ -417,51 +417,43 @@ export class ImportJobManager {
     folderId: string,
     depth: number = 0
   ): Promise<CloudStorageFile[]> {
-    // Guard against runaway recursion
     if (depth > 10) return []
 
-    const { data: conn, error: connError } = await supabaseAdmin
+    const { data: conn } = await supabaseAdmin
       .from('apideck_connections')
       .select('connection_id, consumer_id')
       .eq('user_id', job.userId)
-      .eq('provider', job.provider === 'google' ? 'google' : 'microsoft')
+      .eq('provider', job.provider)
       .maybeSingle()
 
-    if (connError) {
-      console.error('[job-manager:apideck-lookup-failed]', { userId: job.userId, provider: job.provider, error: connError.message })
-    }
-
-    let allItems: any[] = []
-    let cursor: string | undefined
-
-    if (conn?.connection_id) {
-      // Apideck path — list files and folders
-      do {
-        const resp = await Apideck.listFiles(
-          conn.consumer_id || job.userId,
-          conn.connection_id,
-          { folder_id: folderId, cursor, limit: 100 }
-        )
-        allItems.push(...(resp?.data ?? []))
-        cursor = resp?.meta?.cursors?.next || undefined
-      } while (cursor)
-    } else {
-      // Legacy provider path — flat listing, no recursion
+    if (!conn?.connection_id) {
+      // Legacy fallback — flat listing only
       const provider = this.providers[job.provider]
       if (!provider) throw createError.badRequest(`Unsupported provider: ${job.provider}`)
-      let pageToken: string | undefined
-      do {
-        const response = await provider.listFiles(job.userId, folderId, pageToken, 100)
-        allItems.push(...response.files)
-        pageToken = response.nextPageToken || undefined
-      } while (pageToken)
-      return allItems.filter(f => this.SUPPORTED_MIME_TYPES.includes(f.mimeType || ''))
+      const response = await provider.listFiles(job.userId, folderId, undefined, 100)
+      return response.files.filter(f => ImportJobManager.SUPPORTED_MIME_TYPES.includes(f.mimeType || ''))
     }
 
-    // Extract files from the listing (filter[folder_id] only returns files, not folders)
+    // Apideck path — single paginated call returns BOTH files and folders
+    let allItems: any[] = []
+    let cursor: string | undefined
+    do {
+      const resp = await Apideck.listFiles(
+        conn.consumer_id || job.userId,
+        conn.connection_id,
+        { folder_id: folderId, cursor, limit: 100 }
+      )
+      allItems.push(...(resp?.data ?? []))
+      cursor = resp?.meta?.cursors?.next || undefined
+    } while (cursor)
+
     const files: CloudStorageFile[] = []
+    const subfolderPromises: Promise<CloudStorageFile[]>[] = []
+
     for (const item of allItems) {
-      if (this.SUPPORTED_MIME_TYPES.includes(item.mime_type || '')) {
+      if (item.type === 'folder') {
+        subfolderPromises.push(this.listFilesRecursive(job, item.id, depth + 1))
+      } else if (ImportJobManager.SUPPORTED_MIME_TYPES.includes(item.mime_type || '')) {
         files.push({
           id: item.id,
           name: item.name,
@@ -473,28 +465,6 @@ export class ImportJobManager {
       }
     }
 
-    // Discover subfolders via the /file-storage/folders/{id} endpoint
-    const subfolderPromises: Promise<CloudStorageFile[]>[] = []
-    try {
-      const foldersResp = await fetch(
-        `${process.env.APIDECK_API_BASE_URL}/file-storage/folders/${encodeURIComponent(folderId)}`,
-        { headers: { ...apideckHeaders(conn.consumer_id || job.userId),
-                      'x-apideck-connection-id': conn.connection_id } }
-      )
-      if (foldersResp.ok) {
-        const foldersData = await foldersResp.json()
-        const subfolders = foldersData?.data?.files?.filter((i: any) => i.type === 'folder') ?? []
-        for (const folder of subfolders) {
-          subfolderPromises.push(this.listFilesRecursive(job, folder.id, depth + 1))
-        }
-      } else {
-        console.error('[job-manager:folders-endpoint-failed]', { folderId, status: foldersResp.status })
-      }
-    } catch (folderErr) {
-      console.error('[job-manager:folders-endpoint-error]', { folderId, error: folderErr instanceof Error ? folderErr.message : String(folderErr) })
-    }
-
-    // Resolve all subfolder listings in parallel
     const subfolderResults = await Promise.all(subfolderPromises)
     for (const subFiles of subfolderResults) {
       files.push(...subFiles)
