@@ -4,7 +4,7 @@ import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { google } from 'googleapis'
 import { TokenStore } from '@/app/lib/oauth/token-store'
-import { Apideck } from '@/app/lib/integrations/apideck'
+import { Apideck, apideckHeaders } from '@/app/lib/integrations/apideck'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { extractTextFromBuffer } from '@/app/lib/document-extractor'
@@ -54,16 +54,37 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
 
     if (!conn) return ApiResponse.badRequest('Google account not connected')
 
+    // Apideck download doesn't return metadata — use values passed from the UI
+    fileName = body.fileName ?? body.fileId
+    mimeType = body.mimeType ?? 'application/octet-stream'
+
+    // Google native formats 403 on the media download endpoint.
+    // Use Apideck's export endpoint to get a portable equivalent instead.
+    const GOOGLE_NATIVE_EXPORT_MAP: Record<string, string> = {
+      'application/vnd.google-apps.document':     'text/plain',
+      'application/vnd.google-apps.spreadsheet':  'text/csv',
+      'application/vnd.google-apps.presentation': 'text/plain',
+    }
+    const exportMime = GOOGLE_NATIVE_EXPORT_MAP[mimeType]
+
     try {
-      buffer = await Apideck.downloadFile(user.id, conn.connection_id, body.fileId)
+      if (exportMime) {
+        // Native Google format — export via Apideck export endpoint
+        const res = await fetch(
+          `${process.env.APIDECK_API_BASE_URL}/file-storage/files/${encodeURIComponent(body.fileId)}/export?mimeType=${encodeURIComponent(exportMime)}`,
+          { headers: { ...apideckHeaders(user.id), 'x-apideck-connection-id': conn.connection_id } }
+        )
+        if (!res.ok) throw new Error(`export failed: ${res.status} ${await res.text()}`)
+        buffer = Buffer.from(await res.arrayBuffer())
+        mimeType = exportMime  // update so extractor handles it correctly
+      } else {
+        buffer = await Apideck.downloadFile(user.id, conn.connection_id, body.fileId)
+      }
     } catch (e) {
       console.error('[google-import:apideck-download-failed]', e)
       return ApiResponse.internalError('Failed to download file via Apideck')
     }
 
-    // Apideck download doesn't return metadata — use values passed from the UI
-    fileName = body.fileName ?? body.fileId
-    mimeType = body.mimeType ?? 'application/octet-stream'
     fileSize = buffer.byteLength
   }
 
