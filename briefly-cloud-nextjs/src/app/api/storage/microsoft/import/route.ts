@@ -58,11 +58,8 @@ async function importOneDriveFileHandler(request: Request, context: ApiContext):
 
     if (!conn) return ApiResponse.badRequest('Microsoft account not connected')
 
-    // connection_id is stored as 'file-storage+onedrive' — extract service id
-    const serviceId = conn.connection_id.replace('file-storage+', '')
-
     try {
-      buffer = await Apideck.downloadFile(user.id, serviceId, body.fileId)
+      buffer = await Apideck.downloadFile(user.id, conn.connection_id, body.fileId)
     } catch (e) {
       console.error('[microsoft-import:apideck-download-failed]', e)
       return ApiResponse.internalError('Failed to download file via Apideck')

@@ -54,11 +54,8 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
 
     if (!conn) return ApiResponse.badRequest('Google account not connected')
 
-    // connection_id is stored as 'file-storage+google-drive' — extract service id
-    const serviceId = conn.connection_id.replace('file-storage+', '')
-
     try {
-      buffer = await Apideck.downloadFile(user.id, serviceId, body.fileId)
+      buffer = await Apideck.downloadFile(user.id, conn.connection_id, body.fileId)
     } catch (e) {
       console.error('[google-import:apideck-download-failed]', e)
       return ApiResponse.internalError('Failed to download file via Apideck')
