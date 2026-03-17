@@ -19,7 +19,7 @@ export const BUDGETS: Record<Budget, ChatBudget> = {
     maxTokens: 1000, 
     topK: 4,
     contextTokenLimit: 2000,
-    similarityThreshold: 0.45
+    similarityThreshold: 0.3  // lowered from 0.45 — checklist/fragmented docs score lower by nature
   },
   balanced: { 
     model: 'gpt-4o', 
