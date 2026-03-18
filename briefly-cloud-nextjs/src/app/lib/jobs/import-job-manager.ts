@@ -272,6 +272,14 @@ export class ImportJobManager {
         duplicateFiles: await this.countFilesByStatus(jobId, 'duplicate')
       }
 
+      // Flush final counts to the progress column so the UI reads accurate numbers
+      // on the last poll. Without this, progress retains the last intermediate batch
+      // update and the 4-box stats show stale mid-run counts after completion.
+      await this.updateJobProgress(jobId, {
+        ...finalProgress,
+        current_file: null  // clear the "currently processing" label on completion
+      })
+
       // Mark job as completed
       await this.updateJobStatus(jobId, 'completed', {
         completed_at: new Date(),
@@ -998,11 +1006,13 @@ export class ImportJobManager {
       const { error } = await supabaseAdmin
         .rpc('update_job_progress', {
           p_job_id: jobId,
-          p_total: progress.total || null,
-          p_processed: progress.processed || null,
-          p_failed: progress.failed || null,
-          p_skipped: progress.skipped || null,
-          p_current_file: progress.current_file || null
+          // Use ?? null not || null — progress counts can legitimately be 0 (falsy),
+          // and || null would send null causing the RPC to preserve the old value.
+          p_total: progress.total ?? null,
+          p_processed: progress.processed ?? null,
+          p_failed: progress.failed ?? null,
+          p_skipped: progress.skipped ?? null,
+          p_current_file: progress.current_file ?? null
         })
 
       if (error) {
