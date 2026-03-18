@@ -15,6 +15,7 @@ import { ErrorBoundary } from "@/app/components/ErrorBoundary";
 import type { CompleteUserData, UserDataError } from "@/app/lib/user-data-types";
 import { getUserDataErrorMessage, isValidUserData } from "@/app/lib/user-data-types";
 import { useSignout } from "@/app/lib/auth/use-signout";
+import { TrialExpiredBanner } from "@/app/components/TrialExpiredBanner";
 import DashboardLoading from "./DashboardLoading";
 
 interface DashboardClientProps {
@@ -204,6 +205,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const [userData, setUserData] = useState<CompleteUserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<UserDataError | null>(null);
+  const [upgradeToast, setUpgradeToast] = useState<'success' | 'cancelled' | null>(null);
   const isMountedRef = useRef(true);
   const { signOut, isSigningOut, error: signoutError, clearError } = useSignout();
 
@@ -309,6 +311,11 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   useEffect(() => {
     const tab = normalizeTab(searchParams.get("tab"));
     setActiveTab((current) => (current === tab ? current : tab));
+    // Show upgrade confirmation toast from Stripe redirect
+    const upgraded = searchParams.get("upgraded");
+    const upgradeCancelled = searchParams.get("upgrade_cancelled");
+    if (upgraded === "true") setUpgradeToast("success");
+    if (upgradeCancelled === "true") setUpgradeToast("cancelled");
   }, [searchParams]);
 
   const usageSummary = useMemo(() => {
@@ -562,6 +569,24 @@ export default function DashboardClient({ user }: DashboardClientProps) {
 
 
         </header>
+
+        <TrialExpiredBanner />
+
+        {/* Upgrade confirmation toast */}
+        {upgradeToast === 'success' && (
+          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 bg-green-900/90 border border-green-700/60 rounded-xl shadow-xl text-green-100 text-sm">
+            <span>🎉</span>
+            <span><strong>You're on Pro!</strong> Your account has been upgraded. Welcome aboard.</span>
+            <button onClick={() => setUpgradeToast(null)} className="ml-2 text-green-400 hover:text-green-200">✕</button>
+          </div>
+        )}
+        {upgradeToast === 'cancelled' && (
+          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 bg-gray-900/90 border border-gray-700/60 rounded-xl shadow-xl text-gray-200 text-sm">
+            <span>No problem.</span>
+            <span>Upgrade cancelled — you're still on your trial.</span>
+            <button onClick={() => setUpgradeToast(null)} className="ml-2 text-gray-400 hover:text-gray-200">✕</button>
+          </div>
+        )}
 
         <main className="flex-1 p-6">
           {activeTab === "chat" && (
