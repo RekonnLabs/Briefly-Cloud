@@ -13,6 +13,8 @@ export interface UserLimits {
   user_id: string;
   email: string;
   subscription_tier: string;
+  // effective_tier: 'pro' for trial-active users regardless of subscription_tier
+  effective_tier: string;
   subscription_status: string;
   trial_end_date: string | null;
   
@@ -268,7 +270,8 @@ export function formatQuotaStatus(limits: UserLimits) {
       daysRemaining: limits.trial_days_remaining,
       endDate: limits.trial_end_date
     },
-    tier: limits.subscription_tier,
+    // Use effective_tier so trial users display as 'pro', not 'free'
+    tier: limits.effective_tier ?? limits.subscription_tier,
     status: limits.subscription_status
   };
 }

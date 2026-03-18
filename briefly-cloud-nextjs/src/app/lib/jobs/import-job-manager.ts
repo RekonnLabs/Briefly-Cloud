@@ -649,35 +649,76 @@ export class ImportJobManager {
         }
       }
 
-      // Create file metadata record
-      const { data: fileMetadata, error: fileError } = await supabaseAdmin
+      // Check if a previous (failed) attempt already created a files row for this
+      // external_id. If so, reuse it and reset its status rather than inserting a
+      // new row, which would collide on the UNIQUE(owner_id, path) constraint.
+      const { data: existingFile } = await supabaseAdmin
         .from('files')
-        .insert({
-          owner_id: job.userId,
-          name: file.name,
-          path: file.name, // Use name as path for cloud storage files
-          size_bytes: fileBuffer.length,
-          mime_type: file.mimeType,
-          source: job.provider === 'google' ? 'google' : 'microsoft',
-          external_id: file.id,
-          external_url: file.webViewLink,
-          processed: false,
-          processing_status: 'pending',
-          metadata: {
-            original_size: file.size,
-            modified_time: file.modifiedTime,
-            content_hash: contentHash,
-            provider_version: file.modifiedTime // Use modified time as version
-          }
-        })
-        .select()
-        .single()
+        .select('id')
+        .eq('owner_id', job.userId)
+        .eq('external_id', file.id)
+        .maybeSingle()
 
-      if (fileError || !fileMetadata) {
-        throw new Error(`Failed to create file metadata: ${fileError?.message}`)
+      let fileMetadata: { id: string } | null = null
+
+      if (existingFile?.id) {
+        // Reset the stale row so the pipeline can overwrite it cleanly
+        const { data: updatedFile, error: updateError } = await supabaseAdmin
+          .from('files')
+          .update({
+            name: file.name,
+            size_bytes: fileBuffer.length,
+            mime_type: file.mimeType,
+            processed: false,
+            processing_status: 'pending',
+            metadata: {
+              original_size: file.size,
+              modified_time: file.modifiedTime,
+              content_hash: contentHash,
+              provider_version: file.modifiedTime,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingFile.id)
+          .select('id')
+          .single()
+
+        if (updateError || !updatedFile) {
+          throw new Error(`Failed to reset existing file record: ${updateError?.message}`)
+        }
+        fileMetadata = updatedFile
+      } else {
+        // Fresh insert — no previous attempt for this external_id
+        const { data: insertedFile, error: fileError } = await supabaseAdmin
+          .from('files')
+          .insert({
+            owner_id: job.userId,
+            name: file.name,
+            path: file.name,
+            size_bytes: fileBuffer.length,
+            mime_type: file.mimeType,
+            source: job.provider === 'google' ? 'google' : 'microsoft',
+            external_id: file.id,
+            external_url: file.webViewLink,
+            processed: false,
+            processing_status: 'pending',
+            metadata: {
+              original_size: file.size,
+              modified_time: file.modifiedTime,
+              content_hash: contentHash,
+              provider_version: file.modifiedTime,
+            },
+          })
+          .select('id')
+          .single()
+
+        if (fileError || !insertedFile) {
+          throw new Error(`Failed to create file metadata: ${fileError?.message}`)
+        }
+        fileMetadata = insertedFile
       }
 
-      createdFileId = fileMetadata.id
+      createdFileId = fileMetadata!.id
 
       const ingestMeta = {
         original_size: file.size,

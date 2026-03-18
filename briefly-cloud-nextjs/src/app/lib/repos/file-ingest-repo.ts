@@ -182,11 +182,16 @@ export const fileIngestRepo = {
   },
 
   async existsWithContentHash(ownerId: string, contentHash: string): Promise<boolean> {
+    // Only treat 'ready' records as real duplicates.
+    // 'error' and 'processing' records mean a previous attempt failed — those files
+    // must be allowed to re-index. Matching on any status would permanently block
+    // retries for files that failed mid-pipeline.
     const { data, error } = await supabaseAdmin
       .schema('app')
       .from(INGEST_TABLE)
       .select(columnMap.fileId)
       .eq(columnMap.ownerId, ownerId)
+      .eq(columnMap.status, 'ready')
       .contains(columnMap.meta, { content_hash: contentHash })
       .limit(1)
 

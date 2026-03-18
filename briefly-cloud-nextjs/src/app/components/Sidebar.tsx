@@ -168,7 +168,9 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
           <div className="pt-1">
             <div className="bg-gray-800/60 border border-gray-700/40 rounded-xl p-3 space-y-2.5">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-gray-300 capitalize">{quota.tier} Plan</span>
+                <span className="text-xs font-medium text-gray-300 capitalize">
+                  {quota.trial.active ? 'Pro Trial' : `${quota.tier} Plan`}
+                </span>
                 {quota.trial.active && (
                   <span className="text-xs text-blue-300">{quota.trial.daysRemaining}d left</span>
                 )}
@@ -196,7 +198,10 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
                     <span>Storage</span>
                   </div>
                   <span className={`font-medium ${barText(quota.storage.percentage, quota.storage.limitReached)}`}>
-                    {quota.storage.used.toFixed(1)}/{quota.storage.limit} MB
+                    {quota.storage.used < 1
+                      ? `${(quota.storage.used * 1024).toFixed(0)} KB`
+                      : `${quota.storage.used.toFixed(1)} MB`
+                    }/{quota.storage.limit} MB
                   </span>
                 </div>
                 <div className="w-full h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
