@@ -123,10 +123,11 @@ export async function checkUploadQuota(
         error: error.message
       });
       
-      // Fail open - allow upload if quota check fails
+      // Fail CLOSED — a quota check error means we cannot verify the user's limits.
+      // Allowing through would bypass billing controls. Return denied.
       return {
-        allowed: true,
-        reason: 'Quota check unavailable',
+        allowed: false,
+        reason: 'Quota check unavailable — please try again',
         files_used: 0,
         files_limit: 0,
         storage_used_mb: 0,
@@ -152,10 +153,10 @@ export async function checkUploadQuota(
       error: error instanceof Error ? error.message : 'Unknown error'
     });
     
-    // Fail open - allow upload if quota check fails
+    // Fail CLOSED — cannot verify limits on exception.
     return {
-      allowed: true,
-      reason: 'Quota check unavailable',
+      allowed: false,
+      reason: 'Quota check unavailable — please try again',
       files_used: 0,
       files_limit: 0,
       storage_used_mb: 0,
@@ -171,7 +172,9 @@ export async function checkChatQuota(userId: string): Promise<boolean> {
   const limits = await getUserLimits(userId);
   
   if (!limits) {
-    // Fail open - allow chat if limits unavailable
+    // Chat stays fail-open intentionally — a DB hiccup should not block a user
+    // mid-conversation. Chat completions are low individual cost; the chat
+    // message counter and tier limits are the primary guard here.
     return true;
   }
 

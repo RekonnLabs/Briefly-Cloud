@@ -12,6 +12,7 @@ import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
 import { logger } from '@/app/lib/logger'
+import { getUserLimits } from '@/app/lib/usage/quota-enforcement'
 
 interface BatchImportRequest {
   folderId?: string
@@ -42,6 +43,25 @@ async function createMicrosoftBatchImportHandler(
     if (maxRetries < 1 || maxRetries > 5) {
       return ApiResponse.badRequest('Max retries must be between 1 and 5')
     }
+
+    // ── Quota pre-flight — fail-closed ────────────────────────────────────────
+    const limits = await getUserLimits(user.id)
+    if (!limits) {
+      return ApiResponse.serverError('Unable to verify account limits. Please try again.', 'QUOTA_CHECK_FAILED')
+    }
+    if (limits.files_limit_reached) {
+      return ApiResponse.badRequest(
+        `You have reached your file limit (${limits.files_used}/${limits.files_limit}). ` +
+        `Delete some files or upgrade your plan before importing more.`
+      )
+    }
+    if (limits.storage_limit_reached) {
+      return ApiResponse.badRequest(
+        `You have reached your storage limit (${limits.storage_used_mb} MB / ${limits.storage_limit_mb} MB). ` +
+        `Free up storage or upgrade your plan before importing more.`
+      )
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     logger.info('Creating Microsoft OneDrive batch import job', {
       userId: user.id,

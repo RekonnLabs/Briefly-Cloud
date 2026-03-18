@@ -276,7 +276,14 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     }
 
     // ── Context retrieval (CRITICAL — core RAG path) ───────────────────
-    const tier = userProfile.subscription_tier as UserTier
+    // Use effective_tier from v_user_limits so trial users (subscription_tier='free'
+    // with an active trial_end_date) get Pro-level model routing, not the nano model.
+    // Raw subscription_tier='free' would route them to the cheapest model mid-trial.
+    const rawTier = userProfile.subscription_tier as UserTier
+    const { getUserLimits } = await import('@/app/lib/usage/quota-enforcement')
+    const userLimits = await getUserLimits(user.id).catch(() => null)
+    const effectiveTierStr = userLimits?.effective_tier ?? rawTier
+    const tier = (effectiveTierStr === 'pro' ? 'pro' : rawTier) as UserTier
     const budgetType = getBudgetForTier(tier)
     const budget = BUDGETS[budgetType]
 

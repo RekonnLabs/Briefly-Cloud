@@ -27,28 +27,25 @@ export function createUserOpenAIClient(apiKey: string) {
 export const EMBEDDING_MODEL = 'text-embedding-3-small'
 export const EMBEDDING_DIMENSIONS = 1536
 
-// Feature flag and env-based chat model mapping
-const FEATURE_GPT5 = String(process.env.FEATURE_GPT5 || 'true').toLowerCase() === 'true'
-
-// Canonical GPT-5 model configuration
-export const FREE_CHAT_MODEL = 'gpt-5-mini'
-export const PRO_CHAT_MODEL = 'gpt-5.1'
-export const PRO_FALLBACK_MODEL = 'gpt-5-mini'
-export const CLASSIFIER_MODEL = 'gpt-5-nano'
-
-// Legacy GPT-4 fallbacks (only used when FEATURE_GPT5=false)
-function legacyFallbackFree(): string {
-  return process.env.FALLBACK_MODEL_FREE || 'gpt-4.1-nano'
-}
-
-function legacyFallbackPro(): string {
-  return process.env.FALLBACK_MODEL_PRO || 'gpt-4o'
-}
+// ─── Chat model configuration ────────────────────────────────────────────────
+// Defaults verified against OpenAI pricing page March 2026.
+// Override via Vercel env vars — no code deploy needed to swap models.
+//
+//   CHAT_MODEL_PRO   default: gpt-5.4-mini  ($0.75/$4.50 per 1M tokens)
+//   CHAT_MODEL_FREE  default: gpt-5.4-nano  ($0.20/$1.25 per 1M tokens)
+//   CHAT_MODEL_BOOST default: gpt-5.4       ($2.50/$15.00 per 1M tokens)
+//   CHAT_MODEL_BYOK  default: user-provided
+// ─────────────────────────────────────────────────────────────────────────────
+export const FREE_CHAT_MODEL      = 'gpt-5-nano'
+export const PRO_CHAT_MODEL       = 'gpt-5-mini'
+export const BOOST_CHAT_MODEL     = 'gpt-5'
+export const CLASSIFIER_MODEL     = 'gpt-5-nano'
 
 export const CHAT_MODELS = {
-  free: process.env.CHAT_MODEL_FREE || (FEATURE_GPT5 ? FREE_CHAT_MODEL : legacyFallbackFree()),
-  pro: process.env.CHAT_MODEL_PRO || (FEATURE_GPT5 ? PRO_CHAT_MODEL : legacyFallbackPro()),
-  pro_byok: process.env.CHAT_MODEL_BYOK || 'user-provided',
+  free:     process.env.CHAT_MODEL_FREE  || FREE_CHAT_MODEL,
+  pro:      process.env.CHAT_MODEL_PRO   || PRO_CHAT_MODEL,
+  pro_byok: process.env.CHAT_MODEL_BYOK  || 'user-provided',
+  boost:    process.env.CHAT_MODEL_BOOST || BOOST_CHAT_MODEL,
 } as const
 
 export type SubscriptionTier = keyof typeof CHAT_MODELS
