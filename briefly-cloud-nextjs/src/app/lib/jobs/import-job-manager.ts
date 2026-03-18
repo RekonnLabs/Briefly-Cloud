@@ -426,7 +426,14 @@ export class ImportJobManager {
       .eq('provider', job.provider)
       .maybeSingle()
 
-    if (!conn?.connection_id) {
+    // The Microsoft OAuth callback writes a placeholder apideck_connections row
+    // (connection_id: 'microsoft-<userId>') so the status UI shows connected.
+    // It is NOT a real Apideck connection — attempting to use it with the Apideck
+    // API would fail. Detect and skip it, falling through to the legacy provider.
+    const isRealApideck = conn?.connection_id &&
+      !conn.connection_id.startsWith('microsoft-')
+
+    if (!isRealApideck) {
       // Legacy fallback — flat listing only
       const provider = this.providers[job.provider]
       if (!provider) throw createError.badRequest(`Unsupported provider: ${job.provider}`)
@@ -885,8 +892,14 @@ export class ImportJobManager {
         console.error('[job-manager:apideck-download-lookup-failed]', { userId, provider: jobProvider, error: connError.message })
       }
 
-      if (conn?.connection_id) {
-        const consumerId = conn.consumer_id || userId
+      // Same sentinel check as listFilesRecursive — the Microsoft callback writes a
+      // placeholder row (connection_id: 'microsoft-<userId>') that is not a real
+      // Apideck connection. Skip it and fall through to the legacy provider download.
+      const isRealApideck = conn?.connection_id &&
+        !conn.connection_id.startsWith('microsoft-')
+
+      if (isRealApideck) {
+        const consumerId = conn!.consumer_id || userId
 
         const GOOGLE_NATIVE_EXPORT_MAP: Record<string, string> = {
           'application/vnd.google-apps.document':     'text/plain',
