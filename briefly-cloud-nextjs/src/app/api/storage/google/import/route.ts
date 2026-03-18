@@ -47,16 +47,34 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
     // Apideck unified path — token not present, use Apideck to download
     const { data: conn } = await supabaseAdmin
       .from('apideck_connections')
-      .select('connection_id')
+      .select('connection_id, consumer_id')
       .eq('user_id', user.id)
       .eq('provider', 'google')
       .single()
 
     if (!conn) return ApiResponse.badRequest('Google account not connected')
 
+    // consumer_id is what Apideck uses to identify the end-user; fall back to
+    // user.id only if the column is somehow null (shouldn't happen post-OAuth).
+    const consumerId = conn.consumer_id || user.id
+
     // Apideck download doesn't return metadata — use values passed from the UI
     fileName = body.fileName ?? body.fileId
-    mimeType = body.mimeType ?? 'application/octet-stream'
+    mimeType = body.mimeType ?? ''
+
+    // When mimeType is empty (Apideck list didn't populate it) or still the legacy
+    // octet-stream sentinel, fetch the real type from Apideck file metadata.
+    // This is required for Google native files (Docs/Sheets/Slides) which cannot be
+    // binary-downloaded — they must be exported to a portable format.
+    const needsTypeResolution = !mimeType || mimeType === 'application/octet-stream'
+    if (needsTypeResolution) {
+      const meta = await Apideck.getFileMetadata(consumerId, conn.connection_id, body.fileId)
+      const resolvedMime: string = meta?.mime_type ?? ''
+      if (resolvedMime) {
+        mimeType = resolvedMime
+        console.log('[google-import:mime-resolved]', { fileId: body.fileId, resolvedMime })
+      }
+    }
 
     // Google native formats 403 on the media download endpoint.
     // Use Apideck's export endpoint to get a portable equivalent instead.
@@ -72,13 +90,13 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
         // Native Google format — export via Apideck export endpoint
         const res = await fetch(
           `${process.env.APIDECK_API_BASE_URL}/file-storage/files/${encodeURIComponent(body.fileId)}/export?format=${encodeURIComponent(exportMime)}`,
-          { headers: { ...apideckHeaders(user.id), 'x-apideck-connection-id': conn.connection_id } }
+          { headers: { ...apideckHeaders(consumerId), 'x-apideck-connection-id': conn.connection_id } }
         )
         if (!res.ok) throw new Error(`export failed: ${res.status} ${await res.text()}`)
         buffer = Buffer.from(await res.arrayBuffer())
         mimeType = exportMime  // update so extractor handles it correctly
       } else {
-        buffer = await Apideck.downloadFile(user.id, conn.connection_id, body.fileId)
+        buffer = await Apideck.downloadFile(consumerId, conn.connection_id, body.fileId)
       }
     } catch (e) {
       console.error('[google-import:apideck-download-failed]', e)

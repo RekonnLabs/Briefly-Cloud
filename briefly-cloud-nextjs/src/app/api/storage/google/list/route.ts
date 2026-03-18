@@ -44,7 +44,10 @@ async function listGoogleFilesApideck(req: Request, ctx: ApiContext) {
   const files = items.filter((i: any) => i.type !== 'folder').map((i: any) => ({
     id: i.id, name: i.name,
     size: i.size || 0,
-    mimeType: i.mime_type || 'application/octet-stream',
+    // Preserve empty string when Apideck returns null — octet-stream masks the signal
+    // that mime_type is unknown, causing 403s on native Google file imports.
+    // The import route resolves the real type via getFileMetadata when mimeType is ''.
+    mimeType: i.mime_type || '',
     modifiedTime: i.updated_at,
     webViewLink: i.web_url
   }));

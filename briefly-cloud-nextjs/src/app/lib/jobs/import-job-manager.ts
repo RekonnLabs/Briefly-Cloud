@@ -453,15 +453,26 @@ export class ImportJobManager {
     for (const item of allItems) {
       if (item.type === 'folder') {
         subfolderPromises.push(this.listFilesRecursive(job, item.id, depth + 1))
-      } else if (ImportJobManager.SUPPORTED_MIME_TYPES.includes(item.mime_type || '')) {
-        files.push({
-          id: item.id,
-          name: item.name,
-          mimeType: item.mime_type || 'application/octet-stream',
-          size: item.size,
-          modifiedTime: item.updated_at,
-          webViewLink: item.web_url
-        })
+      } else {
+        const mimeType = item.mime_type || ''
+
+        // Include files that either match a supported mime_type, OR have no mime_type
+        // at all from the Apideck response. Google native files (Docs/Sheets/Slides)
+        // commonly return null mime_type from the list endpoint — we resolve the real
+        // type during download via getFileMetadata rather than silently dropping here.
+        const isKnownSupported = ImportJobManager.SUPPORTED_MIME_TYPES.includes(mimeType)
+        const isMimeUnknown = mimeType === ''
+
+        if (isKnownSupported || isMimeUnknown) {
+          files.push({
+            id: item.id,
+            name: item.name,
+            mimeType,  // may be '' — download phase will resolve via getFileMetadata
+            size: item.size,
+            modifiedTime: item.updated_at,
+            webViewLink: item.web_url
+          })
+        }
       }
     }
 
@@ -875,10 +886,28 @@ export class ImportJobManager {
       }
 
       if (conn?.connection_id) {
+        const consumerId = conn.consumer_id || userId
+
         const GOOGLE_NATIVE_EXPORT_MAP: Record<string, string> = {
           'application/vnd.google-apps.document':     'text/plain',
           'application/vnd.google-apps.spreadsheet':  'text/csv',
           'application/vnd.google-apps.presentation': 'text/plain',
+        }
+
+        // When mime_type is empty (common for Google native files from Apideck list),
+        // fetch the file's metadata to get the real mime_type before deciding how to
+        // download. This avoids a 403 from trying to binary-download a native file.
+        if (!file.mimeType && jobProvider === 'google') {
+          const meta = await Apideck.getFileMetadata(consumerId, conn.connection_id, file.id)
+          const resolvedMime: string = meta?.mime_type ?? ''
+          if (resolvedMime) {
+            console.log(`[job-manager:mime-resolved] file=${file.id} resolved=${resolvedMime}`)
+            file.mimeType = resolvedMime
+          } else {
+            // Apideck metadata still didn't return a type. Skip this file — we cannot
+            // safely extract text from an unknown binary without knowing its format.
+            throw new Error(`Cannot determine mime_type for file "${file.name}" — skipping`)
+          }
         }
 
         const exportMime = file.mimeType ? GOOGLE_NATIVE_EXPORT_MAP[file.mimeType] : undefined
@@ -886,15 +915,15 @@ export class ImportJobManager {
         if (exportMime) {
           const res = await fetch(
             `${process.env.APIDECK_API_BASE_URL}/file-storage/files/${encodeURIComponent(file.id)}/export?format=${encodeURIComponent(exportMime)}`,
-            { headers: { ...apideckHeaders(conn.consumer_id || userId), 'x-apideck-connection-id': conn.connection_id } }
+            { headers: { ...apideckHeaders(consumerId), 'x-apideck-connection-id': conn.connection_id } }
           )
           if (!res.ok) throw new Error(`Apideck export failed: ${res.status} ${await res.text()}`)
-          // Update mimeType on file object so extractor handles it correctly
+          // Update mimeType so the downstream extractor handles the exported format correctly
           file.mimeType = exportMime
           return Buffer.from(await res.arrayBuffer())
         }
 
-        return await Apideck.downloadFile(conn.consumer_id || userId, conn.connection_id, file.id)
+        return await Apideck.downloadFile(consumerId, conn.connection_id, file.id)
       }
 
       // Legacy provider fallback

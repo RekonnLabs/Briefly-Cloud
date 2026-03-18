@@ -169,5 +169,27 @@ export const Apideck = {
     });
     if (!res.ok) throw new Error(`download failed: ${res.status} ${await res.text()}`);
     return Buffer.from(await res.arrayBuffer());
+  },
+
+  /**
+   * Fetch metadata for a single file from Apideck.
+   * Used when the list endpoint doesn't return mime_type (common for Google native files).
+   * Returns the data object from the response, or null on failure.
+   */
+  async getFileMetadata(consumerId: string, connectionId: string, fileId: string): Promise<any | null> {
+    try {
+      const res = await fetch(`${API}/file-storage/files/${encodeURIComponent(fileId)}`, {
+        headers: { ...apideckHeaders(consumerId), 'x-apideck-connection-id': connectionId }
+      });
+      if (!res.ok) {
+        console.warn(`[apideck:getFileMetadata] ${res.status} for file ${fileId}`);
+        return null;
+      }
+      const json = await res.json();
+      return json?.data ?? null;
+    } catch (err) {
+      console.warn('[apideck:getFileMetadata] fetch error', err);
+      return null;
+    }
   }
 };
