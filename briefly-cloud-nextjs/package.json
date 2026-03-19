@@ -96,6 +96,7 @@
     "dotenv": "^17.2.1",
     "formidable": "^3.5.4",
     "googleapis": "^155.0.0",
+    "jszip": "^3.10.1",
     "lru-cache": "^10.2.0",
     "lucide-react": "^0.537.0",
     "mammoth": "^1.10.0",

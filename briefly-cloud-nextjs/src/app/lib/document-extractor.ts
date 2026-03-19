@@ -107,11 +107,9 @@ export async function extractTextFromBuffer(
         
       case 'pptx':
       case 'ppt':
-        // PowerPoint extraction is limited - we'll extract what we can
-        const pptxResult = await extractPptxText(buffer)
+        const pptxResult = await extractPptxText(buffer, fileName)
         text = pptxResult.text
         warnings.push(...pptxResult.warnings)
-        warnings.push('PowerPoint text extraction is limited and may not capture all content')
         break
         
       case 'txt':
@@ -269,34 +267,43 @@ async function extractXlsxText(buffer: Buffer): Promise<{
 }
 
 /**
- * Extract text from PowerPoint buffer (limited support)
+ * Extract text from PowerPoint buffer using proper XML parsing.
+ *
+ * PPTX files are ZIP archives containing XML slide data and embedded media.
+ * The previous implementation used buffer.toString('utf-8') which produced
+ * 2.6MB of binary garbage — zero usable content.
+ *
+ * This implementation:
+ *   1. Parses the ZIP structure to extract each slide's XML
+ *   2. Walks all text runs in proper slide order
+ *   3. For image-heavy slides with sparse text, calls GPT vision to describe
+ *      diagrams, charts, and architectural visuals
  */
-async function extractPptxText(buffer: Buffer): Promise<{
+async function extractPptxText(buffer: Buffer, fileName?: string): Promise<{
   text: string
   warnings: string[]
 }> {
-  // PowerPoint extraction is complex and requires specialized libraries
-  // For now, we'll provide a basic implementation that extracts what it can
-  const warnings = [
-    'PowerPoint text extraction is limited',
-    'Some content like images, charts, and complex layouts may not be extracted',
-  ]
-  
   try {
-    // Try to extract any readable text using basic methods
-    const text = buffer.toString('utf-8', 0, Math.min(buffer.length, 10000))
-    const extractedText = text.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-    
+    const { extractPptxContent } = await import('@/app/lib/pptx-extractor')
+    const result = await extractPptxContent(buffer, fileName || 'presentation.pptx')
+
+    const warnings = [...result.warnings]
+    if (result.slidesWithVisionCaptions > 0) {
+      warnings.push(
+        `${result.slidesWithVisionCaptions} diagram/image slide(s) described via vision model`
+      )
+    }
+
     return {
-      text: extractedText || 'Unable to extract text from PowerPoint file',
+      text: result.text,
       warnings,
     }
   } catch (error) {
     return {
-      text: 'PowerPoint text extraction failed',
-      warnings: [...warnings, `Extraction error: ${error instanceof Error ? error.message : String(error)}`],
+      text: '',
+      warnings: [
+        `PowerPoint extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+      ],
     }
   }
 }
