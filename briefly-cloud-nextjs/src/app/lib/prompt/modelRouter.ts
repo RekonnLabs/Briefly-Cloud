@@ -78,6 +78,12 @@ interface ModelPricing {
 }
 
 const MODEL_PRICING: Record<string, ModelPricing> = {
+  // GPT-5 family (current production models — March 2026)
+  // OpenAI returns versioned strings like "gpt-5-mini-2025-08-07";
+  // normalizeModelName() strips the date suffix to match these base keys.
+  'gpt-5-mini': { inputPer1K: 0.00025, outputPer1K: 0.002  },  // $0.25/$2.00 per 1M tokens
+  'gpt-5-nano': { inputPer1K: 0.00005, outputPer1K: 0.0004 },  // $0.05/$0.40 per 1M tokens
+  'gpt-5':      { inputPer1K: 0.0125,  outputPer1K: 0.05   },  // estimate — update when confirmed
   // GPT-5.4 family (current — March 2026)
   'gpt-5.4':      { inputPer1K: 0.0025,  outputPer1K: 0.015  },
   'gpt-5.4-mini': { inputPer1K: 0.00075, outputPer1K: 0.0045 },

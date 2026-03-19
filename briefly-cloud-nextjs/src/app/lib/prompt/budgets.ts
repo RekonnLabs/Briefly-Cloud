@@ -26,7 +26,9 @@ export const BUDGETS: Record<Budget, ChatBudget> = {
     maxTokens: 2000, 
     topK: 6,
     contextTokenLimit: 4000,
-    similarityThreshold: 0.40
+    similarityThreshold: 0.30  // lowered from 0.40 — the code comment correctly says <0.3 is
+                                // irrelevant; 0.40 was too aggressive and discarded valid chunks
+                                // in small document sets (confirmed via production log analysis)
   },
   quality: { 
     model: 'gpt-4o', 
