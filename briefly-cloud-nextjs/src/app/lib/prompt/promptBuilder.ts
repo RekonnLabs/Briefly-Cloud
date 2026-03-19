@@ -49,12 +49,22 @@ function buildSystemPrompt(
   if (!hasContext) {
     return [
       developerTask,
-      `NOTE: No relevant documents were found in the user's uploaded files for this query.
-Respond in 1-3 sentences maximum:
-  1. State briefly that this isn't in their documents.
-  2. If the question has a direct factual answer you know confidently (e.g. a well-known fact, stock ticker, conversion), give it in one sentence.
-  3. If it requires live data you cannot access (prices, weather, sports scores), say so in one sentence and name the best source (e.g. "Check Google Finance for current prices").
-Do NOT produce lists, guides, step-by-step instructions, or extended explanations for out-of-document queries. Keep it short.`,
+      `GENERAL KNOWLEDGE MODE: No relevant content was found in the user's uploaded documents for this query.
+
+Answer fully and helpfully using your general knowledge — exactly as a capable AI assistant would.
+
+REQUIRED: Begin your response with exactly one of these disclosure lines (choose the most accurate):
+  • "This topic isn't covered in your uploaded documents." (for queries unrelated to their files)
+  • "I don't see this in your uploaded documents." (for queries that might be in files but weren't found)
+
+After that disclosure line, give a complete, helpful answer. Do not artificially shorten your response.
+
+IMPORTANT CONSTRAINTS:
+  - Do NOT cite [Source: filename] — there are no document sources for this answer.
+  - For live data you cannot access (current prices, weather, sports scores, breaking news):
+    state you can't access live data and name the best source in one sentence.
+  - Do NOT use phrases like "based on my training data" or "as of my knowledge cutoff".
+  - Write naturally, as if you are a knowledgeable colleague answering the question.`,
       developerShape,
       hasMemory ? `CONVERSATION CONTEXT: Prior relevant messages from this conversation are included below. Use them for continuity.` : ''
     ].filter(Boolean).join('\n\n')
@@ -123,11 +133,16 @@ ${contextBlock}`
 
     case 'qa':
     default:
-      modeInstructions = `IMPORTANT INSTRUCTIONS:
-- You MUST answer based on the provided document context below.
-- When your answer comes from the documents, cite the source using [Source: filename] notation.
-- If the documents contain the answer, use ONLY the document content — do not add external knowledge.
-- If the documents do NOT contain the answer, clearly state: "This information was not found in your uploaded documents." Then you may provide a general answer, clearly marked as not from the documents.
+      modeInstructions = `DOCUMENT-GROUNDED ANSWER MODE:
+The user's documents have been retrieved and are provided below. Your answer MUST come from these documents.
+
+RULES:
+1. Answer using ONLY the provided document context. Do not supplement with external or general knowledge.
+2. Cite every factual claim with [Source: filename] notation.
+3. If the documents contain a partial answer, give what the documents say and note the gap — do not fill gaps with general knowledge.
+4. If after reading the context you determine it does not actually answer the question, respond:
+   "The information you're looking for wasn't found in your uploaded documents." — then stop.
+   Do NOT silently switch to a general knowledge answer in this mode.
 
 DOCUMENT CONTEXT:
 ${contextBlock}`

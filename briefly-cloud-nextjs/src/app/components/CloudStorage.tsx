@@ -244,6 +244,35 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     }
   }, []);
 
+  // Effect 0: Listen for BRIEFLY_OAUTH_COMPLETE postMessage from the OAuth relay page.
+  // When Google OAuth completes in a child window, that window posts this message
+  // then closes itself. We handle it here so the original tab updates without
+  // requiring a page reload or the user switching windows.
+  useEffect(() => {
+    const handleOAuthMessage = (event: MessageEvent) => {
+      // Only accept messages from our own origin — never from third parties
+      if (event.origin !== window.location.origin) return
+
+      const { type, provider, connected, error } = event.data || {}
+      if (type !== 'BRIEFLY_OAUTH_COMPLETE') return
+
+      console.log('[oauth-postmessage] Received from child window:', { provider, connected, error })
+
+      if (connected) {
+        const providerName = provider === 'google' ? 'Google Drive' : 'OneDrive'
+        showSuccess(`${providerName} connected!`, 'You can now import files from your cloud storage.')
+        setAutoImportProvider(connected)
+        refreshConnectionStatus()
+      } else if (error) {
+        const errorMessage = getErrorMessage(error)
+        showError('Connection failed', errorMessage)
+      }
+    }
+
+    window.addEventListener('message', handleOAuthMessage)
+    return () => window.removeEventListener('message', handleOAuthMessage)
+  }, [showSuccess, showError, refreshConnectionStatus, setAutoImportProvider])
+
   // Effect 1: Detect OAuth callback on mount — set intent, refresh status
   // Does NOT read `providers` state directly (avoids stale closure)
   useEffect(() => {
@@ -763,6 +792,10 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
           // Stop polling if job is complete
           if (['completed', 'failed', 'cancelled'].includes(job.status)) {
             clearInterval(pollInterval);
+            // Notify Sidebar quota card to refresh — files were just indexed
+            if (job.status === 'completed') {
+              window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
+            }
           }
         } else {
           console.error('Failed to fetch job status');

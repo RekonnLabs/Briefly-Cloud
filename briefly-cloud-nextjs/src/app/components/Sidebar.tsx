@@ -24,12 +24,34 @@ interface CompactQuota {
 
 function useCompactQuota() {
   const [quota, setQuota] = useState<CompactQuota | null>(null);
-  useEffect(() => {
+
+  const fetchQuota = () => {
     fetch('/api/usage/quota', { credentials: 'include', cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.success && d?.data) setQuota(d.data); })
       .catch(() => {});
-  }, []);
+  };
+
+  useEffect(() => {
+    // Initial fetch
+    fetchQuota();
+
+    // Poll every 30s — catches any server-side changes (uploads, imports, chat)
+    // without requiring every component to wire explicit callbacks
+    const pollInterval = setInterval(fetchQuota, 30_000);
+
+    // Instant update: any component can dispatch 'briefly:quota-changed'
+    // after a file upload, batch import, or any quota-affecting operation
+    // to refresh immediately without waiting for the next poll cycle.
+    const handleQuotaChange = () => fetchQuota();
+    window.addEventListener('briefly:quota-changed', handleQuotaChange);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('briefly:quota-changed', handleQuotaChange);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return quota;
 }
 

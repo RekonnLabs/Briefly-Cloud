@@ -97,6 +97,9 @@ export function FileUpload() {
           )
         );
         
+        // Notify the Sidebar quota card to refresh immediately
+        window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
+
         // Capture successful upload for monitoring
         capturePerformanceMetric('file_upload', Date.now() - startTime, true);
       }, 2000);
