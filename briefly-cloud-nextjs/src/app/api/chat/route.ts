@@ -340,6 +340,35 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       })
     }
 
+    // ── Intent safety: downgrade comparison→qa when fewer than 2 distinct source docs ──
+    // Root cause: the comparison mode system prompt ("do not use external knowledge")
+    // directly contradicts the single-doc task instruction ("inform user comparison
+    // requires 2 docs"). GPT-5 resolves the contradiction by producing zero tokens.
+    // Fix: route single-document comparison queries through qa mode instead.
+    let effectiveIntentMode = intent.mode
+    let effectiveTaskInstruction = taskResult?.systemInstruction
+
+    if (intent.mode === 'comparison') {
+      const distinctSources = new Set(
+        safeContextSnippets
+          .map(s => s.source?.replace(/\s*#\d+$/i, '').trim())
+          .filter(Boolean)
+      ).size
+
+      if (distinctSources < 2) {
+        effectiveIntentMode = 'qa'
+        effectiveTaskInstruction = undefined
+        console.log('[chat:intent-downgrade]', {
+          from: 'comparison',
+          to: 'qa',
+          reason: 'fewer-than-2-source-documents',
+          distinctSources,
+          contextCount: safeContextSnippets.length,
+          correlationId: rid
+        })
+      }
+    }
+
     // ── Model routing (CRITICAL) ───────────────────────────────────────
     const routingSignals = analyzeQuery(message, safeContextSnippets, [])
     const routing = routeModel(tier, boost, routingSignals)
@@ -358,8 +387,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       contextSnippets: safeContextSnippets,
       memoryMessages: memoryMessages.length > 0 ? memoryMessages : undefined,
       userMessage: message,
-      intentMode: intent.mode,
-      taskInstruction: taskResult?.systemInstruction
+      intentMode: effectiveIntentMode,
+      taskInstruction: effectiveTaskInstruction
     })
 
     if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {

@@ -15,6 +15,61 @@ export interface ContextRetrievalResult {
 }
 
 /**
+ * Normalize a user query for vector retrieval.
+ *
+ * Users phrase questions conversationally — "I have a prospect asking about X,
+ * what should I tell them?" — but the indexed document chunks use topic-direct
+ * language: "Is my data secure?" The embedding distance between these is large
+ * enough to miss at threshold=0.3 even though they're semantically equivalent.
+ *
+ * This function strips common conversational frames and extracts the core
+ * information need before embedding for retrieval. The original user message
+ * is still sent to the LLM unchanged — only the search query is rewritten.
+ *
+ * No LLM calls — pure regex/string manipulation, zero latency cost.
+ */
+function normalizeQueryForRetrieval(query: string): string {
+  let q = query.trim()
+
+  // Strip common lead-in frames that inflate the query with non-topical words
+  const leadInPatterns = [
+    /^i (have|got) (a |an )?(prospect|client|customer|user|colleague|someone|contact)[\w\s,]*(asking|who asked|that asked|asking me) (about|regarding|on|for)\s*/i,
+    /^(what|how) (should|do|can|would) i (tell|say|respond to|answer|handle|address) (them|him|her|my prospect|my client|a prospect|a client)\??\s*/i,
+    /^(what|how) (should|do|can|would) i (tell|say|respond to|answer|handle|address) (them|him|her|my prospect|my client|a prospect|a client) (about|regarding|on|when it comes to)\s*/i,
+    /^(i'm? |i am )?(trying to |looking to )?(close|win|handle|deal with|respond to|address|answer)\s+\w+[\w\s]*?(about|regarding|on)\s*/i,
+    /^(when|if) (a |my )?(prospect|client|customer|user) (asks?|inquires?|wants to know) (about|regarding|on)\s*/i,
+    /^(how do i|what do i|what should i say|what's the best way to) (respond|reply|answer|handle|address) (to )?(a |the )?(question|objection|concern|inquiry) (about|regarding|on)\s*/i,
+    /^(can you help me|help me) (respond to|answer|address|handle)\s+\w+[\w\s]*?(about|regarding|on)\s*/i,
+  ]
+
+  for (const pattern of leadInPatterns) {
+    const stripped = q.replace(pattern, '')
+    if (stripped.length > 10 && stripped.length < q.length) {
+      q = stripped.trim()
+      break
+    }
+  }
+
+  // Strip trailing conversational tails that add noise without topic signal
+  const tailPatterns = [
+    /\??\s*(what should i (tell|say|do|respond)\??)?$/i,
+    /\s+what('?s| is) (my|the) best (argument|response|answer|approach)\??$/i,
+    /\s+(for (switching|moving) to\s+\w+)\??$/i,
+  ]
+
+  for (const pattern of tailPatterns) {
+    const stripped = q.replace(pattern, '').trim()
+    if (stripped.length > 10) {
+      q = stripped
+    }
+  }
+
+  // Return the normalized form if it's meaningfully shorter
+  // (i.e., we actually stripped something useful)
+  return q.length < query.length * 0.85 ? q : query
+}
+
+/**
  * Enhanced context retrieval with similarity thresholds and token limits
  */
 export async function getRelevantContext(
@@ -41,8 +96,19 @@ export async function getRelevantContext(
     budgetTokenLimit: budget.contextTokenLimit
   })
   
+  // Normalize the query before embedding — strips conversational framing
+  // (e.g. "I have a prospect asking about X" → "X") to improve retrieval
+  // precision without touching the similarity threshold.
+  const retrievalQuery = normalizeQueryForRetrieval(query)
+  if (retrievalQuery !== query) {
+    console.log('[retrieval:query-normalized]', {
+      original: query.slice(0, 100),
+      normalized: retrievalQuery.slice(0, 100)
+    })
+  }
+
   // Search for documents with a higher limit to allow for filtering
-  const searchResults = await searchDocuments(userId, query, {
+  const searchResults = await searchDocuments(userId, retrievalQuery, {
     limit: effectiveTopK * 2, // Get more results to filter from
     threshold: 0.3, // Use a lower threshold initially, we'll filter later
   })

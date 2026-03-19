@@ -49,7 +49,12 @@ function buildSystemPrompt(
   if (!hasContext) {
     return [
       developerTask,
-      `NOTE: No relevant documents were found for this query. Provide a helpful general answer, but clearly indicate that this response is not based on the user's uploaded documents.`,
+      `NOTE: No relevant documents were found in the user's uploaded files for this query.
+Respond in 1-3 sentences maximum:
+  1. State briefly that this isn't in their documents.
+  2. If the question has a direct factual answer you know confidently (e.g. a well-known fact, stock ticker, conversion), give it in one sentence.
+  3. If it requires live data you cannot access (prices, weather, sports scores), say so in one sentence and name the best source (e.g. "Check Google Finance for current prices").
+Do NOT produce lists, guides, step-by-step instructions, or extended explanations for out-of-document queries. Keep it short.`,
       developerShape,
       hasMemory ? `CONVERSATION CONTEXT: Prior relevant messages from this conversation are included below. Use them for continuity.` : ''
     ].filter(Boolean).join('\n\n')
