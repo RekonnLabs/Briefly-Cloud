@@ -30,11 +30,11 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
   const getTierInfo = (tier: string, status: string) => {
     const baseInfo = {
       free: {
-        name: 'Free',
-        icon: '🆓',
-        color: 'text-gray-300',
-        bgColor: 'bg-gray-800/50',
-        description: 'Basic features'
+        name: 'Pro Trial',  // All free-tier users are in trial — no permanent free tier
+        icon: '⏳',
+        color: 'text-blue-300',
+        bgColor: 'bg-blue-900/30',
+        description: '14-day trial'
       },
       pro: {
         name: 'Pro',
@@ -101,8 +101,8 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
       });
 
       if (response.ok) {
-        const { url } = await response.json();
-        window.location.href = url;
+        const { data } = await response.json();
+        if (data?.url) window.location.href = data.url;
       } else {
         throw new Error('Failed to create checkout session');
       }
@@ -126,8 +126,8 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
       });
 
       if (response.ok) {
-        const { url } = await response.json();
-        window.location.href = url;
+        const { data } = await response.json();
+        if (data?.url) window.location.href = data.url;
       } else {
         throw new Error('Failed to create checkout session');
       }
@@ -152,7 +152,7 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
           )}
         </div>
 
-        {/* Usage indicator for free tier */}
+        {/* Usage indicator for trial/free users */}
         {tier === 'free' && (
           <div className={`px-2 py-1 rounded text-xs ${
             isOverLimit 
@@ -165,6 +165,7 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
           </div>
         )}
         
+        {/* Upgrade button — shown for all trial/free users */}
         {tier === 'free' && (
           <button
             onClick={() => setShowUpgradeModal(true)}

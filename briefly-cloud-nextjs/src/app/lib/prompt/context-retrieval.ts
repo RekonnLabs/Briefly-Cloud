@@ -141,12 +141,20 @@ export async function getRelevantContext(
     }
   }
 
-  // Apply token limit filtering
+  // Apply token + chunk count limits.
+  // Hard cap at 8 chunks regardless of token budget — production logs showed
+  // 14-chunk contexts causing zero-token outputs in gpt-5-mini (19-20s latency).
+  // The 8-chunk limit keeps context focused on highest-relevance passages.
+  const MAX_CHUNKS = 8
   let totalTokens = 0
   const tokenLimitedResults: typeof thresholdFiltered = []
   let filteredByTokenLimit = 0
 
   for (const result of thresholdFiltered) {
+    if (tokenLimitedResults.length >= MAX_CHUNKS) {
+      filteredByTokenLimit++
+      continue
+    }
     // Rough token estimation: 1 token ≈ 4 characters
     const estimatedTokens = Math.ceil(result.content.length / 4)
     
@@ -158,8 +166,23 @@ export async function getRelevantContext(
     }
   }
 
+  // Hard cap: send at most 6 chunks to the LLM regardless of how many passed the
+  // threshold and token filters. With topK=10 and low thresholds, 14+ chunks can
+  // pass all filters — GPT-5-mini times out and produces zero tokens when given
+  // that much context. We keep the top-6 by relevance score (already sorted).
+  const MAX_CHUNKS_TO_LLM = 6
+  const cappedResults = tokenLimitedResults.slice(0, MAX_CHUNKS_TO_LLM)
+
+  if (tokenLimitedResults.length > MAX_CHUNKS_TO_LLM) {
+    console.log('[retrieval:chunk-cap]', {
+      before: tokenLimitedResults.length,
+      after: MAX_CHUNKS_TO_LLM,
+      droppedChunks: tokenLimitedResults.length - MAX_CHUNKS_TO_LLM
+    })
+  }
+
   // Convert to ContextSnippet format
-  const contextSnippets: ContextSnippet[] = tokenLimitedResults.map(result => ({
+  const contextSnippets: ContextSnippet[] = cappedResults.map(result => ({
     content: result.content,
     source: `${result.fileName} #${result.chunkIndex}`,
     relevance: result.similarity
