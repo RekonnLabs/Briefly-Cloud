@@ -24,11 +24,10 @@ export const BUDGETS: Record<Budget, ChatBudget> = {
   balanced: { 
     model: 'gpt-4o', 
     maxTokens: 2000, 
-    topK: 6,
+    topK: 10,           // raised from 6 — with 4 docs × 5 chunks = 20 total, topK=6 only
+                        // retrieved 12 raw candidates and missed lower-ranked but relevant chunks
     contextTokenLimit: 4000,
-    similarityThreshold: 0.30  // lowered from 0.40 — the code comment correctly says <0.3 is
-                                // irrelevant; 0.40 was too aggressive and discarded valid chunks
-                                // in small document sets (confirmed via production log analysis)
+    similarityThreshold: 0.30
   },
   quality: { 
     model: 'gpt-4o', 

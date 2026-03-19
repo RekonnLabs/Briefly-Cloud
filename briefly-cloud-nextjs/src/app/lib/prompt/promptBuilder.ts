@@ -49,22 +49,12 @@ function buildSystemPrompt(
   if (!hasContext) {
     return [
       developerTask,
-      `GENERAL KNOWLEDGE MODE: No relevant content was found in the user's uploaded documents for this query.
+      `No relevant content was found in the user's uploaded documents for this query.
 
-Answer fully and helpfully using your general knowledge — exactly as a capable AI assistant would.
+Answer helpfully using your general knowledge. Somewhere in your response (naturally, not as a rigid opener), mention that this isn't drawn from their uploaded documents — for example: "This isn't in your uploaded documents, but..." or "Your files don't cover this, so here's what I know:" or a similar natural phrasing.
 
-REQUIRED: Begin your response with exactly one of these disclosure lines (choose the most accurate):
-  • "This topic isn't covered in your uploaded documents." (for queries unrelated to their files)
-  • "I don't see this in your uploaded documents." (for queries that might be in files but weren't found)
-
-After that disclosure line, give a complete, helpful answer. Do not artificially shorten your response.
-
-IMPORTANT CONSTRAINTS:
-  - Do NOT cite [Source: filename] — there are no document sources for this answer.
-  - For live data you cannot access (current prices, weather, sports scores, breaking news):
-    state you can't access live data and name the best source in one sentence.
-  - Do NOT use phrases like "based on my training data" or "as of my knowledge cutoff".
-  - Write naturally, as if you are a knowledgeable colleague answering the question.`,
+For live data you cannot access (current prices, weather, sports scores): briefly note you can't access live data and name the best source.
+Do not cite [Source: filename] — there are no document sources.`,
       developerShape,
       hasMemory ? `CONVERSATION CONTEXT: Prior relevant messages from this conversation are included below. Use them for continuity.` : ''
     ].filter(Boolean).join('\n\n')
@@ -133,16 +123,13 @@ ${contextBlock}`
 
     case 'qa':
     default:
-      modeInstructions = `DOCUMENT-GROUNDED ANSWER MODE:
-The user's documents have been retrieved and are provided below. Your answer MUST come from these documents.
+      modeInstructions = `You are answering from the user's uploaded documents. The relevant passages are below.
 
 RULES:
-1. Answer using ONLY the provided document context. Do not supplement with external or general knowledge.
+1. Use ONLY the document context provided. Do not add external or general knowledge.
 2. Cite every factual claim with [Source: filename] notation.
-3. If the documents contain a partial answer, give what the documents say and note the gap — do not fill gaps with general knowledge.
-4. If after reading the context you determine it does not actually answer the question, respond:
-   "The information you're looking for wasn't found in your uploaded documents." — then stop.
-   Do NOT silently switch to a general knowledge answer in this mode.
+3. If the retrieved passages partially address the question, answer from what is there and note any gaps.
+4. If the passages are genuinely irrelevant to the question, say: "I didn't find that in your uploaded documents." Do not fabricate an answer.
 
 DOCUMENT CONTEXT:
 ${contextBlock}`
