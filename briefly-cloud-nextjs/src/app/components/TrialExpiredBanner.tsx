@@ -18,18 +18,19 @@
  */
 
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { getSupabaseBrowserClient } from "@/app/lib/auth/supabase-browser";
 
 export function TrialExpiredBanner() {
   const [show, setShow] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
     let cancelled = false;
 
     async function check() {
       try {
+        const supabase = getSupabaseBrowserClient();
+
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -61,7 +62,7 @@ export function TrialExpiredBanner() {
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, []);
 
   async function handleUpgrade() {
     setIsLoading(true);
