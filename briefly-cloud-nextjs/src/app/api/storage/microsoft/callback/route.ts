@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       })
       
       return NextResponse.redirect(
-        new URL(`/briefly/app/dashboard?tab=storage&error=${encodeURIComponent(mappedError)}`, req.url)
+        new URL(`/auth/oauth-complete?provider=microsoft&error=${encodeURIComponent(mappedError)}`, req.url)
       )
     }
     
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       })
       
       return NextResponse.redirect(
-        new URL(`/briefly/app/dashboard?tab=storage&error=${OAuthErrorCodes.MISSING_CODE}`, req.url)
+        new URL(`/auth/oauth-complete?provider=microsoft&error=${OAuthErrorCodes.MISSING_CODE}`, req.url)
       )
     }
 
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
       )
       
       return NextResponse.redirect(
-        new URL(`/briefly/app/dashboard?tab=storage&error=${OAuthErrorCodes.STATE_MISMATCH}`, req.url)
+        new URL(`/auth/oauth-complete?provider=microsoft&error=${OAuthErrorCodes.STATE_MISMATCH}`, req.url)
       )
     }
 
@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
       })
       
       return NextResponse.redirect(
-        new URL(`/briefly/app/dashboard?tab=storage&error=${OAuthErrorCodes.TOKEN_EXCHANGE_FAILED}`, req.url)
+        new URL(`/auth/oauth-complete?provider=microsoft&error=${OAuthErrorCodes.TOKEN_EXCHANGE_FAILED}`, req.url)
       )
     }
 
@@ -179,7 +179,7 @@ export async function GET(req: NextRequest) {
 
       // Redirect with success indicator for UI feedback
       return NextResponse.redirect(
-        new URL('/briefly/app/dashboard?tab=storage&connected=microsoft', req.url)
+        new URL('/auth/oauth-complete?provider=microsoft&connected=microsoft', req.url)
       )
     } catch (storageError) {
       // Handle schema-specific errors for OAuth token storage
@@ -222,7 +222,7 @@ export async function GET(req: NextRequest) {
       })
       
       return NextResponse.redirect(
-        new URL(`/briefly/app/dashboard?tab=storage&error=${OAuthErrorCodes.TOKEN_STORAGE_FAILED}`, req.url)
+        new URL(`/auth/oauth-complete?provider=microsoft&error=${OAuthErrorCodes.TOKEN_STORAGE_FAILED}`, req.url)
       )
     }
 
@@ -240,7 +240,7 @@ export async function GET(req: NextRequest) {
     })
     
     return NextResponse.redirect(
-      new URL(`/briefly/app/dashboard?tab=storage&error=${OAuthErrorCodes.UNEXPECTED_ERROR}`, req.url)
+      new URL(`/auth/oauth-complete?provider=microsoft&error=${OAuthErrorCodes.UNEXPECTED_ERROR}`, req.url)
     )
   }
 }
