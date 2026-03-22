@@ -18,7 +18,7 @@ async function createCheckoutHandler(request: Request, context: ApiContext): Pro
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
 
-  const body = await request.json().catch(() => ({})) as { tier?: 'pro' | 'pro_byok' }
+  const body = await request.json().catch(() => ({})) as { tier?: 'pro' | 'pro_byok'; price_id?: string }
   const tier = body.tier || 'pro'
   if (!['pro', 'pro_byok'].includes(tier)) return ApiResponse.badRequest('Invalid tier')
 
@@ -41,7 +41,17 @@ async function createCheckoutHandler(request: Request, context: ApiContext): Pro
       .eq('id', user.id)
   }
 
-  const priceId = tier === 'pro' ? process.env.STRIPE_PRICE_PRO : process.env.STRIPE_PRICE_PRO_BYOK
+  // Allow explicit price_id override (e.g. annual prices) — validated against known price IDs
+  const ALLOWED_PRICE_OVERRIDES = [
+    process.env.STRIPE_PRICE_PRO,
+    process.env.STRIPE_PRICE_PRO_BYOK,
+    'price_1TDoQxCyLd2ewSj072pIukU7', // Pro Annual
+    'price_1TDoR0CyLd2ewSj0TqMQoBBd', // Pro BYOK Annual
+  ].filter(Boolean)
+  const defaultPriceId = tier === 'pro' ? process.env.STRIPE_PRICE_PRO : process.env.STRIPE_PRICE_PRO_BYOK
+  const priceId = (body.price_id && ALLOWED_PRICE_OVERRIDES.includes(body.price_id))
+    ? body.price_id
+    : defaultPriceId
   if (!priceId) return ApiResponse.internalError('Price ID not configured')
 
   const session = await getStripe().checkout.sessions.create({

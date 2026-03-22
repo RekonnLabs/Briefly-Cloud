@@ -34,6 +34,11 @@ interface Message {
   created_at: string
   provenance: any
   intent_mode: string | null
+  tokens_in: number | null
+  tokens_out: number | null
+  cost_usd: number | null
+  tokens_context: number | null
+  latency_ms: number | null
 }
 
 interface FileRecord {
@@ -48,12 +53,13 @@ interface Props {
   users: UserProfile[]
   limits: UserLimit[]
   recentMessages: Message[]
+  assistantMessages: Message[]
   files: FileRecord[]
 }
 
-export default function AdminDashboardClient({ users, limits, recentMessages, files }: Props) {
+export default function AdminDashboardClient({ users, limits, recentMessages, assistantMessages, files }: Props) {
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'activity'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'activity' | 'performance'>('overview')
 
   const limitsMap = Object.fromEntries(limits.map(l => [l.user_id, l]))
   const userMessages = (userId: string) => recentMessages.filter(m => m.owner_id === userId)
@@ -124,7 +130,7 @@ export default function AdminDashboardClient({ users, limits, recentMessages, fi
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
-        {(['overview', 'users', 'activity'] as const).map(tab => (
+        {(['overview', 'users', 'activity', 'performance'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -319,6 +325,89 @@ export default function AdminDashboardClient({ users, limits, recentMessages, fi
           </div>
         </div>
       )}
+
+      {/* Performance tab */}
+      {activeTab === 'performance' && (() => {
+        // Compute per-user performance stats from assistant messages (carry latency_ms, cost_usd, tokens_out)
+        const userStats = users.map(user => {
+          const msgs = assistantMessages.filter(m => m.owner_id === user.id)
+          const withLatency = msgs.filter(m => m.latency_ms != null)
+          const withCost = msgs.filter(m => m.cost_usd != null)
+          const avgLatency = withLatency.length > 0
+            ? Math.round(withLatency.reduce((s, m) => s + (m.latency_ms || 0), 0) / withLatency.length)
+            : null
+          const p95Latency = withLatency.length > 0
+            ? Math.round([...withLatency].sort((a, b) => (b.latency_ms || 0) - (a.latency_ms || 0))[Math.floor(withLatency.length * 0.05)]?.latency_ms || 0)
+            : null
+          const totalCost = withCost.reduce((s, m) => s + (m.cost_usd || 0), 0)
+          const avgTokensOut = msgs.filter(m => m.tokens_out != null).length > 0
+            ? Math.round(msgs.filter(m => m.tokens_out != null).reduce((s, m) => s + (m.tokens_out || 0), 0) / msgs.filter(m => m.tokens_out != null).length)
+            : null
+          const groundedCount = msgs.filter(m => m.provenance?.type === 'grounded').length
+          const generalCount = msgs.filter(m => m.provenance?.type === 'general').length
+          const ungroundedCount = msgs.filter(m => m.provenance?.type === 'ungrounded').length
+          const groundedRate = msgs.length > 0 ? Math.round((groundedCount / msgs.length) * 100) : null
+          return { user, msgs, avgLatency, p95Latency, totalCost, avgTokensOut, groundedRate, groundedCount, generalCount, ungroundedCount }
+        }).filter(s => s.msgs.length > 0)
+
+        const totalCostAll = userStats.reduce((s, u) => s + u.totalCost, 0)
+        const avgLatencyAll = userStats.filter(u => u.avgLatency != null).length > 0
+          ? Math.round(userStats.filter(u => u.avgLatency != null).reduce((s, u) => s + (u.avgLatency || 0), 0) / userStats.filter(u => u.avgLatency != null).length)
+          : null
+
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <div className="text-gray-400 text-xs mb-1">Total Cost (session)</div>
+                <div className="text-2xl font-bold text-white">${totalCostAll.toFixed(4)}</div>
+              </div>
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <div className="text-gray-400 text-xs mb-1">Avg Latency (p50)</div>
+                <div className="text-2xl font-bold text-white">{avgLatencyAll != null ? `${avgLatencyAll}ms` : '—'}</div>
+              </div>
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <div className="text-gray-400 text-xs mb-1">Active Users</div>
+                <div className="text-2xl font-bold text-white">{userStats.length}</div>
+              </div>
+            </div>
+
+            <h2 className="text-lg font-semibold text-white">Per-User Performance</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-800">
+                    {['User', 'Queries', 'Avg Latency', 'p95 Latency', 'Avg Tokens Out', 'Grounded %', 'Total Cost'].map(h => (
+                      <th key={h} className="text-left py-3 px-4 text-gray-400 font-medium text-xs">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {userStats.map(({ user, msgs, avgLatency, p95Latency, totalCost, avgTokensOut, groundedRate, groundedCount, generalCount, ungroundedCount }) => (
+                    <tr key={user.id} className="border-b border-gray-800/50">
+                      <td className="py-3 px-4 text-white">{user.email}</td>
+                      <td className="py-3 px-4 text-gray-300">{msgs.length}</td>
+                      <td className="py-3 px-4 text-gray-300">{avgLatency != null ? `${avgLatency}ms` : '—'}</td>
+                      <td className="py-3 px-4 text-gray-300">{p95Latency != null ? `${p95Latency}ms` : '—'}</td>
+                      <td className="py-3 px-4 text-gray-300">{avgTokensOut != null ? avgTokensOut : '—'}</td>
+                      <td className="py-3 px-4">
+                        {groundedRate != null ? (
+                          <span className={`text-xs font-medium ${
+                            groundedRate >= 70 ? 'text-green-400' : groundedRate >= 40 ? 'text-yellow-400' : 'text-red-400'
+                          }`}>
+                            {groundedRate}% ({groundedCount}G / {generalCount}GK / {ungroundedCount}U)
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-gray-300">${totalCost.toFixed(4)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="mt-12 pt-6 border-t border-gray-800 text-center">
         <p className="text-gray-600 text-xs">Briefly Admin · Read-only · {new Date().toLocaleString()}</p>

@@ -46,13 +46,21 @@ export default async function AdminUsersPage() {
     .from('v_user_limits')
     .select('*')
 
-  // Fetch recent message activity
+  // Fetch recent user messages for Activity tab
   const { data: recentMessages } = await supabaseAdmin
     .from('messages')
-    .select('owner_id, role, content, created_at, provenance, intent_mode')
+    .select('owner_id, role, content, created_at, provenance, intent_mode, tokens_in, tokens_out, cost_usd, tokens_context, latency_ms')
     .eq('role', 'user')
     .order('created_at', { ascending: false })
     .limit(50)
+
+  // Fetch assistant messages for Performance tab (these carry latency_ms, cost_usd, tokens_out)
+  const { data: assistantMessages } = await supabaseAdmin
+    .from('messages')
+    .select('owner_id, role, content, created_at, provenance, intent_mode, tokens_in, tokens_out, cost_usd, tokens_context, latency_ms')
+    .eq('role', 'assistant')
+    .order('created_at', { ascending: false })
+    .limit(200)
 
   // Fetch file counts per user  
   const { data: files } = await supabaseAdmin
@@ -65,6 +73,7 @@ export default async function AdminUsersPage() {
       users={users || []}
       limits={limits || []}
       recentMessages={recentMessages || []}
+      assistantMessages={assistantMessages || []}
       files={files || []}
     />
   )

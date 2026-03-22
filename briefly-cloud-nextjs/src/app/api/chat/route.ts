@@ -510,6 +510,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
                     correlation_id: rid,
                     openai_request_id: streamResult.openai_request_id,
                     intent_mode: intent.mode,
+                    latency_ms: latency,
                     provenance: {
                       type: provenance.type,
                       contextCount: provenance.contextCount,
@@ -620,6 +621,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
             correlation_id: rid,
             openai_request_id: llmResult.openai_request_id,
             intent_mode: intent.mode,
+            latency_ms: latency,
             provenance: {
               type: provenance.type,
               contextCount: provenance.contextCount,
