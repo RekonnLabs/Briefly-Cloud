@@ -202,7 +202,7 @@ const upsertConnection = async (
 };
 
 const handler = async (_req: Request, ctx: ApiContext) => {
-  const base = new URL('/briefly/app/dashboard?tab=storage', process.env.NEXT_PUBLIC_SITE_URL!).toString();
+  const base = new URL('/auth/oauth-complete?provider=google', process.env.NEXT_PUBLIC_SITE_URL!).toString();
   
   // Initialize comprehensive logging
   const logger = createCallbackLogger({
