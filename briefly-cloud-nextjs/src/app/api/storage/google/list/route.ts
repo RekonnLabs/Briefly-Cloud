@@ -38,7 +38,26 @@ async function listGoogleFilesApideck(req: Request, ctx: ApiContext) {
     return NextResponse.json({ error: 'not_connected' }, { status: 400 });
   }
 
-  const resp = await Apideck.listFiles(data.consumer_id, data.connection_id, { folder_id: folderId, cursor, limit });
+  let resp: any;
+  try {
+    resp = await Apideck.listFiles(data.consumer_id, data.connection_id, { folder_id: folderId, cursor, limit });
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    console.error('[google:list:apideck-error]', {
+      userId: ctx.user.id,
+      correlationId: ctx.correlationId,
+      error: msg
+    });
+    // 401 from Apideck means the Google token expired — tell the client to reconnect
+    if (msg.includes('401')) {
+      return NextResponse.json({ error: 'token_expired', message: 'Google Drive access has expired. Please disconnect and reconnect.' }, { status: 401 });
+    }
+    // 403 means scope/permission issue
+    if (msg.includes('403')) {
+      return NextResponse.json({ error: 'permission_denied', message: 'Google Drive permission denied. Please reconnect with the correct permissions.' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'drive_unavailable', message: 'Google Drive is temporarily unavailable. Please try again.' }, { status: 502 });
+  }
 
   const items = (resp?.data ?? []);
   const files = items.filter((i: any) => i.type !== 'folder').map((i: any) => ({

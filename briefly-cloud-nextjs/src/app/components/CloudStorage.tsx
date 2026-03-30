@@ -634,20 +634,43 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                   files: data.files || [], 
                   folders: data.folders || [],
                   loading: false,
-                  currentFolderId: targetFolderId
+                  currentFolderId: targetFolderId,
+                  errorMessage: undefined
                 }
               : p
           )
         );
       } else {
-        throw new Error('Failed to load files');
+        // Parse the error response for specific handling
+        let errorMessage = 'Failed to load files. Please try again.';
+        try {
+          const errData = await response.json();
+          if (response.status === 401 || errData.error === 'token_expired') {
+            // Token expired — mark as disconnected so user sees reconnect prompt
+            errorMessage = 'Google Drive access has expired. Please disconnect and reconnect.';
+            setProviders(prev =>
+              prev.map(p =>
+                p.id === providerId
+                  ? { ...p, loading: false, status: 'disconnected', errorMessage }
+                  : p
+              )
+            );
+            return;
+          }
+          if (response.status === 403 || errData.error === 'permission_denied') {
+            errorMessage = 'Permission denied. Please reconnect Google Drive.';
+          }
+          if (errData.message) errorMessage = errData.message;
+        } catch (_) {}
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Load files error:', error);
+      const msg = error instanceof Error ? error.message : 'Failed to load files. Please try again.';
+      console.error('[CloudStorage:loadFiles]', { providerId, error: msg });
       setProviders(prev => 
         prev.map(p => 
           p.id === providerId 
-            ? { ...p, loading: false, errorMessage: 'Failed to load files' }
+            ? { ...p, loading: false, errorMessage: msg }
             : p
         )
       );
