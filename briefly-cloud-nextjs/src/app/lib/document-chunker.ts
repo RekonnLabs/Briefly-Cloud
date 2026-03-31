@@ -16,6 +16,7 @@ export interface DocumentChunk {
     fileId: string
     mimeType: string
     chunkSize: number
+    chunkType: 'text' | 'table'   // 'table' chunks are atomic — never split mid-row
     startPosition?: number
     endPosition?: number
     [key: string]: any
@@ -155,7 +156,20 @@ export class DocumentChunker {
   }
   
   /**
-   * Create paragraph-based chunks
+   * Detect whether a paragraph block is a markdown table.
+   * A markdown table has at least 2 lines where the first and second both start with '|'.
+   */
+  private isMarkdownTable(paragraph: string): boolean {
+    const lines = paragraph.split('\n').filter(l => l.trim())
+    if (lines.length < 2) return false
+    // Header row and separator row must both start with '|'
+    return lines[0].trimStart().startsWith('|') && lines[1].trimStart().startsWith('|')
+  }
+
+  /**
+   * Create paragraph-based chunks.
+   * Markdown table blocks are treated as atomic units — they are never split mid-row
+   * and are emitted as their own chunk with chunkType: 'table' regardless of size.
    */
   private createParagraphChunks(
     text: string,
@@ -172,8 +186,52 @@ export class DocumentChunker {
     
     for (const paragraph of paragraphs) {
       const trimmedParagraph = paragraph.trim()
-      
-      // Check if adding this paragraph would exceed the chunk size
+      const isTable = this.isMarkdownTable(trimmedParagraph)
+
+      if (isTable) {
+        // Flush any accumulated text chunk before emitting the table
+        if (currentChunk.trim() && currentChunk.length >= (this.config.minChunkSize || 0)) {
+          chunks.push(this.createChunkObject(
+            currentChunk.trim(),
+            chunkIndex,
+            fileId,
+            fileName,
+            mimeType,
+            startPosition,
+            startPosition + currentChunk.length,
+            'text'
+          ))
+          chunkIndex++
+          startPosition += currentChunk.length
+          currentChunk = ''
+        }
+
+        // Emit the table as an atomic chunk — oversized tables are stored intact
+        if (trimmedParagraph.length >= (this.config.minChunkSize || 0)) {
+          if (trimmedParagraph.length > this.config.maxChunkSize) {
+            console.log('[chunker:oversized-table]', {
+              fileName,
+              tableSize: trimmedParagraph.length,
+              maxChunkSize: this.config.maxChunkSize,
+            })
+          }
+          chunks.push(this.createChunkObject(
+            trimmedParagraph,
+            chunkIndex,
+            fileId,
+            fileName,
+            mimeType,
+            startPosition,
+            startPosition + trimmedParagraph.length,
+            'table'
+          ))
+          chunkIndex++
+          startPosition += trimmedParagraph.length
+        }
+        continue
+      }
+
+      // Regular text paragraph — existing accumulation logic
       const wouldExceed = currentChunk && 
         (currentChunk.length + trimmedParagraph.length + 2) > this.config.maxChunkSize
       
@@ -187,7 +245,8 @@ export class DocumentChunker {
             fileName,
             mimeType,
             startPosition,
-            startPosition + currentChunk.length
+            startPosition + currentChunk.length,
+            'text'
           ))
           chunkIndex++
           startPosition += currentChunk.length
@@ -201,7 +260,7 @@ export class DocumentChunker {
       }
     }
     
-    // Add final chunk
+    // Add final text chunk
     if (currentChunk.trim() && currentChunk.length >= (this.config.minChunkSize || 0)) {
       chunks.push(this.createChunkObject(
         currentChunk.trim(),
@@ -210,7 +269,8 @@ export class DocumentChunker {
         fileName,
         mimeType,
         startPosition,
-        startPosition + currentChunk.length
+        startPosition + currentChunk.length,
+        'text'
       ))
     }
     
@@ -399,7 +459,8 @@ export class DocumentChunker {
     fileName: string,
     mimeType: string,
     startPosition: number,
-    endPosition: number
+    endPosition: number,
+    chunkType: 'text' | 'table' = 'text'
   ): DocumentChunk {
     return {
       content,
@@ -409,6 +470,7 @@ export class DocumentChunker {
         fileId,
         mimeType,
         chunkSize: content.length,
+        chunkType,
         startPosition,
         endPosition,
         strategy: this.config.strategy,
