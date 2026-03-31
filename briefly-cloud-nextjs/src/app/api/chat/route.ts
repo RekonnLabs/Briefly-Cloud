@@ -275,10 +275,9 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       }, rid)
     }
 
-    // ── Context retrieval (CRITICAL — core RAG path) ───────────────────
+    // ── Tier resolution (CRITICAL — needed for both streaming and non-streaming) ─
     // Use effective_tier from v_user_limits so trial users (subscription_tier='free'
     // with an active trial_end_date) get Pro-level model routing, not the nano model.
-    // Raw subscription_tier='free' would route them to the cheapest model mid-trial.
     const rawTier = userProfile.subscription_tier as UserTier
     const { getUserLimits } = await import('@/app/lib/usage/quota-enforcement')
     const userLimits = await getUserLimits(user.id).catch(() => null)
@@ -287,129 +286,142 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     const budgetType = getBudgetForTier(tier)
     const budget = BUDGETS[budgetType]
 
-    const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
-    const contextResult = await getContextWithFallback(user.id, message, budget, intent.mode, intent.topK)
-
-    const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
-    const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
-
-    console.log('[chat:context-decision]', {
-      hasDocumentContext: safeContextSnippets.length > 0,
-      contextCount: safeContextSnippets.length,
-      intentMode: intent.mode,
-      correlationId: rid,
-      retrievalStats
-    })
-
-    // ── Conversation Memory (BEST-EFFORT) ──────────────────────────────
-    const contextTokensUsed = safeContextSnippets.reduce(
-      (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
-    )
-    const memoryBudget = Math.max(200, MEMORY_TOKEN_BUDGET - Math.max(0, contextTokensUsed - budget.contextTokenLimit))
-
-    const memoryResult = await bestEffort('select_memory', () =>
-      selectMemory(user.id, convoId, message, memoryBudget)
-    , rid)
-
-    const memoryMessages = memoryResult?.messages || []
-    const memoryStats = memoryResult?.stats || {
-      memoryEnabled: false,
-      memoryCandidates: 0,
-      memoryIncluded: 0,
-      memoryTokensEstimated: 0,
-      memoryGate: 'none' as const
-    }
-
-    console.log('[chat:memory]', {
-      enabled: memoryStats.memoryEnabled,
-      candidates: memoryStats.memoryCandidates,
-      included: memoryStats.memoryIncluded,
-      tokensEstimated: memoryStats.memoryTokensEstimated,
-      gate: memoryStats.memoryGate,
-      memoryBudget,
-      correlationId: rid
-    })
-    
-    // ── Task dispatch (CRITICAL — for non-qa modes) ─────────────────
-    const taskResult = dispatchTask(intent.mode, message, safeContextSnippets)
-    if (taskResult) {
-      console.log('[chat:task-dispatch]', {
-        mode: taskResult.mode,
-        meta: taskResult.meta,
-        correlationId: rid
-      })
-    }
-
-    // ── Intent safety: downgrade comparison→qa when fewer than 2 distinct source docs ──
-    // Root cause: the comparison mode system prompt ("do not use external knowledge")
-    // directly contradicts the single-doc task instruction ("inform user comparison
-    // requires 2 docs"). GPT-5 resolves the contradiction by producing zero tokens.
-    // Fix: route single-document comparison queries through qa mode instead.
-    let effectiveIntentMode = intent.mode
-    let effectiveTaskInstruction = taskResult?.systemInstruction
-
-    if (intent.mode === 'comparison') {
-      const distinctSources = new Set(
-        safeContextSnippets
-          .map(s => s.source?.replace(/\s*#\d+$/i, '').trim())
-          .filter(Boolean)
-      ).size
-
-      if (distinctSources < 2) {
-        effectiveIntentMode = 'qa'
-        effectiveTaskInstruction = undefined
-        console.log('[chat:intent-downgrade]', {
-          from: 'comparison',
-          to: 'qa',
-          reason: 'fewer-than-2-source-documents',
-          distinctSources,
-          contextCount: safeContextSnippets.length,
-          correlationId: rid
-        })
-      }
-    }
-
-    // ── Model routing (CRITICAL) ───────────────────────────────────────
-    const routingSignals = analyzeQuery(message, safeContextSnippets, [])
-    const routing = routeModel(tier, boost, routingSignals)
-    const modelConfig = getModelConfig(routing.model)
-    
-    console.log('[api:model-selected]', {
-      model: routing.model,
-      tier,
-      boost,
-      reason: routing.reason,
-      correlationId: rid
-    })
-
-    // ── Build prompt (CRITICAL) ────────────────────────────────────────
-    const messages = buildMessages({
-      contextSnippets: safeContextSnippets,
-      memoryMessages: memoryMessages.length > 0 ? memoryMessages : undefined,
-      userMessage: message,
-      intentMode: effectiveIntentMode,
-      taskInstruction: effectiveTaskInstruction
-    })
-
-    if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {
-      console.error('Invalid chat message payload', { userId: user.id, conversationId: convoId })
-      return ApiResponse.internalError('Failed to prepare chat messages')
-    }
-
     // ── LLM generation ─────────────────────────────────────────────────
     // STREAMING PATH: Real SSE — tokens arrive progressively from OpenAI
+    // Retrieval, memory, and prompt-build all happen INSIDE the stream callback
+    // so the start event fires immediately (~10ms) before the ~1800ms retrieval.
     if (stream) {
       const encoder = new TextEncoder()
 
       const readable = new ReadableStream({
         async start(controller) {
+          // Declare variables used across the stream scope
+          let safeContextSnippets: ContextSnippet[] = []
+          let retrievalStats: Record<string, unknown> = {}
+          let memoryMessages: any[] = []
+          let memoryStats = {
+            memoryEnabled: false,
+            memoryCandidates: 0,
+            memoryIncluded: 0,
+            memoryTokensEstimated: 0,
+            memoryGate: 'none' as const
+          }
+          let effectiveIntentMode = intent.mode
+          let effectiveTaskInstruction: string | undefined
+          let routing = { model: 'gpt-5-mini', reason: 'default' } as ReturnType<typeof routeModel>
+          let messages: any[] = []
+
           try {
-            // 1. Send start event immediately so the frontend knows we're alive
+            // 1. Send start event IMMEDIATELY — typing indicator appears in UI at ~10ms
             controller.enqueue(encoder.encode(
               `data: ${JSON.stringify({ type: 'start', conversationId: convoId || null })}\n\n`
             ))
 
-            // 2. Stream content tokens from OpenAI — onToken fires per token
+            // 2. Context retrieval (CRITICAL — core RAG path) — runs while indicator shows
+            const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
+            const contextResult = await getContextWithFallback(user.id, message, budget, intent.mode, intent.topK)
+            const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats: rs } = contextResult
+            safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
+            retrievalStats = rs
+
+            console.log('[chat:context-decision]', {
+              hasDocumentContext: safeContextSnippets.length > 0,
+              contextCount: safeContextSnippets.length,
+              intentMode: intent.mode,
+              correlationId: rid,
+              retrievalStats
+            })
+
+            // 3. Conversation memory (BEST-EFFORT)
+            const contextTokensUsed = safeContextSnippets.reduce(
+              (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
+            )
+            const memoryBudget = Math.max(200, MEMORY_TOKEN_BUDGET - Math.max(0, contextTokensUsed - budget.contextTokenLimit))
+
+            const memoryResult = await bestEffort('select_memory', () =>
+              selectMemory(user.id, convoId, message, memoryBudget)
+            , rid)
+
+            memoryMessages = memoryResult?.messages || []
+            memoryStats = memoryResult?.stats || memoryStats
+
+            console.log('[chat:memory]', {
+              enabled: memoryStats.memoryEnabled,
+              candidates: memoryStats.memoryCandidates,
+              included: memoryStats.memoryIncluded,
+              tokensEstimated: memoryStats.memoryTokensEstimated,
+              gate: memoryStats.memoryGate,
+              memoryBudget,
+              correlationId: rid
+            })
+
+            // 4. Task dispatch (CRITICAL — for non-qa modes)
+            const taskResult = dispatchTask(intent.mode, message, safeContextSnippets)
+            if (taskResult) {
+              console.log('[chat:task-dispatch]', {
+                mode: taskResult.mode,
+                meta: taskResult.meta,
+                correlationId: rid
+              })
+            }
+
+            // 5. Intent safety: downgrade comparison→qa when fewer than 2 distinct source docs
+            effectiveIntentMode = intent.mode
+            effectiveTaskInstruction = taskResult?.systemInstruction
+
+            if (intent.mode === 'comparison') {
+              const distinctSources = new Set(
+                safeContextSnippets
+                  .map(s => s.source?.replace(/\s*#\d+$/i, '').trim())
+                  .filter(Boolean)
+              ).size
+
+              if (distinctSources < 2) {
+                effectiveIntentMode = 'qa'
+                effectiveTaskInstruction = undefined
+                console.log('[chat:intent-downgrade]', {
+                  from: 'comparison',
+                  to: 'qa',
+                  reason: 'fewer-than-2-source-documents',
+                  distinctSources,
+                  contextCount: safeContextSnippets.length,
+                  correlationId: rid
+                })
+              }
+            }
+
+            // 6. Model routing (CRITICAL)
+            const routingSignals = analyzeQuery(message, safeContextSnippets, [])
+            routing = routeModel(tier, boost, routingSignals)
+            const modelConfig = getModelConfig(routing.model)
+
+            console.log('[api:model-selected]', {
+              model: routing.model,
+              tier,
+              boost,
+              reason: routing.reason,
+              correlationId: rid
+            })
+
+            // 7. Build prompt (CRITICAL)
+            messages = buildMessages({
+              contextSnippets: safeContextSnippets,
+              memoryMessages: memoryMessages.length > 0 ? memoryMessages : undefined,
+              userMessage: message,
+              intentMode: effectiveIntentMode,
+              taskInstruction: effectiveTaskInstruction
+            })
+
+            if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {
+              console.error('Invalid chat message payload', { userId: user.id, conversationId: convoId })
+              controller.enqueue(encoder.encode(
+                `data: ${JSON.stringify({ type: 'error', message: 'Failed to prepare chat messages' })}\n\n`
+              ))
+              controller.close()
+              return
+            }
+
+            // 8. Stream content tokens from OpenAI — onToken fires per token
             let fullContent = ''
             const streamResult = await streamChatCompletion(
               messages as any,
@@ -562,12 +574,76 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     }
 
     // ── NON-STREAMING PATH ─────────────────────────────────────────────
+    // Retrieval, memory, and prompt-build run synchronously here (no stream to open first)
+    const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
+    const contextResult = await getContextWithFallback(user.id, message, budget, intent.mode, intent.topK)
+    const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
+    const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
+
+    console.log('[chat:context-decision]', {
+      hasDocumentContext: safeContextSnippets.length > 0,
+      contextCount: safeContextSnippets.length,
+      intentMode: intent.mode,
+      correlationId: rid,
+      retrievalStats
+    })
+
+    const contextTokensUsed = safeContextSnippets.reduce(
+      (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
+    )
+    const memoryBudget = Math.max(200, MEMORY_TOKEN_BUDGET - Math.max(0, contextTokensUsed - budget.contextTokenLimit))
+
+    const memoryResult = await bestEffort('select_memory', () =>
+      selectMemory(user.id, convoId, message, memoryBudget)
+    , rid)
+
+    const memoryMessages = memoryResult?.messages || []
+    const memoryStats = memoryResult?.stats || {
+      memoryEnabled: false,
+      memoryCandidates: 0,
+      memoryIncluded: 0,
+      memoryTokensEstimated: 0,
+      memoryGate: 'none' as const
+    }
+
+    const taskResult = dispatchTask(intent.mode, message, safeContextSnippets)
+    let effectiveIntentMode = intent.mode
+    let effectiveTaskInstruction = taskResult?.systemInstruction
+
+    if (intent.mode === 'comparison') {
+      const distinctSources = new Set(
+        safeContextSnippets
+          .map(s => s.source?.replace(/\s*#\d+$/i, '').trim())
+          .filter(Boolean)
+      ).size
+      if (distinctSources < 2) {
+        effectiveIntentMode = 'qa'
+        effectiveTaskInstruction = undefined
+      }
+    }
+
+    const routingSignals = analyzeQuery(message, safeContextSnippets, [])
+    const routing = routeModel(tier, boost, routingSignals)
+    const modelConfig = getModelConfig(routing.model)
+
     console.log('[chat-handler] Non-streaming path', {
       tier,
-      messageCount: messages.length,
       model: routing.model,
       intentMode: intent.mode
     })
+
+    const messages = buildMessages({
+      contextSnippets: safeContextSnippets,
+      memoryMessages: memoryMessages.length > 0 ? memoryMessages : undefined,
+      userMessage: message,
+      intentMode: effectiveIntentMode,
+      taskInstruction: effectiveTaskInstruction
+    })
+
+    if (!Array.isArray(messages) || messages.length === 0 || !messages.every(msg => msg && typeof msg.content === 'string' && typeof msg.role === 'string')) {
+      console.error('Invalid chat message payload', { userId: user.id, conversationId: convoId })
+      return ApiResponse.internalError('Failed to prepare chat messages')
+    }
     
     const llmResult: ChatCompletionResult = await generateChatCompletion(messages as any, tier, undefined, routing.model)
 
