@@ -61,7 +61,7 @@ export function analyzeQuery(query: string, contextSnippets: any[], history: any
 export function getModelConfig(model: string) {
   return {
     model,
-    maxTokens: model.includes('mini') || model.includes('nano') ? 1000 : 2000,
+    maxTokens: model.includes('nano') ? 1000 : 2000,  // mini raised 1000→2000 — summaries were truncating mid-sentence
     temperature: 0.7
   }
 }

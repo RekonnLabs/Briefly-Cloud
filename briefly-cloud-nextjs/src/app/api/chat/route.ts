@@ -48,7 +48,11 @@ interface ProvenanceMetadata {
 function normalizeSource(raw: string): string {
   return raw
     .trim()
-    .replace(/\s*#\d+$/i, '')     // strip chunk index: "foo.txt #3" → "foo.txt"
+    .replace(/\s*#\d+$/i, '')              // strip chunk index: "doc.txt #3" → "doc.txt"
+    .replace(/\.[a-z]{2,5}$/i, '')          // strip extension: "doc.docx" → "doc"
+    .replace(/[_\s-]?\d{4}[_\s-]?/g, '') // strip year: "report_2026" → "report"
+    .replace(/[_\s]+/g, '_')               // normalize separators
+    .replace(/^_+|_+$/g, '')               // trim leading/trailing underscores
     .toLowerCase()
 }
 
