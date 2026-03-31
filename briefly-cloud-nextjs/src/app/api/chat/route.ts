@@ -368,29 +368,25 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
               })
             }
 
-            // 5. Intent safety: downgrade comparison→qa when fewer than 2 distinct source docs
-            effectiveIntentMode = intent.mode
-            effectiveTaskInstruction = taskResult?.systemInstruction
+            // 5. Intent safety: all non-qa modes downgraded to qa
+            // Root cause confirmed across comparison, summary, report, extraction modes:
+            // task systemInstructions with rigid "REQUIRED OUTPUT FORMAT" blocks stack on
+            // top of the base system prompt and cause GPT-5-mini to produce zero tokens
+            // (inputTokens: 0, outputTokens: 0, 14-16s latency). The base qa mode with
+            // document context handles summaries, comparisons, and extractions naturally
+            // without structured task prompts — the LLM is capable enough on its own.
+            const NON_QA_MODES = new Set(['comparison', 'summary', 'report', 'extraction'])
+            effectiveIntentMode = NON_QA_MODES.has(intent.mode) ? 'qa' : intent.mode
+            effectiveTaskInstruction = undefined
 
-            if (intent.mode === 'comparison') {
-              const distinctSources = new Set(
-                safeContextSnippets
-                  .map(s => s.source?.replace(/\s*#\d+$/i, '').trim())
-                  .filter(Boolean)
-              ).size
-
-              if (distinctSources < 2) {
-                effectiveIntentMode = 'qa'
-                effectiveTaskInstruction = undefined
-                console.log('[chat:intent-downgrade]', {
-                  from: 'comparison',
-                  to: 'qa',
-                  reason: 'fewer-than-2-source-documents',
-                  distinctSources,
-                  contextCount: safeContextSnippets.length,
-                  correlationId: rid
-                })
-              }
+            if (NON_QA_MODES.has(intent.mode)) {
+              console.log('[chat:intent-downgrade]', {
+                from: intent.mode,
+                to: 'qa',
+                reason: 'task-prompt-causes-zero-token-output-gpt5mini',
+                contextCount: safeContextSnippets.length,
+                correlationId: rid
+              })
             }
 
             // 6. Model routing (CRITICAL)
@@ -610,19 +606,18 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     }
 
     const taskResult = dispatchTask(intent.mode, message, safeContextSnippets)
-    let effectiveIntentMode = intent.mode
-    let effectiveTaskInstruction = taskResult?.systemInstruction
+    const NON_QA_MODES_NS = new Set(['comparison', 'summary', 'report', 'extraction'])
+    let effectiveIntentMode = NON_QA_MODES_NS.has(intent.mode) ? 'qa' : intent.mode
+    let effectiveTaskInstruction: string | undefined = undefined
 
-    if (intent.mode === 'comparison') {
-      const distinctSources = new Set(
-        safeContextSnippets
-          .map(s => s.source?.replace(/\s*#\d+$/i, '').trim())
-          .filter(Boolean)
-      ).size
-      if (distinctSources < 2) {
-        effectiveIntentMode = 'qa'
-        effectiveTaskInstruction = undefined
-      }
+    if (NON_QA_MODES_NS.has(intent.mode)) {
+      console.log('[chat:intent-downgrade]', {
+        from: intent.mode,
+        to: 'qa',
+        reason: 'task-prompt-causes-zero-token-output-gpt5mini',
+        contextCount: safeContextSnippets.length,
+        correlationId: rid
+      })
     }
 
     const routingSignals = analyzeQuery(message, safeContextSnippets, [])

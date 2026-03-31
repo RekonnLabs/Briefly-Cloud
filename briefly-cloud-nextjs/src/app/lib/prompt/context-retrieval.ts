@@ -55,6 +55,7 @@ function normalizeQueryForRetrieval(query: string): string {
     /\??\s*(what should i (tell|say|do|respond)\??)?$/i,
     /\s+what('?s| is) (my|the) best (argument|response|answer|approach)\??$/i,
     /\s+(for (switching|moving) to\s+\w+)\??$/i,
+    /\s+(for me|to me|please|thanks|thank you)[.!?]?$/i,
   ]
 
   for (const pattern of tailPatterns) {
@@ -64,9 +65,30 @@ function normalizeQueryForRetrieval(query: string): string {
     }
   }
 
-  // Return the normalized form if it's meaningfully shorter
-  // (i.e., we actually stripped something useful)
-  return q.length < query.length * 0.85 ? q : query
+  // Expand vague single-document references into richer retrieval queries.
+  // "summarize the contract" → "contract summary terms conditions vendor agreement"
+  // This prevents vague queries from scatter-retrieving across unrelated documents.
+  const documentExpansions: Array<[RegExp, string]> = [
+    [/^(summarize|summary of|give me a summary of|what('?s| is) in) the contract/i, 'contract terms conditions vendor agreement obligations'],
+    [/^(summarize|summary of|give me a summary of|what('?s| is) in) the agreement/i, 'agreement terms conditions obligations parties'],
+    [/^(summarize|summary of|give me a summary of|what('?s| is) in) the report/i, 'report summary findings results'],
+    [/^(summarize|summary of|give me a summary of|what('?s| is) in) the document/i, 'document summary key points'],
+    [/^(summarize|summary of|give me a summary of|what('?s| is) in) the proposal/i, 'proposal summary scope pricing terms'],
+    [/^(summarize|summary of|give me a summary of|what('?s| is) in) the email/i, 'email summary key points action items'],
+    [/^(summarize|summary of|give me a summary of|what('?s| is) in) (this|the) (file|doc|document|content)/i, 'document summary key points main topics'],
+    [/^(summarize|give me a summary|summarize everything|summarize all)/i, 'summary key points main topics overview'],
+    [/^what('?s| is|are) (the )?(main |key )?(points?|topics?|takeaways?|highlights?)/i, 'main points key topics highlights summary'],
+  ]
+
+  for (const [pattern, expansion] of documentExpansions) {
+    if (pattern.test(q)) {
+      q = expansion
+      break
+    }
+  }
+
+  // Return the normalized form if it's meaningfully shorter OR expanded
+  return q.length < query.length * 0.85 || q !== query.trim() ? q : query
 }
 
 /**
