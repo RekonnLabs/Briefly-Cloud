@@ -293,6 +293,10 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     if (stream) {
       const encoder = new TextEncoder()
 
+      // Declare routing OUTSIDE the stream so NextResponse headers can reference it.
+      // The default is overwritten inside start() once routeModel() runs.
+      let routing: ReturnType<typeof routeModel> = { model: 'gpt-5-mini', reason: 'default' }
+
       const readable = new ReadableStream({
         async start(controller) {
           // Declare variables used across the stream scope
@@ -308,7 +312,6 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
           }
           let effectiveIntentMode = intent.mode
           let effectiveTaskInstruction: string | undefined
-          let routing = { model: 'gpt-5-mini', reason: 'default' } as ReturnType<typeof routeModel>
           let messages: any[] = []
 
           try {
