@@ -251,9 +251,9 @@ export function ChatInterface() {
             const event = JSON.parse(data);
 
             if (event.type === 'start') {
-              // Server acknowledged — conversation ID established
+              // Server acknowledged — conversation ID established, typing indicator stays
+              // until first actual token arrives (token handler clears isWaitingForFirstToken)
               if (event.conversationId) setConversationId(event.conversationId);
-              setIsWaitingForFirstToken(false);
             }
 
             if (event.type === 'token') {
