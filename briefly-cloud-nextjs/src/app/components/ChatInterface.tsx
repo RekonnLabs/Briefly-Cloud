@@ -147,8 +147,31 @@ function detectModeHint(text: string): IntentMode {
 // ─────────────────────────────────────────────────────────────────────────────
 // Format message content (markdown-lite)
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract unique source filenames from [Source: filename] inline citations.
+ * Returns { body: string without inline citations, sources: string[] deduped }
+ */
+function extractSources(content: string): { body: string; sources: string[] } {
+  const sources: string[] = []
+  const body = content.replace(/\[Source:\s*([^\]]+)\]/g, (_, name) => {
+    const trimmed = name.trim()
+    if (!sources.includes(trimmed)) sources.push(trimmed)
+    return '' // strip inline citation from body
+  }).replace(/\s{2,}/g, ' ').trim() // collapse double-spaces left by removed citations
+  return { body, sources }
+}
+
 function formatMessage(content: string): string {
   return content
+    // Fix 1: Convert ### headings to styled <strong> section headers
+    .replace(/^######\s+(.+)$/gm, '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-1">$1</p>')
+    .replace(/^#####\s+(.+)$/gm,  '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-1">$1</p>')
+    .replace(/^####\s+(.+)$/gm,   '<p class="text-sm font-semibold text-gray-300 mt-3 mb-1">$1</p>')
+    .replace(/^###\s+(.+)$/gm,    '<p class="text-sm font-semibold text-gray-200 mt-4 mb-1">$1</p>')
+    .replace(/^##\s+(.+)$/gm,     '<p class="text-base font-semibold text-gray-100 mt-4 mb-1">$1</p>')
+    .replace(/^#\s+(.+)$/gm,      '<p class="text-lg font-bold text-white mt-4 mb-2">$1</p>')
+    // Inline markdown
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-gray-200 px-1 rounded">$1</code>')
@@ -381,10 +404,27 @@ export function ChatInterface() {
                 </div>
               )}
 
-              <div
-                className="prose prose-sm max-w-none prose-invert"
-                dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
-              />
+              {(() => {
+                const { body, sources } = extractSources(message.content)
+                return (
+                  <>
+                    <div
+                      className="prose prose-sm max-w-none prose-invert"
+                      dangerouslySetInnerHTML={{ __html: formatMessage(body) }}
+                    />
+                    {sources.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-gray-700/40 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+                        <span className="text-xs text-gray-500 font-medium shrink-0">Sources:</span>
+                        {sources.map((src, i) => (
+                          <span key={i} className="text-xs font-mono text-gray-500">
+                            {src}{i < sources.length - 1 ? ' ·' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
 
               {/* Ungrounded warning */}
               {message.role === 'assistant' && message.provenance && (
@@ -412,10 +452,15 @@ export function ChatInterface() {
         {streamingContent && !isWaitingForFirstToken && (
           <div className="flex justify-start">
             <div className="max-w-3xl rounded-2xl px-4 py-3 bg-gray-800/50 text-gray-100 border border-gray-700/30">
-              <div
-                className="prose prose-sm max-w-none prose-invert"
-                dangerouslySetInnerHTML={{ __html: formatMessage(streamingContent) }}
-              />
+              {(() => {
+                const { body } = extractSources(streamingContent)
+                return (
+                  <div
+                    className="prose prose-sm max-w-none prose-invert"
+                    dangerouslySetInnerHTML={{ __html: formatMessage(body) }}
+                  />
+                )
+              })()}
               <span className="streaming-cursor" />
             </div>
           </div>
