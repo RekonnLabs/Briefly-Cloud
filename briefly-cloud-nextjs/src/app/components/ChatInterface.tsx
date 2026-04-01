@@ -145,48 +145,65 @@ function detectModeHint(text: string): IntentMode {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Format message content (markdown-lite)
+// Message rendering
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Extract unique source filenames from [Source: filename] inline citations.
- * Returns { body: string without inline citations, sources: string[] deduped }
+ * Step 1: Strip all [Source: ...] citations from the body and collect unique filenames.
+ * Handles both GPT-style [Source: A] [Source: B] and Llama-style [Source: A, Source: B].
  */
-function extractSources(content: string): { body: string; sources: string[] } {
-  const sources: string[] = []
-  // Strip the entire [Source: ...] bracket from the body.
-  // Handle both GPT-style separate brackets [Source: A] [Source: B]
-  // and Llama-style combined brackets [Source: A, Source: B].
-  // After stripping the bracket, split its content on ", Source:" to get
-  // individual filenames and deduplicate them into the sources array.
-  const body = content.replace(/\[Source:\s*([^\]]+)\]/gi, (_, inner) => {
-    const parts = inner.split(/,\s*Source:\s*/i)
-    for (const part of parts) {
-      const trimmed = part.trim()
-      if (trimmed && !sources.includes(trimmed)) sources.push(trimmed)
-    }
-    return '' // strip the entire bracket from the body
-  })
-  .replace(/[ \t]{2,}/g, ' ') // collapse inline double-spaces (not newlines)
-  .replace(/\n[ \t]+/g, '\n') // trim leading whitespace on lines after stripping
-  .trim()
-  return { body, sources }
+function extractAndStrip(text: string): { body: string; sources: string[] } {
+  const sources = new Set<string>()
+  const body = text.replace(/\[Source:\s*([^\]]+)\]/gi, (_, inner) => {
+    inner.split(/,\s*Source:\s*/i).forEach((s: string) => {
+      const name = s.trim()
+      if (name) sources.add(name)
+    })
+    return ''
+  }).trim()
+  return { body, sources: [...sources] }
 }
 
-function formatMessage(content: string): string {
-  return content
-    // Fix 1: Convert ### headings to styled <strong> section headers
-    .replace(/^######\s+(.+)$/gm, '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-1">$1</p>')
-    .replace(/^#####\s+(.+)$/gm,  '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-1">$1</p>')
-    .replace(/^####\s+(.+)$/gm,   '<p class="text-sm font-semibold text-gray-300 mt-3 mb-1">$1</p>')
-    .replace(/^###\s+(.+)$/gm,    '<p class="text-sm font-semibold text-gray-200 mt-4 mb-1">$1</p>')
-    .replace(/^##\s+(.+)$/gm,     '<p class="text-base font-semibold text-gray-100 mt-4 mb-1">$1</p>')
-    .replace(/^#\s+(.+)$/gm,      '<p class="text-lg font-bold text-white mt-4 mb-2">$1</p>')
-    // Inline markdown
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`(.*?)`/g, '<code class="bg-gray-700/50 text-gray-200 px-1 rounded">$1</code>')
-    .replace(/\n/g, '<br>')
+/**
+ * Step 2: Convert markdown to styled HTML.
+ * Handles: headings, bold, bullet points (* and -), inline code, paragraph breaks.
+ * NOTE: do NOT apply the Tailwind 'prose' class to the container — it overrides
+ * the inline Tailwind classes injected here.
+ */
+function markdownToHtml(text: string): string {
+  let html = text
+    // Headings (must run before bold to avoid ** inside headings)
+    .replace(/^### (.+)$/gm, '<p class="text-sm font-semibold text-gray-200 mt-4 mb-1">$1</p>')
+    .replace(/^## (.+)$/gm,  '<p class="text-base font-semibold text-gray-100 mt-4 mb-1">$1</p>')
+    .replace(/^# (.+)$/gm,   '<p class="text-lg font-semibold text-white mt-4 mb-2">$1</p>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Inline code
+    .replace(/`(.+?)`/g, '<code class="bg-gray-700/50 text-gray-200 px-1 py-0.5 rounded text-xs font-mono">$1</code>')
+    // Bullet points (* item or - item at line start)
+    .replace(/^[*\-] (.+)$/gm, '<li class="ml-5 list-disc text-gray-100">$1</li>')
+
+  // Wrap consecutive <li> blocks in a <ul>
+  html = html.replace(/(<li[^>]*>[\s\S]*?<\/li>\n?)+/g,
+    (block) => `<ul class="space-y-1 my-2">${block}</ul>`
+  )
+
+  // Paragraph breaks (two or more newlines)
+  html = html
+    .replace(/\n\n+/g, '</p><p class="mt-2 text-gray-100">')
+    .replace(/\n/g, '<br/>')
+
+  return html
+}
+
+/**
+ * Combined entry point used in both completed and streaming message bubbles.
+ * Returns bodyHtml (safe to set via dangerouslySetInnerHTML) and sources array.
+ */
+function formatMessageWithSources(raw: string): { bodyHtml: string; sources: string[] } {
+  const { body, sources } = extractAndStrip(raw)
+  const bodyHtml = markdownToHtml(body)
+  return { bodyHtml, sources }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -416,15 +433,15 @@ export function ChatInterface() {
               )}
 
               {(() => {
-                const { body, sources } = extractSources(message.content)
+                const { bodyHtml, sources } = formatMessageWithSources(message.content)
                 return (
                   <>
                     <div
-                      className="prose prose-sm max-w-none prose-invert"
-                      dangerouslySetInnerHTML={{ __html: formatMessage(body) }}
+                      className="text-sm text-gray-100 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: bodyHtml }}
                     />
                     {sources.length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-gray-700/40 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+                      <div className="mt-3 pt-2 border-t border-gray-700/30 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
                         <span className="text-xs text-gray-500 font-medium shrink-0">Sources:</span>
                         {sources.map((src, i) => (
                           <span key={i} className="text-xs font-mono text-gray-500">
@@ -464,11 +481,11 @@ export function ChatInterface() {
           <div className="flex justify-start">
             <div className="max-w-3xl rounded-2xl px-4 py-3 bg-gray-800/50 text-gray-100 border border-gray-700/30">
               {(() => {
-                const { body } = extractSources(streamingContent)
+                const { bodyHtml } = formatMessageWithSources(streamingContent)
                 return (
                   <div
-                    className="prose prose-sm max-w-none prose-invert"
-                    dangerouslySetInnerHTML={{ __html: formatMessage(body) }}
+                    className="text-sm text-gray-100 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: bodyHtml }}
                   />
                 )
               })()}
