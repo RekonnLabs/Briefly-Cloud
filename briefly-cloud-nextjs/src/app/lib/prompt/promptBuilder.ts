@@ -157,7 +157,7 @@ ${contextBlock}`
  *   3. Current user message
  */
 const DEFAULT_DEVELOPER_TASK = 'You are Briefly, an AI assistant that helps users understand and work with their uploaded documents.'
-const DEFAULT_DEVELOPER_SHAPE = 'Respond clearly and concisely. Use markdown formatting where appropriate. Always cite your sources using [Source: filename] notation when answering from documents.'
+const DEFAULT_DEVELOPER_SHAPE = 'Respond clearly and concisely. Use markdown formatting where appropriate. Always cite your sources using [Source: filename] notation when answering from documents. Do not add disclaimers, caveats, or "please note" statements at the end of responses. Answer directly and stop when the answer is complete.'
 
 export function buildMessages(params: {
   developerTask?: string
