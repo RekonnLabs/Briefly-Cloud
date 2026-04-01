@@ -3,19 +3,19 @@ export type UserTier = 'free' | 'pro' | 'team' | 'enterprise'
 type RouteOpts = { budget?: 'fast' | 'balanced' | 'quality'; tier?: UserTier }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Default models — all Groq-hosted for fast LPU inference (~280 tok/sec).
+// Default models — Groq LPU inference (fast, cheap)
 // Override via Vercel env vars — no code deploy needed to swap models.
 //
-//   CHAT_MODEL_PRO   default: llama-3.3-70b-versatile  $0.59/$0.79 per 1M tokens
-//                             Pro tier — strong quality, fast streaming
-//   CHAT_MODEL_FREE  default: llama-3.1-8b-instant     $0.05/$0.08 per 1M tokens
-//                             Free/trial tier — very fast, cost-effective
-//   CHAT_MODEL_BOOST default: gpt-5                    $1.25/$10.00 per 1M tokens
-//                             Premium on-demand when user explicitly requests boost
+//   CHAT_MODEL_PRO   default: llama-3.3-70b-versatile  $0.59/$0.79 per 1M  ~394 TPS
+//   CHAT_MODEL_FREE  default: llama-3.1-8b-instant      $0.05/$0.08 per 1M  ~840 TPS
+//   CHAT_MODEL_BOOST default: openai/gpt-oss-120b       $0.15/$0.60 per 1M  ~500 TPS
+//
+// Embeddings always stay on OpenAI (text-embedding-3-small) regardless of inference provider.
+// Override any model via Vercel env vars — no code deploy needed.
 // ─────────────────────────────────────────────────────────────────────────────
-const DEFAULT_MODEL_PRO   = process.env.CHAT_MODEL_PRO   || 'llama-3.3-70b-versatile'  // Groq LPU — ~280 tok/sec
-const DEFAULT_MODEL_FREE  = process.env.CHAT_MODEL_FREE  || 'llama-3.1-8b-instant'     // Groq LPU — ~600 tok/sec
-const DEFAULT_MODEL_BOOST = process.env.CHAT_MODEL_BOOST || 'gpt-5'
+const DEFAULT_MODEL_PRO   = process.env.CHAT_MODEL_PRO   || 'llama-3.3-70b-versatile'  // Groq LPU — ~394 TPS
+const DEFAULT_MODEL_FREE  = process.env.CHAT_MODEL_FREE  || 'llama-3.1-8b-instant'     // Groq LPU — ~840 TPS
+const DEFAULT_MODEL_BOOST = process.env.CHAT_MODEL_BOOST || 'openai/gpt-oss-120b'      // Groq — ~500 TPS, $0.15/$0.60
 
 export function pickModel(opts?: RouteOpts): string {
   if (opts?.budget === 'fast') return DEFAULT_MODEL_FREE
@@ -62,7 +62,7 @@ export function analyzeQuery(query: string, contextSnippets: any[], history: any
 export function getModelConfig(model: string) {
   return {
     model,
-    maxTokens: model.includes('nano') || model.includes('8b') ? 1000 : 2000,  // 8b/nano: 1000 (cost); 70b/mini+: 2000 (summaries were truncating)
+    maxTokens: 2000,  // 2000 for all Llama models — 128K context, cost diff negligible ($0.00016 max)
     temperature: 0.7
   }
 }
@@ -97,11 +97,13 @@ const MODEL_PRICING: Record<string, ModelPricing> = {
   // GPT-4o family (legacy — kept for reference)
   'gpt-4o':       { inputPer1K: 0.0025,  outputPer1K: 0.01   },
   'gpt-4o-mini':  { inputPer1K: 0.00015, outputPer1K: 0.0006 },
-  // Groq-hosted Llama models (fast LPU inference — ~280 tok/sec)
-  'llama-3.3-70b-versatile': { inputPer1K: 0.00059, outputPer1K: 0.00079 },
+  // Groq-hosted Llama models (fast LPU inference)
+  'llama-3.3-70b-versatile': { inputPer1K: 0.00059, outputPer1K: 0.00079 },  // ~394 TPS
   'llama-3.1-70b-versatile': { inputPer1K: 0.00059, outputPer1K: 0.00079 },
-  'llama-3.1-8b-instant':    { inputPer1K: 0.00005, outputPer1K: 0.00008 },
+  'llama-3.1-8b-instant':    { inputPer1K: 0.00005, outputPer1K: 0.00008 },  // ~840 TPS
   'llama-3.3-70b-specdec':   { inputPer1K: 0.00059, outputPer1K: 0.00099 },
+  // Groq-hosted OpenAI-compatible models
+  'openai/gpt-oss-120b':     { inputPer1K: 0.00015, outputPer1K: 0.00060 },  // ~500 TPS, boost tier
 }
 
 // Default pricing for unknown/future models (conservative estimate)

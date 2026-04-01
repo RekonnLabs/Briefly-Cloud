@@ -6,7 +6,8 @@ import OpenAI from 'openai'
 
 /** Returns true if the model should be served via Groq's LPU inference API */
 function isGroqModel(model: string): boolean {
-  return model.startsWith('llama') || model.startsWith('mixtral') || model.startsWith('gemma')
+  // openai/gpt-oss-120b is hosted on Groq despite the "openai/" prefix
+  return model.startsWith('llama') || model.startsWith('mixtral') || model.startsWith('gemma') || model.startsWith('openai/')
 }
 
 /** Returns true if the model is in the GPT-5 family (affects token param name) */
@@ -74,16 +75,16 @@ export const EMBEDDING_DIMENSIONS = 1536
 // Chat model configuration
 // Override via Vercel env vars — no code deploy needed to swap models.
 //
-//   CHAT_MODEL_PRO   default: llama-3.3-70b-versatile  (Groq — ~280 tok/sec)
-//   CHAT_MODEL_FREE  default: llama-3.1-8b-instant     (Groq — ~600 tok/sec, free/trial tier)
-//   CHAT_MODEL_BOOST default: gpt-5                    (OpenAI — high quality, boost mode)
+//   CHAT_MODEL_PRO   default: llama-3.3-70b-versatile  (Groq — ~394 TPS)
+//   CHAT_MODEL_FREE  default: llama-3.1-8b-instant     (Groq — ~840 TPS, free/trial tier)
+//   CHAT_MODEL_BOOST default: openai/gpt-oss-120b      (Groq — ~500 TPS, $0.15/$0.60 per 1M)
 //
-// Groq pricing: $0.59/$0.79 per 1M tokens (Llama 3.3 70B), $0.05/$0.08 (Llama 3.1 8B)
-// OpenAI pricing: $1.25/$10.00 per 1M (gpt-5 boost)
+// Groq pricing: $0.59/$0.79 per 1M (Llama 3.3 70B), $0.05/$0.08 (Llama 3.1 8B), $0.15/$0.60 (gpt-oss-120b)
+// Embeddings always stay on OpenAI (text-embedding-3-small) regardless of inference provider.
 // ─────────────────────────────────────────────────────────────────────────────
-export const FREE_CHAT_MODEL  = 'llama-3.1-8b-instant'    // Groq LPU — ~600 tok/sec
-export const PRO_CHAT_MODEL   = 'llama-3.3-70b-versatile' // Groq LPU — ~280 tok/sec
-export const BOOST_CHAT_MODEL = 'gpt-5'
+export const FREE_CHAT_MODEL  = 'llama-3.1-8b-instant'    // Groq LPU — ~840 TPS
+export const PRO_CHAT_MODEL   = 'llama-3.3-70b-versatile' // Groq LPU — ~394 TPS
+export const BOOST_CHAT_MODEL = 'openai/gpt-oss-120b'     // Groq — ~500 TPS, $0.15/$0.60
 export const CLASSIFIER_MODEL = 'llama-3.1-8b-instant'    // fast + cheap for classification
 
 export const CHAT_MODELS = {

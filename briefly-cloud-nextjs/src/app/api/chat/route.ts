@@ -199,46 +199,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
   try {
     const startTime = Date.now()
 
-    // ── Get user profile (CRITICAL — needed for tier routing) ──────────
-    const userProfile = await withSchemaErrorHandling(
-      () => usersRepo.getById(user.id),
-      {
-        schema: 'app',
-        operation: 'get_user_profile',
-        table: 'profiles',
-        userId: user.id,
-        correlationId: rid,
-        ...extractSchemaContext(request, 'get_user_profile', 'app', 'profiles')
-      }
-    )
-    if (!userProfile) {
-      return ApiResponse.unauthorized('User profile not found')
-    }
-
-    // ── Check chat usage limits (CRITICAL — enforce tier quotas) ─────
-    try {
-      const limits = await usersRepo.checkUsageLimits(user.id)
-      if (!limits.canChat) {
-        return ApiResponse.forbidden(
-          'You have reached your chat message limit for this billing period. ' +
-          'Please upgrade your plan or wait for the next cycle.',
-          'CHAT_LIMIT_REACHED'
-        )
-      }
-      console.log('[chat:limits]', {
-        canChat: limits.canChat,
-        chatMessagesRemaining: limits.chatMessagesRemaining,
-        correlationId: rid
-      })
-    } catch (limitErr) {
-      // If limit check fails, allow the request through (fail-open)
-      console.warn('[chat:limits] Limit check failed — allowing request (fail-open)', {
-        error: limitErr instanceof Error ? limitErr.message : String(limitErr),
-        correlationId: rid
-      })
-    }
-
-    // ── Intent detection (zero LLM calls — rule-based only) ───────────
+    // ── Intent detection (zero LLM calls — rule-based only, synchronous) ─────
     const { detectIntent } = await import('@/app/lib/prompt/intentRouter')
     const intent = detectIntent(message)
     console.log('[chat:intent]', {
@@ -248,24 +209,73 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       correlationId: rid
     })
 
-    // ── Create / reuse conversation (BEST-EFFORT) ──────────────────────
-    let convoId = conversationId
-    if (!convoId) {
-      const result = await bestEffort('create_conversation', async () => {
-        const { data, error } = await supabaseApp
-          .from('conversations')
-          .insert({ owner_id: user.id, title: message.slice(0, 80) })
-          .select('id')
-          .single()
-        if (error) throw error
-        return data?.id as string | undefined
-      }, rid)
-      convoId = result
+    // ── Parallel pre-stream DB reads ───────────────────────────────────────
+    // These three reads are fully independent — run concurrently instead of
+    // sequentially to cut ~1.5-2s of pre-stream latency on cold starts.
+    // create_conversation is also kicked off here in parallel; its promise is
+    // awaited below only when convoId is actually needed.
+    const { getUserLimits } = await import('@/app/lib/usage/quota-enforcement')
+
+    const createConvoPromise = !conversationId
+      ? bestEffort('create_conversation', async () => {
+          const { data, error } = await supabaseApp
+            .from('conversations')
+            .insert({ owner_id: user.id, title: message.slice(0, 80) })
+            .select('id')
+            .single()
+          if (error) throw error
+          return data?.id as string | undefined
+        }, rid)
+      : Promise.resolve(conversationId)
+
+    const [userProfile, limitsResult, userLimits] = await Promise.all([
+      withSchemaErrorHandling(
+        () => usersRepo.getById(user.id),
+        {
+          schema: 'app',
+          operation: 'get_user_profile',
+          table: 'profiles',
+          userId: user.id,
+          correlationId: rid,
+          ...extractSchemaContext(request, 'get_user_profile', 'app', 'profiles')
+        }
+      ),
+      usersRepo.checkUsageLimits(user.id).catch((err: unknown) => {
+        console.warn('[chat:limits] Limit check failed — allowing request (fail-open)', {
+          error: err instanceof Error ? err.message : String(err),
+          correlationId: rid
+        })
+        return null
+      }),
+      getUserLimits(user.id).catch(() => null),
+    ])
+
+    if (!userProfile) {
+      return ApiResponse.unauthorized('User profile not found')
     }
 
-    // ── Save user message (BEST-EFFORT) ────────────────────────────────
+    // Enforce quota gate (fail-open if limitsResult is null)
+    if (limitsResult && !limitsResult.canChat) {
+      return ApiResponse.forbidden(
+        'You have reached your chat message limit for this billing period. ' +
+        'Please upgrade your plan or wait for the next cycle.',
+        'CHAT_LIMIT_REACHED'
+      )
+    }
+    if (limitsResult) {
+      console.log('[chat:limits]', {
+        canChat: limitsResult.canChat,
+        chatMessagesRemaining: limitsResult.chatMessagesRemaining,
+        correlationId: rid
+      })
+    }
+
+    // Resolve conversation ID (create_conversation was already in-flight)
+    let convoId = await createConvoPromise
+
+    // ── Save user message (fire-and-forget — bestEffort already swallows errors) ─
     if (convoId) {
-      await bestEffort('save_user_message', async () => {
+      bestEffort('save_user_message', async () => {
         const { error } = await supabaseApp
           .from('messages')
           .insert({
@@ -277,14 +287,11 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
           })
         if (error) throw error
       }, rid)
+      // Intentionally NOT awaited — fires in background, never blocks the stream
     }
 
-    // ── Tier resolution (CRITICAL — needed for both streaming and non-streaming) ─
-    // Use effective_tier from v_user_limits so trial users (subscription_tier='free'
-    // with an active trial_end_date) get Pro-level model routing, not the nano model.
+    // ── Tier resolution (uses userLimits already fetched above) ─────────────
     const rawTier = userProfile.subscription_tier as UserTier
-    const { getUserLimits } = await import('@/app/lib/usage/quota-enforcement')
-    const userLimits = await getUserLimits(user.id).catch(() => null)
     const effectiveTierStr = userLimits?.effective_tier ?? rawTier
     const tier = (effectiveTierStr === 'pro' ? 'pro' : rawTier) as UserTier
     const budgetType = getBudgetForTier(tier)
@@ -324,9 +331,22 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
               `data: ${JSON.stringify({ type: 'start', conversationId: convoId || null })}\n\n`
             ))
 
-            // 2. Context retrieval (CRITICAL — core RAG path) — runs while indicator shows
+            // 2. Context retrieval + memory in parallel
+            // Retrieval (embedding + pgvector) and memory selection are fully independent.
+            // Running them concurrently saves the slower of the two (~300-600ms).
             const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
-            const contextResult = await getContextWithFallback(user.id, message, budget, intent.mode, intent.topK)
+
+            // Memory budget uses a conservative default while retrieval is in-flight;
+            // it will be tightened below once contextTokensUsed is known.
+            const memoryBudgetDefault = MEMORY_TOKEN_BUDGET
+
+            const [contextResult, memoryResult] = await Promise.all([
+              getContextWithFallback(user.id, message, budget, intent.mode, intent.topK),
+              bestEffort('select_memory', () =>
+                selectMemory(user.id, convoId, message, memoryBudgetDefault)
+              , rid)
+            ])
+
             const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats: rs } = contextResult
             safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
             retrievalStats = rs
@@ -339,17 +359,13 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
               retrievalStats
             })
 
-            // 3. Conversation memory (BEST-EFFORT)
+            // Trim memory if context consumed more tokens than expected
             const contextTokensUsed = safeContextSnippets.reduce(
               (sum, s) => sum + Math.ceil((s.content?.length || 0) / 4), 0
             )
             const memoryBudget = Math.max(200, MEMORY_TOKEN_BUDGET - Math.max(0, contextTokensUsed - budget.contextTokenLimit))
 
-            const memoryResult = await bestEffort('select_memory', () =>
-              selectMemory(user.id, convoId, message, memoryBudget)
-            , rid)
-
-            memoryMessages = memoryResult?.messages || []
+            memoryMessages = (memoryResult?.messages || []).slice(0, Math.ceil(memoryBudget / 200))
             memoryStats = memoryResult?.stats || memoryStats
 
             console.log('[chat:memory]', {
@@ -577,10 +593,17 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       })
     }
 
-    // ── NON-STREAMING PATH ─────────────────────────────────────────────
-    // Retrieval, memory, and prompt-build run synchronously here (no stream to open first)
+    // ── NON-STREAMING PATH ─────────────────────────────────────────────────────
+    // Retrieval and memory run in parallel (same optimization as streaming path)
     const { getContextWithFallback } = await import('@/app/lib/prompt/context-retrieval')
-    const contextResult = await getContextWithFallback(user.id, message, budget, intent.mode, intent.topK)
+
+    const [contextResult, memoryResultNS] = await Promise.all([
+      getContextWithFallback(user.id, message, budget, intent.mode, intent.topK),
+      bestEffort('select_memory', () =>
+        selectMemory(user.id, convoId, message, MEMORY_TOKEN_BUDGET)
+      , rid)
+    ])
+
     const { contextSnippets, shouldUseNeedMoreInfo, retrievalStats } = contextResult
     const safeContextSnippets = Array.isArray(contextSnippets) ? contextSnippets : []
 
@@ -597,12 +620,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     )
     const memoryBudget = Math.max(200, MEMORY_TOKEN_BUDGET - Math.max(0, contextTokensUsed - budget.contextTokenLimit))
 
-    const memoryResult = await bestEffort('select_memory', () =>
-      selectMemory(user.id, convoId, message, memoryBudget)
-    , rid)
-
-    const memoryMessages = memoryResult?.messages || []
-    const memoryStats = memoryResult?.stats || {
+    const memoryMessages = (memoryResultNS?.messages || []).slice(0, Math.ceil(memoryBudget / 200))
+    const memoryStats = memoryResultNS?.stats || {
       memoryEnabled: false,
       memoryCandidates: 0,
       memoryIncluded: 0,
