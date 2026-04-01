@@ -3,21 +3,18 @@ export type UserTier = 'free' | 'pro' | 'team' | 'enterprise'
 type RouteOpts = { budget?: 'fast' | 'balanced' | 'quality'; tier?: UserTier }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Default models — verified March 2026 from OpenAI pricing page (gpt-5 family).
+// Default models — all Groq-hosted for fast LPU inference (~280 tok/sec).
 // Override via Vercel env vars — no code deploy needed to swap models.
 //
-//   CHAT_MODEL_PRO   default: gpt-5-mini  $0.25 input / $2.00 output per 1M tokens
-//                             Best value — strong quality, far cheaper than gpt-5
-//   CHAT_MODEL_FREE  default: gpt-5-nano  $0.05 input / $0.40 output per 1M tokens
-//                             (Effectively unused — all users are trial/pro)
-//   CHAT_MODEL_BOOST default: gpt-5       $1.25 input / $10.00 output per 1M tokens
+//   CHAT_MODEL_PRO   default: llama-3.3-70b-versatile  $0.59/$0.79 per 1M tokens
+//                             Pro tier — strong quality, fast streaming
+//   CHAT_MODEL_FREE  default: llama-3.1-8b-instant     $0.05/$0.08 per 1M tokens
+//                             Free/trial tier — very fast, cost-effective
+//   CHAT_MODEL_BOOST default: gpt-5                    $1.25/$10.00 per 1M tokens
 //                             Premium on-demand when user explicitly requests boost
-//
-// These are gpt-5 (no .4 suffix) — NOT the gpt-5.4 family which is significantly
-// more expensive ($2.50/$15 output) and optimised for reasoning/coding, not RAG.
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_MODEL_PRO   = process.env.CHAT_MODEL_PRO   || 'llama-3.3-70b-versatile'  // Groq LPU — ~280 tok/sec
-const DEFAULT_MODEL_FREE  = process.env.CHAT_MODEL_FREE  || 'gpt-5-nano'
+const DEFAULT_MODEL_FREE  = process.env.CHAT_MODEL_FREE  || 'llama-3.1-8b-instant'     // Groq LPU — ~600 tok/sec
 const DEFAULT_MODEL_BOOST = process.env.CHAT_MODEL_BOOST || 'gpt-5'
 
 export function pickModel(opts?: RouteOpts): string {
@@ -45,9 +42,10 @@ export function routeModel(tier: UserTier, boost: boolean, routingSignals: any):
   return {
     model,
     reason,
-    estimatedCost: model.includes('nano') ? 0.0003
+    estimatedCost: model.includes('8b') ? 0.00005      // Groq Llama 8B — near-free
+      : model.includes('nano') ? 0.0003
       : model.includes('mini') ? 0.001
-      : model.startsWith('llama') ? 0.0007  // Groq Llama pricing
+      : model.startsWith('llama') ? 0.0007  // Groq Llama 70B pricing
       : 0.005
   }
 }
@@ -64,7 +62,7 @@ export function analyzeQuery(query: string, contextSnippets: any[], history: any
 export function getModelConfig(model: string) {
   return {
     model,
-    maxTokens: model.includes('nano') ? 1000 : 2000,  // mini raised 1000→2000 — summaries were truncating mid-sentence
+    maxTokens: model.includes('nano') || model.includes('8b') ? 1000 : 2000,  // 8b/nano: 1000 (cost); 70b/mini+: 2000 (summaries were truncating)
     temperature: 0.7
   }
 }

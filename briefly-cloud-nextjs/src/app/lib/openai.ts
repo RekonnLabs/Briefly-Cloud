@@ -75,16 +75,16 @@ export const EMBEDDING_DIMENSIONS = 1536
 // Override via Vercel env vars — no code deploy needed to swap models.
 //
 //   CHAT_MODEL_PRO   default: llama-3.3-70b-versatile  (Groq — ~280 tok/sec)
-//   CHAT_MODEL_FREE  default: gpt-5-nano               (OpenAI — cheap)
-//   CHAT_MODEL_BOOST default: gpt-5                    (OpenAI — high quality)
+//   CHAT_MODEL_FREE  default: llama-3.1-8b-instant     (Groq — ~600 tok/sec, free/trial tier)
+//   CHAT_MODEL_BOOST default: gpt-5                    (OpenAI — high quality, boost mode)
 //
-// Groq pricing: $0.59/$0.79 per 1M tokens (Llama 3.3 70B)
-// OpenAI pricing: $0.25/$2.00 per 1M (gpt-5-mini), $0.05/$0.40 (gpt-5-nano)
+// Groq pricing: $0.59/$0.79 per 1M tokens (Llama 3.3 70B), $0.05/$0.08 (Llama 3.1 8B)
+// OpenAI pricing: $1.25/$10.00 per 1M (gpt-5 boost)
 // ─────────────────────────────────────────────────────────────────────────────
-export const FREE_CHAT_MODEL  = 'gpt-5-nano'
-export const PRO_CHAT_MODEL   = 'llama-3.3-70b-versatile'
+export const FREE_CHAT_MODEL  = 'llama-3.1-8b-instant'    // Groq LPU — ~600 tok/sec
+export const PRO_CHAT_MODEL   = 'llama-3.3-70b-versatile' // Groq LPU — ~280 tok/sec
 export const BOOST_CHAT_MODEL = 'gpt-5'
-export const CLASSIFIER_MODEL = 'gpt-5-nano'
+export const CLASSIFIER_MODEL = 'llama-3.1-8b-instant'    // fast + cheap for classification
 
 export const CHAT_MODELS = {
   free:     process.env.CHAT_MODEL_FREE  || FREE_CHAT_MODEL,
