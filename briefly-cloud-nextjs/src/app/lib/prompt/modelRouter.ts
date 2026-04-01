@@ -16,7 +16,7 @@ type RouteOpts = { budget?: 'fast' | 'balanced' | 'quality'; tier?: UserTier }
 // These are gpt-5 (no .4 suffix) — NOT the gpt-5.4 family which is significantly
 // more expensive ($2.50/$15 output) and optimised for reasoning/coding, not RAG.
 // ─────────────────────────────────────────────────────────────────────────────
-const DEFAULT_MODEL_PRO   = process.env.CHAT_MODEL_PRO   || 'gpt-5-mini'
+const DEFAULT_MODEL_PRO   = process.env.CHAT_MODEL_PRO   || 'llama-3.3-70b-versatile'  // Groq LPU — ~280 tok/sec
 const DEFAULT_MODEL_FREE  = process.env.CHAT_MODEL_FREE  || 'gpt-5-nano'
 const DEFAULT_MODEL_BOOST = process.env.CHAT_MODEL_BOOST || 'gpt-5'
 
@@ -45,7 +45,10 @@ export function routeModel(tier: UserTier, boost: boolean, routingSignals: any):
   return {
     model,
     reason,
-    estimatedCost: model.includes('nano') ? 0.0003 : model.includes('mini') ? 0.001 : 0.005
+    estimatedCost: model.includes('nano') ? 0.0003
+      : model.includes('mini') ? 0.001
+      : model.startsWith('llama') ? 0.0007  // Groq Llama pricing
+      : 0.005
   }
 }
 
@@ -96,6 +99,11 @@ const MODEL_PRICING: Record<string, ModelPricing> = {
   // GPT-4o family (legacy — kept for reference)
   'gpt-4o':       { inputPer1K: 0.0025,  outputPer1K: 0.01   },
   'gpt-4o-mini':  { inputPer1K: 0.00015, outputPer1K: 0.0006 },
+  // Groq-hosted Llama models (fast LPU inference — ~280 tok/sec)
+  'llama-3.3-70b-versatile': { inputPer1K: 0.00059, outputPer1K: 0.00079 },
+  'llama-3.1-70b-versatile': { inputPer1K: 0.00059, outputPer1K: 0.00079 },
+  'llama-3.1-8b-instant':    { inputPer1K: 0.00005, outputPer1K: 0.00008 },
+  'llama-3.3-70b-specdec':   { inputPer1K: 0.00059, outputPer1K: 0.00099 },
 }
 
 // Default pricing for unknown/future models (conservative estimate)

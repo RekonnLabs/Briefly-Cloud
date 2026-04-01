@@ -424,7 +424,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
               return
             }
 
-            // 8. Stream content tokens from OpenAI — onToken fires per token
+            // 8. Stream content tokens — onToken fires per token
             let fullContent = ''
             const streamResult = await streamChatCompletion(
               messages as any,
@@ -436,7 +436,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
                 controller.enqueue(encoder.encode(
                   `data: ${JSON.stringify({ type: 'token', content: token })}\n\n`
                 ))
-              }
+              },
+              modelConfig.maxTokens  // pass through from modelRouter — was hardcoded 1000 in openai.ts
             )
 
             // 3. Run linting + provenance on COMPLETE assembled content
@@ -647,7 +648,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
       return ApiResponse.internalError('Failed to prepare chat messages')
     }
     
-    const llmResult: ChatCompletionResult = await generateChatCompletion(messages as any, tier, undefined, routing.model)
+    const llmResult: ChatCompletionResult = await generateChatCompletion(messages as any, tier, undefined, routing.model, modelConfig.maxTokens)
 
     const lintResult = lintResponse(llmResult.content)
     const finalResponse = lintResult.output
