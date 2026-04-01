@@ -154,11 +154,22 @@ function detectModeHint(text: string): IntentMode {
  */
 function extractSources(content: string): { body: string; sources: string[] } {
   const sources: string[] = []
-  const body = content.replace(/\[Source:\s*([^\]]+)\]/g, (_, name) => {
-    const trimmed = name.trim()
-    if (!sources.includes(trimmed)) sources.push(trimmed)
-    return '' // strip inline citation from body
-  }).replace(/\s{2,}/g, ' ').trim() // collapse double-spaces left by removed citations
+  // Strip the entire [Source: ...] bracket from the body.
+  // Handle both GPT-style separate brackets [Source: A] [Source: B]
+  // and Llama-style combined brackets [Source: A, Source: B].
+  // After stripping the bracket, split its content on ", Source:" to get
+  // individual filenames and deduplicate them into the sources array.
+  const body = content.replace(/\[Source:\s*([^\]]+)\]/gi, (_, inner) => {
+    const parts = inner.split(/,\s*Source:\s*/i)
+    for (const part of parts) {
+      const trimmed = part.trim()
+      if (trimmed && !sources.includes(trimmed)) sources.push(trimmed)
+    }
+    return '' // strip the entire bracket from the body
+  })
+  .replace(/[ \t]{2,}/g, ' ') // collapse inline double-spaces (not newlines)
+  .replace(/\n[ \t]+/g, '\n') // trim leading whitespace on lines after stripping
+  .trim()
   return { body, sources }
 }
 

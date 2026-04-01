@@ -79,12 +79,21 @@ function validateProvenance(
     uniqueSources.map(normalizeSource)
   )
 
-  // Extract all [Source: ...] citations from the LLM response
+  // Extract all [Source: ...] citations from the LLM response.
+  // Llama may combine multiple citations in one bracket:
+  //   GPT style:   [Source: A] [Source: B]        → two separate brackets
+  //   Llama style: [Source: A, Source: B]          → one bracket, comma-separated
+  // We handle both by splitting each bracket's content on ", Source:" after extraction.
   const citationPattern = /\[Source:\s*([^\]]+)\]/gi
   const rawCitations: string[] = []
   let match: RegExpExecArray | null
   while ((match = citationPattern.exec(responseText)) !== null) {
-    rawCitations.push(match[1].trim())
+    // Split on ", Source:" (with optional whitespace) to handle combined citations
+    const parts = match[1].split(/,\s*Source:\s*/i)
+    for (const part of parts) {
+      const trimmed = part.trim()
+      if (trimmed) rawCitations.push(trimmed)
+    }
   }
 
   // Validate each citation against the actual retrieved source list
