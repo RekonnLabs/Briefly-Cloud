@@ -84,6 +84,7 @@ interface ImportJob {
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
+  lastHeartbeat?: string | null;
   outputData?: {
     totalFiles: number;
     processedFiles: number;
@@ -757,80 +758,152 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     }
   };
 
+  // ── Staleness detection ────────────────────────────────────────────────────
+  // A job is stale if it has been in 'processing' status for > 60s without a
+  // heartbeat update. This means the Vercel function was killed mid-run.
+  const STALE_THRESHOLD_MS = 60_000;
+  const isJobStale = (job: ImportJob): boolean => {
+    if (job.status !== 'processing') return false;
+    if (!job.lastHeartbeat) return false;
+    return Date.now() - new Date(job.lastHeartbeat).getTime() > STALE_THRESHOLD_MS;
+  };
+
+  // ── Chunk-loop driver ──────────────────────────────────────────────────────
+  // Drives the client-side chunk loop: calls POST /batch with { jobId, offset, limit }
+  // repeatedly until done === true or a terminal error occurs.
+  const driveChunkLoop = useCallback(async (
+    jobId: string,
+    providerId: 'google' | 'microsoft',
+    startOffset: number = 0
+  ) => {
+    const endpoint = providerId === 'google'
+      ? '/api/storage/google/import/batch'
+      : '/api/storage/microsoft/import/batch';
+    const CHUNK_SIZE = 10;
+    let offset = startOffset;
+    let consecutiveErrors = 0;
+
+    while (true) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId, offset, limit: CHUNK_SIZE })
+        });
+
+        if (!response.ok) {
+          consecutiveErrors++;
+          console.error(`[batch-chunk] HTTP ${response.status} at offset ${offset}`);
+          if (consecutiveErrors >= 3) {
+            showError('Import stalled', 'Too many consecutive errors. Please resume or restart the import.');
+            break;
+          }
+          // Brief pause before retry
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+
+        consecutiveErrors = 0;
+        const result = await response.json();
+        const chunk = result.data as { processed: number; failed: number; skipped: number; done: boolean };
+
+        // Refresh job status from the polling endpoint so the UI updates
+        const statusRes = await fetch(`${endpoint}?jobId=${jobId}`);
+        if (statusRes.ok) {
+          const statusResult = await statusRes.json();
+          const updatedJob: ImportJob = statusResult.data;
+          setBatchJobs(prev => new Map(prev).set(jobId, updatedJob));
+        }
+
+        if (chunk.done) {
+          window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
+          break;
+        }
+
+        offset += CHUNK_SIZE;
+      } catch (err) {
+        consecutiveErrors++;
+        console.error('[batch-chunk] Network error at offset', offset, err);
+        if (consecutiveErrors >= 3) {
+          showError('Import stalled', 'Network errors prevented the import from completing. Please resume.');
+          break;
+        }
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+  }, [showError]);
+
   const startBatchImport = async (providerId: 'google' | 'microsoft', folderId?: string) => {
     const provider = providers.find(p => p.id === providerId);
     if (!provider) return;
 
     const targetFolderId = folderId || provider.currentFolderId;
+    const endpoint = providerId === 'google'
+      ? '/api/storage/google/import/batch'
+      : '/api/storage/microsoft/import/batch';
+
     try {
-      const endpoint = providerId === 'google' 
-        ? '/api/storage/google/import/batch'
-        : '/api/storage/microsoft/import/batch';
-      
+      // Phase 1: create job and get file list (returns immediately)
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          folderId: targetFolderId,
-          batchSize: 5,
-          maxRetries: 3
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: targetFolderId, maxRetries: 3 })
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        const job: ImportJob = result.data;
-        
-        setBatchJobs(prev => new Map(prev).set(job.jobId, job));
-        
-        // Start polling for progress
-        pollJobProgress(job.jobId, providerId);
-      } else {
+      if (!response.ok) {
         const error = await response.json();
         showError('Failed to start batch import', error.error?.message || 'Unknown error occurred.');
+        return;
       }
+
+      const result = await response.json();
+      const job: ImportJob = result.data;
+      setBatchJobs(prev => new Map(prev).set(job.jobId, job));
+
+      // Phase 2: drive the chunk loop (non-blocking — runs in background)
+      driveChunkLoop(job.jobId, providerId, 0);
+
     } catch (error) {
       console.error('Batch import error:', error);
       showError('Failed to start batch import', 'Please try again or check your connection.');
     }
   };
 
+  // Resume a stale import from where it left off
+  const resumeBatchImport = async (jobId: string, providerId: 'google' | 'microsoft') => {
+    const job = batchJobs.get(jobId);
+    if (!job) return;
+    const resumeOffset = job.progress.processed + job.progress.failed + job.progress.skipped;
+    showSuccess('Resuming import', `Continuing from file ${resumeOffset + 1}...`);
+    driveChunkLoop(jobId, providerId, resumeOffset);
+  };
+
+  // Legacy polling — kept for jobs created before this deploy
   const pollJobProgress = useCallback(async (jobId: string, providerId: 'google' | 'microsoft') => {
-    const endpoint = providerId === 'google' 
+    const endpoint = providerId === 'google'
       ? '/api/storage/google/import/batch'
       : '/api/storage/microsoft/import/batch';
-    
+
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(`${endpoint}?jobId=${jobId}`);
-        
         if (response.ok) {
           const result = await response.json();
           const job: ImportJob = result.data;
-          
           setBatchJobs(prev => new Map(prev).set(jobId, job));
-          
-          // Stop polling if job is complete
           if (['completed', 'failed', 'cancelled'].includes(job.status)) {
             clearInterval(pollInterval);
-            // Notify Sidebar quota card to refresh — files were just indexed
             if (job.status === 'completed') {
               window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
             }
           }
         } else {
-          console.error('Failed to fetch job status');
           clearInterval(pollInterval);
         }
-      } catch (error) {
-        console.error('Error polling job progress:', error);
+      } catch {
         clearInterval(pollInterval);
       }
-    }, 2000); // Poll every 2 seconds
-
-    // Cleanup interval after 10 minutes
+    }, 2000);
     setTimeout(() => clearInterval(pollInterval), 10 * 60 * 1000);
   }, []);
 
@@ -1229,6 +1302,35 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                     </div>
                   </div>
 
+                  {/* Stale job warning — shown when heartbeat is > 60s old */}
+                  {isJobStale(job) && (
+                    <div className="mb-3 p-3 bg-yellow-900/30 border border-yellow-600/40 rounded-lg">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-yellow-400 text-sm">⚠️</span>
+                        <div className="flex-1">
+                          <p className="text-yellow-300 text-sm font-medium">This import stopped responding.</p>
+                          <p className="text-yellow-400/70 text-xs mt-0.5">
+                            {job.progress.processed + job.progress.failed + job.progress.skipped} of {job.progress.total} files were processed before it stalled.
+                          </p>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => resumeBatchImport(job.jobId, provider.id)}
+                            className="px-3 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-500 transition-colors"
+                          >
+                            Resume
+                          </button>
+                          <button
+                            onClick={() => cancelBatchImport(job.jobId, provider.id)}
+                            className="px-3 py-1 text-xs bg-gray-600 text-gray-300 rounded hover:bg-gray-500 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Progress Bar */}
                   <div className="mb-3">
                     <div className="flex justify-between text-sm text-gray-300 mb-1">
@@ -1239,7 +1341,9 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
                       <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          isJobStale(job) ? 'bg-yellow-500' : 'bg-blue-600'
+                        }`}
                         style={{ width: `${job.progress.percentage}%` }}
                       />
                     </div>

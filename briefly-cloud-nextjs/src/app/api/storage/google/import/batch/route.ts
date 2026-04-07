@@ -1,9 +1,22 @@
 /**
  * Google Drive Batch Import API
- * 
- * Creates and manages batch import jobs for Google Drive folders
- * Supports folder-specific imports with server-side file listing
- * Returns job ID for progress tracking and status polling
+ *
+ * Two-phase client-driven chunked processing to avoid Vercel timeout zombies:
+ *
+ * Phase 1 — Job creation (POST without offset/limit):
+ *   Lists all files from the provider, stores the list in job.input_data.fileList,
+ *   and returns immediately with { jobId, totalFiles }.
+ *   The client then drives processing by calling Phase 2 repeatedly.
+ *
+ * Phase 2 — Chunk processing (POST with { jobId, offset, limit }):
+ *   Processes exactly `limit` files starting at `offset`.
+ *   Returns { processed, failed, skipped, done }.
+ *   Client calls this in a loop until done === true.
+ *   Each call completes in ~10-20s — well under any Vercel limit.
+ *
+ * GET  — Status polling (unchanged)
+ * DELETE — Cancel job (unchanged)
+ * PUT  — List jobs (unchanged)
  */
 
 import { NextResponse } from 'next/server'
@@ -14,14 +27,25 @@ import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
 import { logger } from '@/app/lib/logger'
 import { getUserLimits } from '@/app/lib/usage/quota-enforcement'
 
-interface BatchImportRequest {
+interface BatchCreateRequest {
   folderId?: string
-  batchSize?: number
   maxRetries?: number
 }
 
+interface BatchChunkRequest {
+  jobId: string
+  offset: number
+  limit: number
+}
+
+type BatchImportRequest = BatchCreateRequest | BatchChunkRequest
+
+function isChunkRequest(body: BatchImportRequest): body is BatchChunkRequest {
+  return 'jobId' in body && 'offset' in body && 'limit' in body
+}
+
 async function createGoogleBatchImportHandler(
-  request: Request, 
+  request: Request,
   context: ApiContext
 ): Promise<NextResponse> {
   const { user } = context
@@ -31,22 +55,40 @@ async function createGoogleBatchImportHandler(
 
   try {
     const body = await request.json().catch(() => ({})) as BatchImportRequest
-    const folderId = body.folderId || 'root'
-    const batchSize = body.batchSize || 5
-    const maxRetries = body.maxRetries || 3
 
-    // Validate batch size limits (server-side can handle larger batches)
-    if (batchSize < 1 || batchSize > 20) {
-      return ApiResponse.badRequest('Batch size must be between 1 and 20')
+    // ── Phase 2: chunk processing ──────────────────────────────────────────────
+    if (isChunkRequest(body)) {
+      const { jobId, offset, limit } = body
+
+      if (offset < 0) return ApiResponse.badRequest('offset must be >= 0')
+      if (limit < 1 || limit > 20) return ApiResponse.badRequest('limit must be between 1 and 20')
+
+      // Verify job belongs to this user
+      const job = await ImportJobManager.getJob(jobId)
+      if (!job) return ApiResponse.notFound('Job not found')
+      if (job.userId !== user.id) return ApiResponse.forbidden('Access denied to this job')
+
+      logger.info('Processing import chunk', { userId: user.id, jobId, offset, limit })
+
+      const result = await ImportJobManager.processChunk(jobId, offset, limit)
+
+      return ApiResponse.success({
+        jobId,
+        offset,
+        limit,
+        ...result
+      }, result.done ? 'Import complete' : 'Chunk processed')
     }
+
+    // ── Phase 1: job creation ──────────────────────────────────────────────────
+    const folderId = (body as BatchCreateRequest).folderId || 'root'
+    const maxRetries = (body as BatchCreateRequest).maxRetries || 3
 
     if (maxRetries < 1 || maxRetries > 5) {
-      return ApiResponse.badRequest('Max retries must be between 1 and 5')
+      return ApiResponse.badRequest('maxRetries must be between 1 and 5')
     }
 
-    // ── Quota pre-flight — fail-closed ────────────────────────────────────────
-    // Check before creating the job. A batch import can index hundreds of files;
-    // we must not start a job the user cannot complete within their plan limits.
+    // Quota pre-flight — fail-closed before listing any files
     const limits = await getUserLimits(user.id)
     if (!limits) {
       return ApiResponse.serverError('Unable to verify account limits. Please try again.', 'QUOTA_CHECK_FAILED')
@@ -63,25 +105,19 @@ async function createGoogleBatchImportHandler(
         `Free up storage or upgrade your plan before importing more.`
       )
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
-    logger.info('Creating Google Drive batch import job', {
+    logger.info('Preparing Google Drive batch import job', {
       userId: user.id,
       folderId,
-      batchSize,
       maxRetries
     })
 
-    // Create and process the server-side batch import job
-    const job = await ImportJobManager.createAndProcessBatchImport(
+    // List all files, store in job.input_data.fileList, return immediately
+    const job = await ImportJobManager.prepareJobForChunkedProcessing(
       user.id,
       'google',
       folderId,
-      {
-        batchSize: Math.min(batchSize, 10), // Server-side can handle larger batches
-        maxRetries,
-        processImmediately: true
-      }
+      { maxRetries }
     )
 
     return ApiResponse.success({
@@ -89,18 +125,19 @@ async function createGoogleBatchImportHandler(
       status: job.status,
       provider: 'google',
       folderId,
+      totalFiles: job.progress.total,
       createdAt: job.createdAt,
       progress: job.progress
-    }, 'Batch import job created successfully')
+    }, 'Batch import job created — call with { jobId, offset, limit } to process files')
 
   } catch (error) {
-    logger.error('Error creating Google Drive batch import', {
+    logger.error('Error in Google Drive batch import handler', {
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error'
     })
 
     return ApiResponse.serverError(
-      'Failed to create batch import job',
+      'Failed to process batch import request',
       'BATCH_IMPORT_ERROR'
     )
   }
@@ -123,10 +160,8 @@ async function getGoogleBatchImportStatusHandler(
       return ApiResponse.badRequest('jobId parameter is required')
     }
 
-    // Get comprehensive batch import status
     const statusData = await ImportJobManager.getBatchImportStatus(jobId)
-    
-    // Verify job belongs to user
+
     if (statusData.job.userId !== user.id) {
       return ApiResponse.forbidden('Access denied to this job')
     }
@@ -144,7 +179,9 @@ async function getGoogleBatchImportStatusHandler(
       completedAt: statusData.job.completedAt,
       estimatedCompletion: statusData.job.estimatedCompletion,
       outputData: statusData.job.outputData,
-      errorMessage: statusData.job.errorMessage
+      errorMessage: statusData.job.errorMessage,
+      // Include heartbeat so the frontend staleness detector can read it
+      lastHeartbeat: (statusData.job as any).lastHeartbeat ?? null
     })
 
   } catch (error) {
@@ -179,8 +216,6 @@ async function listGoogleBatchImportsHandler(
     }
 
     const jobs = await ImportJobManager.getUserJobs(user.id, status, limit)
-
-    // Filter to only Google Drive jobs
     const googleJobs = jobs.filter(job => job.provider === 'google')
 
     return ApiResponse.success({
@@ -223,7 +258,7 @@ async function cancelGoogleBatchImportHandler(
 
   try {
     const body = await request.json().catch(() => ({})) as { jobId?: string }
-    
+
     if (!body.jobId) {
       return ApiResponse.badRequest('jobId is required')
     }
@@ -233,12 +268,10 @@ async function cancelGoogleBatchImportHandler(
       return ApiResponse.notFound('Job not found')
     }
 
-    // Verify job belongs to user
     if (job.userId !== user.id) {
       return ApiResponse.forbidden('Access denied to this job')
     }
 
-    // Only allow cancellation of pending or processing jobs
     if (!['pending', 'processing'].includes(job.status)) {
       return ApiResponse.badRequest(`Cannot cancel job with status: ${job.status}`)
     }
@@ -269,7 +302,7 @@ async function cancelGoogleBatchImportHandler(
   }
 }
 
-// Export handlers for different HTTP methods
+// Export handlers
 export const POST = createProtectedApiHandler(createGoogleBatchImportHandler, {
   rateLimit: rateLimitConfigs.embedding,
   logging: { enabled: true, includeBody: true }
@@ -285,7 +318,6 @@ export const DELETE = createProtectedApiHandler(cancelGoogleBatchImportHandler, 
   logging: { enabled: true, includeBody: true }
 })
 
-// Also support listing via GET with different query params
 export const PUT = createProtectedApiHandler(listGoogleBatchImportsHandler, {
   rateLimit: rateLimitConfigs.api,
   logging: { enabled: true, includeBody: false }

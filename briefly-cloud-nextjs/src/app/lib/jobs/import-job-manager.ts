@@ -1038,7 +1038,8 @@ export class ImportJobManager {
   }
 
   /**
-   * Update job progress
+   * Update job progress and bump last_heartbeat so the frontend staleness
+   * detector knows the job is still alive.
    */
   private static async updateJobProgress(
     jobId: string,
@@ -1060,6 +1061,15 @@ export class ImportJobManager {
       if (error) {
         throw createDatabaseError('Failed to update job progress', error)
       }
+
+      // Bump heartbeat — fire-and-forget, never block progress update on this
+      supabaseAdmin
+        .from('job_logs')
+        .update({ last_heartbeat: new Date().toISOString() })
+        .eq('id', jobId)
+        .then(({ error: hbErr }) => {
+          if (hbErr) logger.warn('Failed to update heartbeat', { jobId, error: hbErr.message })
+        })
     } catch (error) {
       logger.error('Error updating job progress', {
         jobId,
@@ -1068,6 +1078,146 @@ export class ImportJobManager {
       })
       throw error
     }
+  }
+
+  /**
+   * Process a specific slice of files for a job (offset + limit).
+   * Called by the client-driven chunked batch endpoint — each invocation
+   * processes exactly `limit` files starting at `offset`, then returns.
+   * This keeps every Vercel function call well under the execution limit.
+   */
+  static async processChunk(
+    jobId: string,
+    offset: number,
+    limit: number
+  ): Promise<{ processed: number; failed: number; skipped: number; done: boolean }> {
+    const job = await this.getJob(jobId)
+    if (!job) throw createError.notFound('Job not found')
+
+    if (!['pending', 'processing'].includes(job.status)) {
+      throw createError.badRequest(`Job cannot be processed in status: ${job.status}`)
+    }
+
+    // Mark as processing on first chunk
+    if (job.status === 'pending') {
+      await this.updateJobStatus(jobId, 'processing', { started_at: new Date() })
+    }
+
+    // Retrieve the full file list stored in input_data (set during job creation)
+    const allFiles = (job.inputData.fileList as import('@/app/lib/cloud-storage/types').CloudStorageFile[]) || []
+    const chunk = allFiles.slice(offset, offset + limit)
+    const maxRetries = (job.inputData.maxRetries as number) || 3
+
+    // Process each file in the chunk with full per-file isolation
+    for (const file of chunk) {
+      try {
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Processing timeout (30s)')), 30_000)
+        )
+        const result = await Promise.race([
+          this.processFile(job, file, maxRetries),
+          timeoutPromise
+        ])
+        void result // result is already written to DB inside processFile
+      } catch (err) {
+        // processFile should never throw — this is a safety net
+        logger.error('Unexpected throw from processFile in processChunk', {
+          jobId,
+          fileId: file.id,
+          error: err instanceof Error ? err.message : 'Unknown error'
+        })
+      }
+    }
+
+    // Recalculate progress after the chunk
+    const progress = await this.calculateProgress(jobId)
+    await this.updateJobProgress(jobId, progress)
+
+    const totalAttempted = progress.processed + progress.failed + progress.skipped
+    const done = totalAttempted >= progress.total
+
+    if (done) {
+      const outputData = {
+        totalFiles: progress.total,
+        processedFiles: progress.processed,
+        failedFiles: progress.failed,
+        skippedFiles: progress.skipped,
+        duplicateFiles: await this.countFilesByStatus(jobId, 'duplicate')
+      }
+      await this.updateJobProgress(jobId, { ...progress, current_file: null })
+      await this.updateJobStatus(jobId, 'completed', {
+        completed_at: new Date(),
+        output_data: outputData
+      })
+    }
+
+    return {
+      processed: progress.processed,
+      failed: progress.failed,
+      skipped: progress.skipped,
+      done
+    }
+  }
+
+  /**
+   * Prepare a job for chunked client-driven processing.
+   * Lists all files from the provider, stores the list in input_data.fileList,
+   * sets total count, and returns the job without starting any file processing.
+   */
+  static async prepareJobForChunkedProcessing(
+    userId: string,
+    provider: 'google' | 'microsoft',
+    folderId?: string,
+    options: { maxRetries?: number } = {}
+  ): Promise<ImportJob> {
+    // Auto-recover any stale job for this user before creating a new one
+    const existingJobs = await this.getUserJobs(userId, 'processing', 5)
+    for (const staleJob of existingJobs) {
+      if (this.isJobStale(staleJob)) {
+        logger.warn('Auto-recovering stale job before new import', { staleJobId: staleJob.id, userId })
+        await this.updateJobStatus(staleJob.id, 'failed', {
+          completed_at: new Date(),
+          error_message: 'Superseded by new import'
+        })
+      }
+    }
+
+    const job = await this.createJob(userId, provider, folderId, {
+      maxRetries: options.maxRetries || 3
+    })
+
+    // List all files upfront and store in input_data
+    await this.updateJobStatus(job.id, 'processing', { started_at: new Date() })
+    const files = await this.getAllFilesToImport(job)
+
+    // Persist the file list and total count into input_data so each chunk
+    // invocation can slice it without re-listing from the provider
+    await supabaseAdmin
+      .from('job_logs')
+      .update({
+        input_data: { ...job.inputData, fileList: files, maxRetries: options.maxRetries || 3 },
+        progress: { total: files.length, processed: 0, failed: 0, skipped: 0, current_file: null, percentage: 0 }
+      })
+      .eq('id', job.id)
+
+    logger.info('Job prepared for chunked processing', {
+      jobId: job.id,
+      userId,
+      provider,
+      totalFiles: files.length
+    })
+
+    return { ...job, progress: { ...job.progress, total: files.length } }
+  }
+
+  /**
+   * Check if a job is stale (processing but no heartbeat for > 60s)
+   */
+  static isJobStale(job: ImportJob & { lastHeartbeat?: string }): boolean {
+    if (job.status !== 'processing') return false
+    const heartbeat = (job as any).lastHeartbeat
+    if (!heartbeat) return false
+    return Date.now() - new Date(heartbeat).getTime() > 60_000
   }
 
   /**
