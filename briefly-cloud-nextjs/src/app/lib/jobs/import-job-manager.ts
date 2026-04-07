@@ -367,28 +367,30 @@ export class ImportJobManager {
     batch: CloudStorageFile[],
     maxRetries: number
   ): Promise<void> {
+    // Process batch in parallel with full error isolation.
+    // Promise.allSettled ensures a single file rejection never kills the batch.
+    const results = await Promise.allSettled(
+      batch.map(file => this.processFile(job, file, maxRetries))
+    )
+
+    // Log any unexpected rejections (processFile should never reject — it always
+    // returns a FileProcessingResult. If it does reject, it's a programming error.)
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        logger.error('File processing unexpectedly rejected in batch', {
+          jobId: job.id,
+          fileId: batch[index].id,
+          fileName: batch[index].name,
+          error: result.reason
+        })
+      }
+    })
+
+    // Update job progress after batch completion.
+    // Swallow DB errors here — a failed progress update must NOT kill the job.
     try {
-      // Process batch in parallel with error isolation
-      const results = await Promise.allSettled(
-        batch.map(file => this.processFile(job, file, maxRetries))
-      )
-
-      // Log any rejected promises
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          logger.error('File processing rejected in batch', {
-            jobId: job.id,
-            fileId: batch[index].id,
-            fileName: batch[index].name,
-            error: result.reason
-          })
-        }
-      })
-
-      // Update job progress after batch completion
       const currentProgress = await this.calculateProgress(job.id)
       await this.updateJobProgress(job.id, currentProgress)
-
       logger.debug('Batch processed', {
         jobId: job.id,
         batchSize: batch.length,
@@ -396,14 +398,11 @@ export class ImportJobManager {
         failed: results.filter(r => r.status === 'rejected').length,
         totalProgress: `${currentProgress.processed + currentProgress.failed + currentProgress.skipped}/${currentProgress.total}`
       })
-
-    } catch (error) {
-      logger.error('Error processing batch', {
+    } catch (progressError) {
+      logger.warn('Failed to update progress after batch — continuing job', {
         jobId: job.id,
-        batchSize: batch.length,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: progressError instanceof Error ? progressError.message : 'Unknown error'
       })
-      throw error
     }
   }
 
@@ -521,11 +520,16 @@ export class ImportJobManager {
       timestamp: new Date()
     })
 
+    // Per-file timeout: 30 seconds covers download + extraction + embedding.
+    // Any single operation that hangs longer than this is treated as a failure
+    // and the next file is attempted immediately.
+    const FILE_TIMEOUT_MS = 30_000
+
     while (attempts < maxRetries) {
       attempts++
 
       try {
-        // Check for duplicates first
+        // Check for duplicates first (no timeout needed — fast DB read)
         const isDuplicate = await this.checkForDuplicate(job.userId, job.provider, file)
         if (isDuplicate) {
           await this.updateFileStatus(job.id, file.id, {
@@ -542,8 +546,16 @@ export class ImportJobManager {
         // Update status to processing
         await this.updateFileStatus(job.id, file.id, { status: 'processing' })
 
-        // Download and process file
-        const result = await this.downloadAndProcessFile(job, file)
+        // Download and process file — race against a 30s hard timeout.
+        // If the timeout fires first, the AbortError propagates to the catch block
+        // below, which marks the file as failed and continues to the next file.
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Processing timeout (30s)')), FILE_TIMEOUT_MS)
+        )
+        const result = await Promise.race([
+          this.downloadAndProcessFile(job, file),
+          timeoutPromise
+        ])
 
         // Update status to completed
         await this.updateFileStatus(job.id, file.id, {
@@ -559,6 +571,20 @@ export class ImportJobManager {
 
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error')
+
+        // Produce a human-readable reason for the UI
+        const rawMessage = lastError.message
+        const friendlyReason = rawMessage.includes('timeout')
+          ? 'Processing timeout'
+          : rawMessage.includes('too large') || rawMessage.includes('File too large')
+            ? 'File too large'
+            : rawMessage.includes('mime_type') || rawMessage.includes('Unsupported')
+              ? 'Unsupported file type'
+              : rawMessage.includes('extract') || rawMessage.includes('Extraction')
+                ? 'Extraction error'
+                : rawMessage.includes('empty')
+                  ? 'Downloaded file is empty'
+                  : rawMessage
         
         logger.warn('File processing attempt failed', {
           jobId: job.id,
@@ -566,24 +592,40 @@ export class ImportJobManager {
           fileName: file.name,
           attempt: attempts,
           maxRetries,
-          error: lastError.message
+          error: rawMessage,
+          friendlyReason
         })
 
         if (attempts >= maxRetries) {
-          // Final failure
+          // Final failure — mark with human-readable reason and continue
           await this.updateFileStatus(job.id, file.id, {
             status: 'failed',
-            error: lastError.message
+            error: friendlyReason
           })
+
+          // Recalculate progress so the failed count is reflected in the UI
+          const updatedProgress = await this.calculateProgress(job.id)
+          await this.updateJobProgress(job.id, updatedProgress)
 
           return {
             success: false,
             status: 'failed',
-            error: lastError.message
+            error: friendlyReason
           }
         }
 
-        // Wait before retry (exponential backoff)
+        // Wait before retry (exponential backoff), but don't retry timeouts —
+        // if a file timed out once it will almost certainly time out again.
+        if (rawMessage.includes('timeout')) {
+          await this.updateFileStatus(job.id, file.id, {
+            status: 'failed',
+            error: friendlyReason
+          })
+          const updatedProgress = await this.calculateProgress(job.id)
+          await this.updateJobProgress(job.id, updatedProgress)
+          return { success: false, status: 'failed', error: friendlyReason }
+        }
+
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempts) * 1000))
       }
     }
