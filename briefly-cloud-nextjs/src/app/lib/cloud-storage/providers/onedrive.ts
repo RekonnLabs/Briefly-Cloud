@@ -139,7 +139,7 @@ export class OneDriveProvider implements CloudStorageProvider {
   /**
    * Download file from OneDrive using Microsoft Graph API
    */
-  async downloadFile(userId: string, fileId: string): Promise<Buffer> {
+  async downloadFile(userId: string, fileId: string, signal?: AbortSignal): Promise<Buffer> {
     try {
       const token = await TokenStore.refreshTokenIfNeeded(userId, 'microsoft')
       if (!token) {
@@ -153,7 +153,8 @@ export class OneDriveProvider implements CloudStorageProvider {
           headers: {
             'Authorization': `Bearer ${token.accessToken}`,
             'Content-Type': 'application/json'
-          }
+          },
+          signal
         }
       )
 
@@ -176,7 +177,7 @@ export class OneDriveProvider implements CloudStorageProvider {
       }
 
       // Download the file using the direct download URL
-      const downloadResponse = await fetch(downloadUrl)
+      const downloadResponse = await fetch(downloadUrl, { signal })
 
       if (!downloadResponse.ok) {
         const errorText = await downloadResponse.text()

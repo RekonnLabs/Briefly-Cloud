@@ -142,7 +142,7 @@ export class GoogleDriveProvider implements CloudStorageProvider {
   /**
    * Download file from Google Drive with Google Docs export support
    */
-  async downloadFile(userId: string, fileId: string): Promise<Buffer> {
+  async downloadFile(userId: string, fileId: string, signal?: AbortSignal): Promise<Buffer> {
     try {
       const token = await TokenStore.refreshTokenIfNeeded(userId, 'google')
       if (!token) {
@@ -165,7 +165,8 @@ export class GoogleDriveProvider implements CloudStorageProvider {
       const response = await fetch(downloadUrl, {
         headers: {
           'Authorization': `Bearer ${token.accessToken}`
-        }
+        },
+        signal
       })
 
       if (!response.ok) {

@@ -783,7 +783,27 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     let offset = startOffset;
     let consecutiveErrors = 0;
 
+    // Concurrent polling interval — runs every 3s WHILE a chunk is in-flight
+    // so the progress bar updates as individual files complete, not just between chunks.
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    const startPolling = () => {
+      if (pollTimer) return;
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`${endpoint}?jobId=${jobId}`);
+          if (res.ok) {
+            const r = await res.json();
+            setBatchJobs(prev => new Map(prev).set(jobId, r.data as ImportJob));
+          }
+        } catch { /* non-fatal — next tick will retry */ }
+      }, 3000);
+    };
+    const stopPolling = () => {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    };
+
     while (true) {
+      startPolling(); // ensure polling is running before each chunk call
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -795,10 +815,10 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
           consecutiveErrors++;
           console.error(`[batch-chunk] HTTP ${response.status} at offset ${offset}`);
           if (consecutiveErrors >= 3) {
+            stopPolling();
             showError('Import stalled', 'Too many consecutive errors. Please resume or restart the import.');
             break;
           }
-          // Brief pause before retry
           await new Promise(r => setTimeout(r, 2000));
           continue;
         }
@@ -807,15 +827,17 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         const result = await response.json();
         const chunk = result.data as { processed: number; failed: number; skipped: number; done: boolean };
 
-        // Refresh job status from the polling endpoint so the UI updates
-        const statusRes = await fetch(`${endpoint}?jobId=${jobId}`);
-        if (statusRes.ok) {
-          const statusResult = await statusRes.json();
-          const updatedJob: ImportJob = statusResult.data;
-          setBatchJobs(prev => new Map(prev).set(jobId, updatedJob));
-        }
+        // Immediate status refresh after chunk completes (supplements the interval)
+        try {
+          const statusRes = await fetch(`${endpoint}?jobId=${jobId}`);
+          if (statusRes.ok) {
+            const statusResult = await statusRes.json();
+            setBatchJobs(prev => new Map(prev).set(jobId, statusResult.data as ImportJob));
+          }
+        } catch { /* non-fatal */ }
 
         if (chunk.done) {
+          stopPolling();
           window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
           break;
         }
@@ -825,6 +847,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         consecutiveErrors++;
         console.error('[batch-chunk] Network error at offset', offset, err);
         if (consecutiveErrors >= 3) {
+          stopPolling();
           showError('Import stalled', 'Network errors prevented the import from completing. Please resume.');
           break;
         }

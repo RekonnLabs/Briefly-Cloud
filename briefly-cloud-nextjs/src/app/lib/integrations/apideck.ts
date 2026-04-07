@@ -161,11 +161,17 @@ export const Apideck = {
     return res.json();
   },
 
-  async downloadFile(consumerId: string, connectionId: string, fileId: string, format?: string) {
+  async downloadFile(consumerId: string, connectionId: string, fileId: string, formatOrSignal?: string | AbortSignal, signal?: AbortSignal) {
+    // Supports two call signatures:
+    //   downloadFile(consumerId, connectionId, fileId, format?, signal?)
+    //   downloadFile(consumerId, connectionId, fileId, signal?)
+    const format = typeof formatOrSignal === 'string' ? formatOrSignal : undefined;
+    const abortSignal = formatOrSignal instanceof AbortSignal ? formatOrSignal : signal;
     const q = new URLSearchParams();
     if (format) q.set('format', format);
     const res = await fetch(`${API}/file-storage/files/${encodeURIComponent(fileId)}/download?${q.toString()}`, {
-      headers: { ...apideckHeaders(consumerId), 'x-apideck-connection-id': connectionId }
+      headers: { ...apideckHeaders(consumerId), 'x-apideck-connection-id': connectionId },
+      signal: abortSignal
     });
     if (!res.ok) throw new Error(`download failed: ${res.status} ${await res.text()}`);
     return Buffer.from(await res.arrayBuffer());

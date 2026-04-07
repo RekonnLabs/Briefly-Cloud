@@ -39,7 +39,7 @@ export interface CloudStorageProvider {
     pageSize?: number
   ): Promise<CloudStorageListResponse>
   
-  downloadFile(userId: string, fileId: string): Promise<Buffer>
+  downloadFile(userId: string, fileId: string, signal?: AbortSignal): Promise<Buffer>
   
   getFileMetadata?(userId: string, fileId: string): Promise<CloudStorageFile>
 }

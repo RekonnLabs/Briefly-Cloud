@@ -929,6 +929,13 @@ export class ImportJobManager {
     file: CloudStorageFile,
     jobProvider: 'google' | 'microsoft'
   ): Promise<Buffer> {
+    // Hard download timeout — 25s, fires 5s before the outer 30s Promise.race.
+    // This ensures the fetch is cancelled at the network level so the Vercel
+    // function doesn't stay alive waiting for a hung TCP stream.
+    const downloadAbort = new AbortController()
+    const downloadTimeoutId = setTimeout(() => downloadAbort.abort(), 25_000)
+    const abortSignal = downloadAbort.signal
+
     try {
             // Check for Apideck connection
       const { data: conn, error: connError } = await supabaseAdmin
@@ -978,29 +985,42 @@ export class ImportJobManager {
         if (exportMime) {
           const res = await fetch(
             `${process.env.APIDECK_API_BASE_URL}/file-storage/files/${encodeURIComponent(file.id)}/export?format=${encodeURIComponent(exportMime)}`,
-            { headers: { ...apideckHeaders(consumerId), 'x-apideck-connection-id': conn.connection_id } }
+            { headers: { ...apideckHeaders(consumerId), 'x-apideck-connection-id': conn.connection_id }, signal: abortSignal }
           )
           if (!res.ok) throw new Error(`Apideck export failed: ${res.status} ${await res.text()}`)
           // Update mimeType so the downstream extractor handles the exported format correctly
           file.mimeType = exportMime
+          clearTimeout(downloadTimeoutId)
           return Buffer.from(await res.arrayBuffer())
         }
 
-        return await Apideck.downloadFile(consumerId, conn.connection_id, file.id)
+        const apideckBuffer = await Apideck.downloadFile(consumerId, conn.connection_id, file.id, abortSignal)
+        clearTimeout(downloadTimeoutId)
+        return apideckBuffer
       }
 
       // Legacy provider fallback
-      const buffer = await provider.downloadFile(userId, file.id)
+      const buffer = await provider.downloadFile(userId, file.id, abortSignal)
       if (buffer.length === 0) throw new Error('Downloaded file is empty')
+      clearTimeout(downloadTimeoutId)
       return buffer
     } catch (error) {
+      clearTimeout(downloadTimeoutId)
+      // Translate AbortError into a timeout message so the friendly-reason
+      // mapper in processFile shows 'Processing timeout' instead of 'AbortError'
+      const isAbort = error instanceof Error && (
+        error.name === 'AbortError' || error.message.includes('aborted')
+      )
+      const wrappedError = isAbort
+        ? new Error('Processing timeout (download aborted after 25s)')
+        : error
       logger.error('Error downloading file with streaming', {
         userId,
         fileId: file.id,
         fileName: file.name,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: wrappedError instanceof Error ? wrappedError.message : 'Unknown error'
       })
-      throw error
+      throw wrappedError
     }
   }
 
