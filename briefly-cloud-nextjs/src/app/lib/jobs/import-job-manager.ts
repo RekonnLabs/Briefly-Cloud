@@ -18,6 +18,9 @@ import { logger } from '@/app/lib/logger'
 import { createError } from '@/app/lib/api-errors'
 import { extractTextFromBuffer } from '@/app/lib/document-extractor'
 import { indexFile } from '@/app/lib/indexing/indexingPipeline'
+import { createTextChunks } from '@/app/lib/document-chunker'
+import { generateBatchEmbeddings } from '@/app/lib/embeddings'
+import { getVectorStore } from '@/app/lib/vector/vector-store-factory'
 
 import { Apideck, apideckHeaders } from '@/app/lib/integrations/apideck'
 import type { CloudStorageFile, CloudStorageProvider } from '@/app/lib/cloud-storage/types'
@@ -1177,6 +1180,257 @@ export class ImportJobManager {
       skipped: progress.skipped,
       done
     }
+  }
+
+  /**
+   * Parallel version of processChunk.
+   *
+   * Phase 1 — Download + extract all files in the chunk simultaneously
+   *            (Promise.allSettled, 30s AbortController per file)
+   * Phase 2 — Chunk all successfully extracted files
+   * Phase 3 — ONE generateBatchEmbeddings call for ALL chunks across ALL files
+   * Phase 4 — vectorStore.addDocuments + DB finalization per file
+   *
+   * Cuts embedding API calls from N (one per file) to 1 per chunk-of-files.
+   * Cuts download wall-clock time from N×avg_download to max(download_times).
+   */
+  static async processChunkParallel(
+    jobId: string,
+    offset: number,
+    limit: number
+  ): Promise<{ processed: number; failed: number; skipped: number; done: boolean }> {
+    const job = await this.getJob(jobId)
+    if (!job) throw createError.notFound('Job not found')
+
+    if (!['pending', 'processing'].includes(job.status)) {
+      throw createError.badRequest(`Job cannot be processed in status: ${job.status}`)
+    }
+    if (job.status === 'pending') {
+      await this.updateJobStatus(jobId, 'processing', { started_at: new Date() })
+    }
+
+    const allFiles = (job.inputData.fileList as CloudStorageFile[]) || []
+    const chunk = allFiles.slice(offset, offset + limit)
+
+    // ── Phase 1: parallel download + extract ─────────────────────────────────
+    type DownloadOk = { ok: true; file: CloudStorageFile; buffer: Buffer; text: string; mimeType: string }
+    type DownloadFail = { ok: false; file: CloudStorageFile; reason: string }
+    type DownloadOutcome = DownloadOk | DownloadFail
+
+    const downloadOutcomes: DownloadOutcome[] = await Promise.allSettled(
+      chunk.map(async (file): Promise<DownloadOutcome> => {
+        await this.addFileStatus(job.id, { fileId: file.id, fileName: file.name, status: 'pending', timestamp: new Date() })
+        await this.updateFileStatus(job.id, file.id, { status: 'processing' })
+        await this.updateJobProgress(job.id, { current_file: file.name })
+
+        // Duplicate check
+        const isDuplicate = await this.checkForDuplicate(job.userId, job.provider, file)
+        if (isDuplicate) {
+          await this.updateFileStatus(job.id, file.id, { status: 'duplicate', reason: 'File already processed with same content hash' })
+          return { ok: false, file, reason: 'duplicate' }
+        }
+
+        // File size guard (50 MB)
+        const MAX_BYTES = 50 * 1024 * 1024
+        if (file.size && file.size > MAX_BYTES) {
+          const reason = `File too large: ${Math.round(file.size / 1024 / 1024)}MB (max 50MB)`
+          await this.updateFileStatus(job.id, file.id, { status: 'skipped', reason })
+          return { ok: false, file, reason }
+        }
+
+        // Download with 30s hard abort
+        const abort = new AbortController()
+        const tid = setTimeout(() => abort.abort(), 30_000)
+        try {
+          const provider = this.providers[job.provider]
+          const buffer = await this.downloadFileWithStreaming(provider, job.userId, file, job.provider)
+          clearTimeout(tid)
+
+          const extraction = await extractTextFromBuffer(
+            buffer,
+            file.mimeType || 'application/octet-stream',
+            file.name
+          )
+
+          // Image-based PDF: pdf-parse returns empty string for scanned/image PDFs
+          if (
+            (file.mimeType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) &&
+            !extraction.text.trim()
+          ) {
+            const reason = 'Image-based PDF — OCR support coming soon'
+            await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
+            return { ok: false, file, reason }
+          }
+
+          return { ok: true, file, buffer, text: extraction.text, mimeType: file.mimeType || 'application/octet-stream' }
+        } catch (err) {
+          clearTimeout(tid)
+          const raw = err instanceof Error ? err.message : 'Unknown error'
+          const friendly = raw.includes('timeout') || raw.includes('aborted') ? 'Processing timeout'
+            : raw.includes('too large') ? 'File too large'
+            : raw.includes('Unsupported') || raw.includes('mime_type') ? 'Unsupported file type'
+            : raw.includes('extract') || raw.includes('Extraction') ? 'Extraction error'
+            : raw.includes('empty') ? 'Downloaded file is empty'
+            : raw
+          await this.updateFileStatus(job.id, file.id, { status: 'failed', error: friendly })
+          return { ok: false, file, reason: friendly }
+        }
+      })
+    ).then(settled => settled.map((r, i) => {
+      if (r.status === 'fulfilled') return r.value
+      const friendly = r.reason instanceof Error ? r.reason.message : 'Unknown error'
+      this.updateFileStatus(job.id, chunk[i].id, { status: 'failed', error: friendly }).catch(() => {})
+      return { ok: false as const, file: chunk[i], reason: friendly }
+    }))
+
+    // ── Phase 2: chunk all successfully extracted files ───────────────────────
+    type FileGroup = {
+      file: CloudStorageFile
+      buffer: Buffer
+      mimeType: string
+      appFileId: string
+      contentHash: string
+      chunks: ReturnType<typeof createTextChunks>
+      chunkOffset: number
+    }
+    const fileGroups: FileGroup[] = []
+    const allChunkTexts: string[] = []
+
+    for (const outcome of downloadOutcomes) {
+      if (!outcome.ok) continue
+      const { file, buffer, text, mimeType } = outcome
+
+      const contentHash = createHash('sha256').update(buffer).digest('hex')
+
+      // Upsert file row in app.files
+      const { data: existingFile } = await supabaseAdmin
+        .from('files')
+        .select('id')
+        .eq('owner_id', job.userId)
+        .eq('external_id', file.id)
+        .maybeSingle()
+
+      let appFileId: string
+      if (existingFile?.id) {
+        await supabaseAdmin.from('files').update({
+          name: file.name, size_bytes: buffer.length, mime_type: mimeType,
+          processed: false, processing_status: 'pending',
+          metadata: { content_hash: contentHash, provider_version: file.modifiedTime },
+          updated_at: new Date().toISOString()
+        }).eq('id', existingFile.id)
+        appFileId = existingFile.id
+      } else {
+        const { data: inserted, error: insertErr } = await supabaseAdmin
+          .from('files')
+          .insert({
+            owner_id: job.userId, name: file.name, path: file.name,
+            size_bytes: buffer.length, mime_type: mimeType,
+            source: job.provider === 'google' ? 'google' : 'microsoft',
+            external_id: file.id, external_url: file.webViewLink,
+            processed: false, processing_status: 'pending',
+            metadata: { content_hash: contentHash, provider_version: file.modifiedTime }
+          })
+          .select('id').single()
+        if (insertErr || !inserted) {
+          await this.updateFileStatus(job.id, file.id, { status: 'failed', error: `DB insert failed: ${insertErr?.message}` })
+          continue
+        }
+        appFileId = inserted.id
+      }
+
+      await fileIngestRepo.upsert({
+        file_id: appFileId, owner_id: job.userId, status: 'processing', source: job.provider,
+        meta: { content_hash: contentHash, provider_version: file.modifiedTime, external_id: file.id, file_name: file.name, mime_type: mimeType }
+      })
+
+      const chunks = createTextChunks(text, appFileId, file.name, mimeType, job.userId, 1000)
+      if (chunks.length === 0) {
+        await this.updateFileStatus(job.id, file.id, { status: 'failed', error: 'No text chunks extracted' })
+        continue
+      }
+
+      fileGroups.push({ file, buffer, mimeType, appFileId, contentHash, chunks, chunkOffset: allChunkTexts.length })
+      allChunkTexts.push(...chunks.map(c => c.content))
+    }
+
+    // ── Phase 3: single batch embedding call ──────────────────────────────────
+    let embeddingResult: Awaited<ReturnType<typeof generateBatchEmbeddings>> | null = null
+    if (allChunkTexts.length > 0) {
+      try {
+        embeddingResult = await generateBatchEmbeddings(allChunkTexts)
+      } catch (embErr) {
+        logger.error('Batch embedding failed for chunk', { jobId, error: embErr instanceof Error ? embErr.message : 'Unknown' })
+        for (const g of fileGroups) {
+          await this.updateFileStatus(job.id, g.file.id, { status: 'failed', error: 'Embedding API error' })
+        }
+        const progress = await this.calculateProgress(jobId)
+        await this.updateJobProgress(jobId, progress)
+        const totalAttempted = progress.processed + progress.failed + progress.skipped
+        return { processed: progress.processed, failed: progress.failed, skipped: progress.skipped, done: totalAttempted >= progress.total }
+      }
+    }
+
+    // ── Phase 4: vector write + per-file DB finalization ──────────────────────
+    const vectorStore = getVectorStore()
+
+    for (const group of fileGroups) {
+      const { file, buffer, mimeType, appFileId, contentHash, chunks, chunkOffset } = group
+      const embeddings = embeddingResult!.embeddings.slice(chunkOffset, chunkOffset + chunks.length)
+
+      const vectorDocs = chunks.map((chunk, i) => ({
+        id: `${appFileId}_${chunk.chunkIndex}`,
+        content: chunk.content,
+        embedding: embeddings[i].embedding,
+        metadata: {
+          fileId: appFileId, fileName: file.name, chunkIndex: chunk.chunkIndex,
+          userId: job.userId, source: job.provider, externalId: file.id,
+          createdAt: new Date().toISOString(),
+          embeddingModel: embeddingResult!.model,
+          embeddingDimensions: embeddings[i].embedding.length,
+          mimeType, ...chunk.metadata
+        }
+      }))
+
+      try {
+        await vectorStore.addDocuments(job.userId, vectorDocs)
+        await supabaseAdmin.from('file_processing_history').insert({
+          user_id: job.userId, job_id: job.id, external_id: file.id, provider: job.provider,
+          file_name: file.name, content_hash: contentHash, provider_version: file.modifiedTime || new Date().toISOString(),
+          file_size: buffer.length, mime_type: mimeType, status: 'completed',
+          chunks_created: chunks.length, app_file_id: appFileId, processed_at: new Date()
+        })
+        await fileIngestRepo.upsert({
+          file_id: appFileId, owner_id: job.userId, status: 'ready', source: job.provider,
+          meta: { content_hash: contentHash, processed_at: new Date().toISOString(), chunks_created: chunks.length }
+        })
+        supabaseAdmin.rpc('increment_document_usage', { p_user_id: job.userId, p_bytes: buffer.length })
+          .then(({ error: e }) => { if (e) logger.warn('increment_document_usage failed', { userId: job.userId, error: e.message }) })
+        await this.updateFileStatus(job.id, file.id, { status: 'completed' })
+      } catch (writeErr) {
+        logger.error('Vector write or DB finalization failed', { jobId, fileId: file.id, error: writeErr instanceof Error ? writeErr.message : 'Unknown' })
+        await this.updateFileStatus(job.id, file.id, { status: 'failed', error: 'Vector write failed' })
+        await fileIngestRepo.updateStatus(job.userId, appFileId, 'error', writeErr instanceof Error ? writeErr.message : 'Unknown').catch(() => {})
+      }
+    }
+
+    // ── Finalize progress ─────────────────────────────────────────────────────
+    const progress = await this.calculateProgress(jobId)
+    await this.updateJobProgress(jobId, progress)
+
+    const totalAttempted = progress.processed + progress.failed + progress.skipped
+    const done = totalAttempted >= progress.total
+
+    if (done) {
+      const outputData = {
+        totalFiles: progress.total, processedFiles: progress.processed,
+        failedFiles: progress.failed, skippedFiles: progress.skipped,
+        duplicateFiles: await this.countFilesByStatus(jobId, 'duplicate')
+      }
+      await this.updateJobProgress(jobId, { ...progress, current_file: null })
+      await this.updateJobStatus(jobId, 'completed', { completed_at: new Date(), output_data: outputData })
+    }
+
+    return { processed: progress.processed, failed: progress.failed, skipped: progress.skipped, done }
   }
 
   /**

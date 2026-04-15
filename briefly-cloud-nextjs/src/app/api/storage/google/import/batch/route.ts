@@ -70,7 +70,7 @@ async function createGoogleBatchImportHandler(
 
       logger.info('Processing import chunk', { userId: user.id, jobId, offset, limit })
 
-      const result = await ImportJobManager.processChunk(jobId, offset, limit)
+      const result = await ImportJobManager.processChunkParallel(jobId, offset, limit)
 
       return ApiResponse.success({
         jobId,
