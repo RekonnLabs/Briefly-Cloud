@@ -2,14 +2,25 @@ import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
-import { google } from 'googleapis'
-import { TokenStore } from '@/app/lib/oauth/token-store'
-import { Apideck, apideckHeaders } from '@/app/lib/integrations/apideck'
-import { supabaseAdmin } from '@/app/lib/supabase-admin'
-import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
-import { extractTextFromBuffer } from '@/app/lib/document-extractor'
-import { computeBufferHash } from '@/app/lib/utils/content-hash'
+import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
+import type { CloudStorageFile } from '@/app/lib/cloud-storage/types'
 
+/**
+ * POST /api/storage/google/import
+ *
+ * Single-file import via the blue "Import" button.
+ *
+ * Previously this route downloaded + extracted + embedded the file
+ * synchronously inside the HTTP request, which caused Vercel timeouts
+ * on large files and bypassed all resilience work (heartbeat, vision
+ * fallback, AbortController, progress bar).
+ *
+ * Now it creates a single-file job via ImportJobManager and returns
+ * { jobId, totalFiles: 1 } immediately. The frontend kicks off the
+ * same driveChunkLoop used by folder imports — the progress bar and
+ * all resilience features (30s timeout, vision fallback, heartbeat,
+ * image-PDF detection) work identically for single files.
+ */
 async function importGoogleFileHandler(request: Request, context: ApiContext): Promise<NextResponse> {
   const { user } = context
   if (!user) return ApiResponse.unauthorized('User not authenticated')
@@ -18,160 +29,32 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
     fileId?: string
     fileName?: string
     mimeType?: string
+    fileSize?: number
   }
+
   if (!body.fileId) return ApiResponse.badRequest('fileId is required')
 
-  const token = await TokenStore.getToken(user.id, 'google')
-
-  let buffer: Buffer
-  let fileName: string
-  let mimeType: string
-  let fileSize: number
-  let providerFileId: string = body.fileId
-
-  if (token) {
-    // Legacy direct Google Drive path
-    const oauth2Client = new google.auth.OAuth2()
-    oauth2Client.setCredentials({ access_token: token.accessToken, refresh_token: token.refreshToken ?? undefined })
-    const drive = google.drive({ version: 'v3', auth: oauth2Client })
-
-    const meta = await drive.files.get({ fileId: body.fileId, fields: 'id, name, mimeType, size' })
-    const res = await drive.files.get({ fileId: body.fileId, alt: 'media' }, { responseType: 'arraybuffer' })
-
-    buffer = Buffer.from(res.data as ArrayBuffer)
-    fileName = meta.data.name ?? body.fileId
-    mimeType = meta.data.mimeType ?? 'application/octet-stream'
-    fileSize = Number(meta.data.size ?? buffer.byteLength)
-    providerFileId = meta.data.id ?? body.fileId
-  } else {
-    // Apideck unified path — token not present, use Apideck to download
-    const { data: conn } = await supabaseAdmin
-      .from('apideck_connections')
-      .select('connection_id, consumer_id')
-      .eq('user_id', user.id)
-      .eq('provider', 'google')
-      .single()
-
-    if (!conn) return ApiResponse.badRequest('Google account not connected')
-
-    // consumer_id is what Apideck uses to identify the end-user; fall back to
-    // user.id only if the column is somehow null (shouldn't happen post-OAuth).
-    const consumerId = conn.consumer_id || user.id
-
-    // Apideck download doesn't return metadata — use values passed from the UI
-    fileName = body.fileName ?? body.fileId
-    mimeType = body.mimeType ?? ''
-
-    // When mimeType is empty (Apideck list didn't populate it) or still the legacy
-    // octet-stream sentinel, fetch the real type from Apideck file metadata.
-    // This is required for Google native files (Docs/Sheets/Slides) which cannot be
-    // binary-downloaded — they must be exported to a portable format.
-    const needsTypeResolution = !mimeType || mimeType === 'application/octet-stream'
-    if (needsTypeResolution) {
-      const meta = await Apideck.getFileMetadata(consumerId, conn.connection_id, body.fileId)
-      const resolvedMime: string = meta?.mime_type ?? ''
-      if (resolvedMime) {
-        mimeType = resolvedMime
-        console.log('[google-import:mime-resolved]', { fileId: body.fileId, resolvedMime })
-      }
-    }
-
-    // Google native formats 403 on the media download endpoint.
-    // Use Apideck's export endpoint to get a portable equivalent instead.
-    const GOOGLE_NATIVE_EXPORT_MAP: Record<string, string> = {
-      'application/vnd.google-apps.document':     'text/plain',
-      'application/vnd.google-apps.spreadsheet':  'text/csv',
-      'application/vnd.google-apps.presentation': 'text/plain',
-    }
-    const exportMime = GOOGLE_NATIVE_EXPORT_MAP[mimeType]
-
-    try {
-      if (exportMime) {
-        // Native Google format — export via Apideck export endpoint
-        const res = await fetch(
-          `${process.env.APIDECK_API_BASE_URL}/file-storage/files/${encodeURIComponent(body.fileId)}/export?format=${encodeURIComponent(exportMime)}`,
-          { headers: { ...apideckHeaders(consumerId), 'x-apideck-connection-id': conn.connection_id } }
-        )
-        if (!res.ok) throw new Error(`export failed: ${res.status} ${await res.text()}`)
-        buffer = Buffer.from(await res.arrayBuffer())
-        mimeType = exportMime  // update so extractor handles it correctly
-      } else {
-        buffer = await Apideck.downloadFile(consumerId, conn.connection_id, body.fileId)
-      }
-    } catch (e) {
-      console.error('[google-import:apideck-download-failed]', e)
-      return ApiResponse.internalError('Failed to download file via Apideck')
-    }
-
-    fileSize = buffer.byteLength
+  // Build a minimal CloudStorageFile descriptor from the values the UI passes.
+  // processChunkParallel resolves the full file via the provider during download —
+  // we only need enough to identify it here.
+  const fileDescriptor: CloudStorageFile = {
+    id: body.fileId,
+    name: body.fileName ?? body.fileId,
+    mimeType: body.mimeType ?? '',
+    size: body.fileSize,
   }
 
-  // Compute checksum for deduplication
-  const contentHash = computeBufferHash(buffer)
+  const job = await ImportJobManager.prepareJobForChunkedProcessing(
+    user.id,
+    'google',
+    undefined, // no folderId — single file
+    {
+      files: [fileDescriptor],
+      source: 'single-file-import',
+    }
+  )
 
-  // Use ensureFileRow for idempotent file creation
-  const { file: createdFile, isNew } = await filesRepo.ensureFileRow({
-    ownerId: user.id,
-    name: fileName,
-    path: `google:${providerFileId}`,
-    sizeBytes: fileSize,
-    mimeType,
-    checksum: contentHash,
-    source: 'google',
-    createdAt: new Date().toISOString(),
-  })
-
-  if (!isNew) {
-    console.log('[google-import:deduped]', {
-      userId: user.id,
-      fileId: createdFile.id,
-      fileName,
-      contentHash
-    })
-  }
-
-  await fileIngestRepo.upsert({
-    file_id: createdFile.id,
-    owner_id: user.id,
-    status: 'pending',
-    source: 'google',
-    meta: {
-      providerFileId,
-      publicUrl: `https://drive.google.com/file/d/${providerFileId}/view`,
-      mimeType,
-      sizeBytes: fileSize,
-      fileName,
-    },
-  })
-
-  let processingStatus: 'pending' | 'processing' | 'ready' | 'error' = 'pending'
-
-  try {
-    processingStatus = 'processing'
-    await fileIngestRepo.updateStatus(user.id, createdFile.id, 'processing', null)
-
-    const extraction = await extractTextFromBuffer(buffer, mimeType, fileName)
-    const { processDocument } = await import('@/app/lib/vector/document-processor')
-    await processDocument(user.id, createdFile.id, fileName, extraction.text, {
-      source: 'google',
-      mimeType,
-      externalId: body.fileId,
-      importedAt: new Date().toISOString(),
-    })
-
-    processingStatus = 'ready'
-    await fileIngestRepo.updateStatus(user.id, createdFile.id, 'ready', null)
-  } catch (error) {
-    processingStatus = 'error'
-    await fileIngestRepo.updateStatus(
-      user.id,
-      createdFile.id,
-      'error',
-      error instanceof Error ? error.message : 'Unknown error'
-    )
-  }
-
-  return ApiResponse.success({ file_id: createdFile.id, name: fileName, status: processingStatus })
+  return ApiResponse.success({ jobId: job.id, totalFiles: 1 })
 }
 
 export const POST = createProtectedApiHandler(importGoogleFileHandler, {

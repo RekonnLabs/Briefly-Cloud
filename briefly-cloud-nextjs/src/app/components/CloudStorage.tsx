@@ -728,24 +728,33 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     setImportingFiles(prev => new Set(prev).add(fileId));
 
     try {
-      const endpoint = providerId === 'google' 
+      const endpoint = providerId === 'google'
         ? '/api/storage/google/import'
         : '/api/storage/microsoft/import';
-      
+
+      // Phase 1: create the job and get a jobId back immediately.
+      // The route no longer processes the file synchronously — it just
+      // registers a single-file job and returns { jobId, totalFiles: 1 }.
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileId, fileName, mimeType })
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        showSuccess(`Successfully imported ${fileName}`, 'The file has been added to your document library.');
-      } else {
-        throw new Error('Import failed');
-      }
+      if (!response.ok) throw new Error('Import failed');
+
+      const { jobId } = await response.json();
+      if (!jobId) throw new Error('No jobId returned from import endpoint');
+
+      // Phase 2: drive the chunk loop (same as folder imports).
+      // This gives the single-file import the full resilience stack:
+      // heartbeat, vision fallback, AbortController, progress bar.
+      // setImportingFiles stays true until the loop completes.
+      await driveChunkLoop(jobId, providerId, 0);
+
+      // driveChunkLoop fires the quota-changed event on completion;
+      // show a success toast here as well for single-file UX.
+      showSuccess(`Successfully imported ${fileName}`, 'The file has been added to your document library.');
     } catch (error) {
       console.error('Import error:', error);
       showError(`Failed to import ${fileName}`, 'Please try again or check your connection.');

@@ -103,6 +103,7 @@ export class ImportJobManager {
     options: {
       batchSize?: number
       maxRetries?: number
+      source?: string
     } = {}
   ): Promise<ImportJob> {
     try {
@@ -120,7 +121,8 @@ export class ImportJobManager {
         provider,
         folderId: folderId || 'root',
         batchSize: options.batchSize || 5,
-        maxRetries: options.maxRetries || 3
+        maxRetries: options.maxRetries || 3,
+        ...(options.source ? { source: options.source } : {})
       }
 
       // Create job record
@@ -1230,10 +1232,10 @@ export class ImportJobManager {
           return { ok: false, file, reason: 'duplicate' }
         }
 
-        // File size guard (50 MB)
-        const MAX_BYTES = 50 * 1024 * 1024
+        // File size guard (100 MB)
+        const MAX_BYTES = 100 * 1024 * 1024
         if (file.size && file.size > MAX_BYTES) {
-          const reason = `File too large: ${Math.round(file.size / 1024 / 1024)}MB (max 50MB)`
+          const reason = `File too large: ${Math.round(file.size / 1024 / 1024)}MB (max 100MB)`
           await this.updateFileStatus(job.id, file.id, { status: 'skipped', reason })
           return { ok: false, file, reason }
         }
@@ -1478,7 +1480,7 @@ export class ImportJobManager {
     userId: string,
     provider: 'google' | 'microsoft',
     folderId?: string,
-    options: { maxRetries?: number } = {}
+    options: { maxRetries?: number; files?: CloudStorageFile[]; source?: string } = {}
   ): Promise<ImportJob> {
     // Auto-recover any stale job for this user before creating a new one
     const existingJobs = await this.getUserJobs(userId, 'processing', 5)
@@ -1493,12 +1495,15 @@ export class ImportJobManager {
     }
 
     const job = await this.createJob(userId, provider, folderId, {
-      maxRetries: options.maxRetries || 3
+      maxRetries: options.maxRetries || 3,
+      source: options.source
     })
 
-    // List all files upfront and store in input_data
+    // List all files upfront and store in input_data.
+    // If a pre-built file list is provided (e.g. single-file import), use it directly
+    // instead of enumerating from the provider.
     await this.updateJobStatus(job.id, 'processing', { started_at: new Date() })
-    const files = await this.getAllFilesToImport(job)
+    const files: CloudStorageFile[] = options.files ?? await this.getAllFilesToImport(job)
 
     // Persist the file list and total count into input_data so each chunk
     // invocation can slice it without re-listing from the provider
