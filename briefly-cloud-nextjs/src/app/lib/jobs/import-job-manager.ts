@@ -1259,9 +1259,16 @@ export class ImportJobManager {
             !extraction.text.trim()
           ) {
             if (process.env.PDF_VISION_EXTRACTION_ENABLED === 'true') {
+              // Bump heartbeat every 10s during long vision extraction so the
+              // frontend doesn't mark the job as stale (60s threshold).
+              const hbInterval = setInterval(() => {
+                this.updateJobProgress(job.id, { current_file: `${file.name} (vision extraction)` })
+                  .catch(() => {}) // best-effort, never block
+              }, 10_000)
               try {
                 const { extractPdfWithVision } = await import('@/app/lib/indexing/pdf-vision-extractor')
                 const visionResult = await extractPdfWithVision(buffer, file.name)
+                clearInterval(hbInterval)
                 if (visionResult.text.trim()) {
                   logger.info('[import:vision-fallback-success]', {
                     fileName: file.name,
@@ -1276,6 +1283,7 @@ export class ImportJobManager {
                   return { ok: false, file, reason }
                 }
               } catch (visionErr) {
+                clearInterval(hbInterval)
                 const reason = visionErr instanceof Error
                   ? `Vision extraction failed: ${visionErr.message}`
                   : 'Vision extraction failed'

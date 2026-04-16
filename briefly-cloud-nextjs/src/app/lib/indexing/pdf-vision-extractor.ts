@@ -132,7 +132,7 @@ export async function extractPdfWithVision(
                   filename: fileName,
                   file_data: dataUri
                 }
-              } as any // The 'file' content type is supported by the API but not yet in all SDK type definitions
+              } as any // TODO: Remove cast once OpenAI SDK types support 'file' content type
             ]
           }
         ],
