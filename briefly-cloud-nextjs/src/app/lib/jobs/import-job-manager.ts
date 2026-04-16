@@ -1246,20 +1246,48 @@ export class ImportJobManager {
           const buffer = await this.downloadFileWithStreaming(provider, job.userId, file, job.provider)
           clearTimeout(tid)
 
-          const extraction = await extractTextFromBuffer(
+          let extraction = await extractTextFromBuffer(
             buffer,
             file.mimeType || 'application/octet-stream',
             file.name
           )
 
-          // Image-based PDF: pdf-parse returns empty string for scanned/image PDFs
+          // Image-based PDF: pdf-parse returns empty string for scanned/image PDFs.
+          // Fall back to GPT-4o-mini vision extraction if the feature flag is enabled.
           if (
             (file.mimeType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) &&
             !extraction.text.trim()
           ) {
-            const reason = 'Image-based PDF — OCR support coming soon'
-            await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
-            return { ok: false, file, reason }
+            if (process.env.PDF_VISION_EXTRACTION_ENABLED === 'true') {
+              try {
+                const { extractPdfWithVision } = await import('@/app/lib/indexing/pdf-vision-extractor')
+                const visionResult = await extractPdfWithVision(buffer, file.name)
+                if (visionResult.text.trim()) {
+                  logger.info('[import:vision-fallback-success]', {
+                    fileName: file.name,
+                    pagesProcessed: visionResult.pagesProcessed,
+                    costUsd: visionResult.costUsd,
+                    textLength: visionResult.text.length
+                  })
+                  extraction = { text: visionResult.text }
+                } else {
+                  const reason = 'Image-based PDF — vision extraction returned no text'
+                  await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
+                  return { ok: false, file, reason }
+                }
+              } catch (visionErr) {
+                const reason = visionErr instanceof Error
+                  ? `Vision extraction failed: ${visionErr.message}`
+                  : 'Vision extraction failed'
+                logger.warn('[import:vision-fallback-failed]', { fileName: file.name, error: reason })
+                await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
+                return { ok: false, file, reason }
+              }
+            } else {
+              const reason = 'Image-based PDF — vision extraction not enabled'
+              await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
+              return { ok: false, file, reason }
+            }
           }
 
           return { ok: true, file, buffer, text: extraction.text, mimeType: file.mimeType || 'application/octet-stream' }
