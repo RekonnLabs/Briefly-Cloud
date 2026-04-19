@@ -22,7 +22,7 @@
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
-import { rateLimitConfigs } from '@/app/lib/rate-limit'
+import { enforceRateLimit } from '@/app/lib/usage/rate-limiter'
 import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
 import { logger } from '@/app/lib/logger'
 import { getUserLimits } from '@/app/lib/usage/quota-enforcement'
@@ -63,6 +63,17 @@ async function createGoogleBatchImportHandler(
       if (offset < 0) return ApiResponse.badRequest('offset must be >= 0')
       if (limit < 1 || limit > 20) return ApiResponse.badRequest('limit must be between 1 and 20')
 
+      // Rate limit: document_upload per chunk (System B)
+      try {
+        await enforceRateLimit(user.id, 'document_upload', 'minute')
+      } catch (err: any) {
+        if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+          return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 60 })
+        }
+        // Supabase unreachable — fail-closed
+        return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 30 })
+      }
+
       // Verify job belongs to this user
       const job = await ImportJobManager.getJob(jobId)
       if (!job) return ApiResponse.notFound('Job not found')
@@ -81,6 +92,17 @@ async function createGoogleBatchImportHandler(
     }
 
     // ── Phase 1: job creation ──────────────────────────────────────────────────
+    // Rate limit: folder_import (System B)
+    try {
+      await enforceRateLimit(user.id, 'folder_import', 'hour')
+    } catch (err: any) {
+      if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+        return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 3600 })
+      }
+      // Supabase unreachable — fail-closed
+      return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 60 })
+    }
+
     const folderId = (body as BatchCreateRequest).folderId || 'root'
     const maxRetries = (body as BatchCreateRequest).maxRetries || 3
 
@@ -303,22 +325,20 @@ async function cancelGoogleBatchImportHandler(
 }
 
 // Export handlers
+// System A rateLimitConfigs removed — System B wired directly in POST handler above.
+// GET, DELETE, PUT are read-only status/management endpoints and do not need rate limiting.
 export const POST = createProtectedApiHandler(createGoogleBatchImportHandler, {
-  rateLimit: rateLimitConfigs.embedding,
   logging: { enabled: true, includeBody: true }
 })
 
 export const GET = createProtectedApiHandler(getGoogleBatchImportStatusHandler, {
-  rateLimit: rateLimitConfigs.api,
   logging: { enabled: true, includeBody: false }
 })
 
 export const DELETE = createProtectedApiHandler(cancelGoogleBatchImportHandler, {
-  rateLimit: rateLimitConfigs.api,
   logging: { enabled: true, includeBody: true }
 })
 
 export const PUT = createProtectedApiHandler(listGoogleBatchImportsHandler, {
-  rateLimit: rateLimitConfigs.api,
   logging: { enabled: true, includeBody: false }
 })

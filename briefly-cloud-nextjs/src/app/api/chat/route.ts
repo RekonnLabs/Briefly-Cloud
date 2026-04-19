@@ -4,7 +4,8 @@ export const maxDuration = 60
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-response'
-import { rateLimitConfigs } from '@/app/lib/rate-limit'
+import { enforceRateLimit } from '@/app/lib/usage/rate-limiter'
+import { logger } from '@/app/lib/logger'
 import { z } from 'zod'
 import { searchDocumentContext } from '@/app/lib/vector-storage'
 import { generateChatCompletion, streamChatCompletion, SubscriptionTier, type ChatCompletionResult } from '@/app/lib/openai'
@@ -24,6 +25,24 @@ import { enforce as lintResponse } from '@/app/lib/prompt/responseLinter'
 import { routeModel, analyzeQuery, getModelConfig, type UserTier } from '@/app/lib/prompt/modelRouter'
 import { selectMemory, MEMORY_TOKEN_BUDGET } from '@/app/lib/prompt/conversationMemory'
 import { dispatchTask } from '@/app/lib/tasks'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// In-memory fallback rate limiter — used when Supabase is unreachable
+// Intentionally stricter than normal limits (1/3 of pro tier)
+// ─────────────────────────────────────────────────────────────────────────────
+const _fallbackCounts = new Map<string, { count: number; resetAt: number }>()
+function inMemoryFallback(userId: string, action: string, maxPerMinute: number): boolean {
+  const key = `${userId}:${action}`
+  const now = Date.now()
+  const record = _fallbackCounts.get(key)
+  if (!record || now > record.resetAt) {
+    _fallbackCounts.set(key, { count: 1, resetAt: now + 60_000 })
+    return true
+  }
+  if (record.count >= maxPerMinute) return false
+  record.count++
+  return true
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Provenance types — every response carries provenance metadata
@@ -277,6 +296,26 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
         chatMessagesRemaining: limitsResult.chatMessagesRemaining,
         correlationId: rid
       })
+    }
+
+    // ── Rate limit enforcement (System B — Supabase-backed, fail-closed) ──────
+    // Runs after quota gate, before any paid API call.
+    // On Supabase error: apply stricter in-memory fallback (5/min) rather than
+    // letting the request through unthrottled.
+    try {
+      await enforceRateLimit(user.id, 'chat_message', 'minute')
+    } catch (err: any) {
+      if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+        return ApiResponse.tooManyRequests(
+          err.message || 'Rate limit exceeded',
+          { retryAfter: err.details?.retryAfter ?? 60 }
+        )
+      }
+      // Supabase unreachable — apply in-memory fallback (5 req/min)
+      logger.warn('[rate-limit:supabase-unreachable]', { userId: user.id, action: 'chat_message', correlationId: rid })
+      if (!inMemoryFallback(user.id, 'chat_message', 5)) {
+        return ApiResponse.tooManyRequests('Rate limit exceeded (service degraded)', { retryAfter: 60 })
+      }
     }
 
     // Resolve conversation ID (create_conversation was already in-flight)
@@ -806,7 +845,8 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
 
 export const POST = withPerformanceMonitoring(
   createProtectedApiHandler(chatHandler, {
-    rateLimit: rateLimitConfigs.chat,
+    // System A rateLimitConfigs removed — System B (usage/rate-limiter.ts) is now
+    // wired directly inside chatHandler with fail-closed Supabase enforcement.
     logging: { enabled: true, includeBody: true },
   })
 )

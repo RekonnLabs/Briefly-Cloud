@@ -1,15 +1,19 @@
 /**
  * Microsoft OneDrive Batch Import API
- * 
- * Creates and manages batch import jobs for OneDrive folders
- * Supports folder-specific imports with server-side file listing
- * Returns job ID for progress tracking and status polling
+ *
+ * Creates and manages batch import jobs for OneDrive folders.
+ * Supports folder-specific imports with server-side file listing.
+ * Returns job ID for progress tracking and status polling.
+ *
+ * Rate limiting (System B — Supabase-backed):
+ *   POST (job creation) — folder_import/hour
+ *   GET / DELETE / PUT — no rate limit (read-only status/management)
  */
 
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
-import { rateLimitConfigs } from '@/app/lib/rate-limit'
+import { enforceRateLimit } from '@/app/lib/usage/rate-limiter'
 import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
 import { logger } from '@/app/lib/logger'
 import { getUserLimits } from '@/app/lib/usage/quota-enforcement'
@@ -21,7 +25,7 @@ interface BatchImportRequest {
 }
 
 async function createMicrosoftBatchImportHandler(
-  request: Request, 
+  request: Request,
   context: ApiContext
 ): Promise<NextResponse> {
   const { user } = context
@@ -42,6 +46,17 @@ async function createMicrosoftBatchImportHandler(
 
     if (maxRetries < 1 || maxRetries > 5) {
       return ApiResponse.badRequest('Max retries must be between 1 and 5')
+    }
+
+    // ── Rate limit: folder_import (System B) ──────────────────────────────────
+    try {
+      await enforceRateLimit(user.id, 'folder_import', 'hour')
+    } catch (err: any) {
+      if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+        return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 3600 })
+      }
+      // Supabase unreachable — fail-closed: block the request
+      return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 60 })
     }
 
     // ── Quota pre-flight — fail-closed ────────────────────────────────────────
@@ -123,7 +138,7 @@ async function getMicrosoftBatchImportStatusHandler(
 
     // Get comprehensive batch import status
     const statusData = await ImportJobManager.getBatchImportStatus(jobId)
-    
+
     // Verify job belongs to user
     if (statusData.job.userId !== user.id) {
       return ApiResponse.forbidden('Access denied to this job')
@@ -221,7 +236,7 @@ async function cancelMicrosoftBatchImportHandler(
 
   try {
     const body = await request.json().catch(() => ({})) as { jobId?: string }
-    
+
     if (!body.jobId) {
       return ApiResponse.badRequest('jobId is required')
     }
@@ -268,23 +283,21 @@ async function cancelMicrosoftBatchImportHandler(
 }
 
 // Export handlers for different HTTP methods
+// System A rateLimitConfigs removed — System B wired directly in POST handler above.
+// GET, DELETE, PUT are read-only status/management endpoints and do not need rate limiting.
 export const POST = createProtectedApiHandler(createMicrosoftBatchImportHandler, {
-  rateLimit: rateLimitConfigs.embedding,
   logging: { enabled: true, includeBody: true }
 })
 
 export const GET = createProtectedApiHandler(getMicrosoftBatchImportStatusHandler, {
-  rateLimit: rateLimitConfigs.api,
   logging: { enabled: true, includeBody: false }
 })
 
 export const DELETE = createProtectedApiHandler(cancelMicrosoftBatchImportHandler, {
-  rateLimit: rateLimitConfigs.api,
   logging: { enabled: true, includeBody: true }
 })
 
 // Also support listing via PUT method
 export const PUT = createProtectedApiHandler(listMicrosoftBatchImportsHandler, {
-  rateLimit: rateLimitConfigs.api,
   logging: { enabled: true, includeBody: false }
 })

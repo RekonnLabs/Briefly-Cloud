@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
-import { rateLimitConfigs } from '@/app/lib/rate-limit'
+import { enforceRateLimit } from '@/app/lib/usage/rate-limiter'
 import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
 import type { CloudStorageFile } from '@/app/lib/cloud-storage/types'
 
@@ -34,6 +34,17 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
 
   if (!body.fileId) return ApiResponse.badRequest('fileId is required')
 
+  // ── Rate limit: document_upload (System B) ───────────────────────────────────
+  try {
+    await enforceRateLimit(user.id, 'document_upload', 'minute')
+  } catch (err: any) {
+    if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+      return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 60 })
+    }
+    // Supabase unreachable — fail-closed: block the request
+    return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 30 })
+  }
+
   // Build a minimal CloudStorageFile descriptor from the values the UI passes.
   // processChunkParallel resolves the full file via the provider during download —
   // we only need enough to identify it here.
@@ -58,6 +69,6 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
 }
 
 export const POST = createProtectedApiHandler(importGoogleFileHandler, {
-  rateLimit: rateLimitConfigs.embedding,
+  // System A rateLimitConfigs removed — System B wired directly in handler above.
   logging: { enabled: true, includeBody: true },
 })
