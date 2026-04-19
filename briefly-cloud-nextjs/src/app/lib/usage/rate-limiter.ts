@@ -280,21 +280,28 @@ export class RateLimiter {
     const result = await this.checkRateLimit(userId, action, window, increment)
 
     if (!result.allowed) {
-      // Log rate limit violation
-      await supabaseAdmin
-        .from('private.audit_logs')
-        .insert({
-          user_id: userId,
-          action: 'RATE_LIMIT_EXCEEDED',
-          resource_type: 'rate_limiter',
-          new_values: {
-            action,
-            window,
-            limit: result.limit,
-            retry_after: result.retryAfter
-          },
-          severity: 'warning'
-        })
+      // Log rate limit violation — wrapped in try/catch so logging failures
+      // never break the rate limit flow or change the response code.
+      try {
+        await supabaseAdmin
+          .schema('private')
+          .from('audit_logs')
+          .insert({
+            actor_id: userId,
+            action: 'RATE_LIMIT_EXCEEDED',
+            table_name: 'rate_limits',
+            row_id: action,
+            meta: {
+              action,
+              window,
+              limit: result.limit,
+              retry_after: result.retryAfter,
+              severity: 'warning'
+            }
+          })
+      } catch (logErr) {
+        logger.warn('[rate-limit] audit log write failed — continuing', { userId, action, error: logErr })
+      }
 
       const error = createError.rateLimitExceeded(
         `Rate limit exceeded for ${action}`,
@@ -425,9 +432,9 @@ export class RateLimiter {
     window: RateLimitWindow
   ): Promise<number> {
     try {
-      // Get user's subscription tier
+      // Get user's subscription tier — user data lives in app.profiles, not app.users
       const { data: user, error } = await supabaseAdmin
-        .from('users')
+        .from('profiles')
         .select('subscription_tier')
         .eq('id', userId)
         .single()
@@ -526,19 +533,24 @@ export class RateLimiter {
         throw error
       }
 
-      // Log the reset
-      await supabaseAdmin
-        .from('private.audit_logs')
-        .insert({
-          user_id: userId,
-          action: 'RATE_LIMITS_RESET',
-          resource_type: 'rate_limiter',
-          new_values: {
-            reset_by: 'admin',
-            reset_at: new Date().toISOString()
-          },
-          severity: 'info'
-        })
+      // Log the reset — wrapped in try/catch so logging failures don't break the reset
+      try {
+        await supabaseAdmin
+          .schema('private')
+          .from('audit_logs')
+          .insert({
+            actor_id: userId,
+            action: 'RATE_LIMITS_RESET',
+            table_name: 'rate_limits',
+            row_id: userId,
+            meta: {
+              reset_by: 'admin',
+              reset_at: new Date().toISOString()
+            }
+          })
+      } catch (logErr) {
+        logger.warn('[rate-limit] audit log write failed on reset — continuing', { userId, error: logErr })
+      }
 
       logger.info('Rate limits reset for user', { userId })
 
