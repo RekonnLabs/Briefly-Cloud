@@ -14,6 +14,7 @@ export type RateLimitAction =
   | 'api_request'
   | 'chat_message'
   | 'document_upload'
+  | 'folder_import'
   | 'vector_search'
   | 'embedding_generation'
   | 'file_download'
@@ -93,6 +94,7 @@ export class RateLimiter {
         api_request: 10,
         chat_message: 5,
         document_upload: 2,
+        folder_import: 1,
         vector_search: 10,
         embedding_generation: 5,
         file_download: 10,
@@ -102,6 +104,7 @@ export class RateLimiter {
         api_request: 100,
         chat_message: 50,
         document_upload: 20,
+        folder_import: 2,
         vector_search: 100,
         embedding_generation: 50,
         file_download: 100,
@@ -111,6 +114,7 @@ export class RateLimiter {
         api_request: 1000,
         chat_message: 100,
         document_upload: 25,
+        folder_import: 5,
         vector_search: 500,
         embedding_generation: 100,
         file_download: 500,
@@ -120,6 +124,7 @@ export class RateLimiter {
         api_request: 10000,
         chat_message: 100,
         document_upload: 25,
+        folder_import: 10,
         vector_search: 1000,
         embedding_generation: 100,
         file_download: 1000,
@@ -131,6 +136,7 @@ export class RateLimiter {
         api_request: 30,
         chat_message: 15,
         document_upload: 10,
+        folder_import: 5,
         vector_search: 30,
         embedding_generation: 15,
         file_download: 30,
@@ -140,6 +146,7 @@ export class RateLimiter {
         api_request: 500,
         chat_message: 200,
         document_upload: 100,
+        folder_import: 20,
         vector_search: 500,
         embedding_generation: 200,
         file_download: 500,
@@ -149,6 +156,7 @@ export class RateLimiter {
         api_request: 5000,
         chat_message: 400,
         document_upload: 500,
+        folder_import: 100,
         vector_search: 2000,
         embedding_generation: 400,
         file_download: 2000,
@@ -158,6 +166,7 @@ export class RateLimiter {
         api_request: 50000,
         chat_message: 400,
         document_upload: 500,
+        folder_import: 500,
         vector_search: 10000,
         embedding_generation: 400,
         file_download: 10000,
@@ -169,6 +178,7 @@ export class RateLimiter {
         api_request: 100,
         chat_message: 50,
         document_upload: 20,
+        folder_import: 5,
         vector_search: 100,
         embedding_generation: 50,
         file_download: 100,
@@ -178,6 +188,7 @@ export class RateLimiter {
         api_request: 2000,
         chat_message: 1000,
         document_upload: 500,
+        folder_import: 20,
         vector_search: 2000,
         embedding_generation: 1000,
         file_download: 2000,
@@ -187,6 +198,7 @@ export class RateLimiter {
         api_request: 20000,
         chat_message: 2000,
         document_upload: 5000,
+        folder_import: 100,
         vector_search: 10000,
         embedding_generation: 2000,
         file_download: 10000,
@@ -196,6 +208,7 @@ export class RateLimiter {
         api_request: 200000,
         chat_message: 2000,
         document_upload: 5000,
+        folder_import: 500,
         vector_search: 50000,
         embedding_generation: 2000,
         file_download: 50000,
@@ -446,7 +459,9 @@ export class RateLimiter {
       }
 
       const tier = user.subscription_tier || 'free'
-      return this.DEFAULT_LIMITS[tier]?.[window]?.[action] || this.DEFAULT_LIMITS.free[window][action]
+      return this.DEFAULT_LIMITS[tier]?.[window]?.[action]
+        ?? this.DEFAULT_LIMITS.free[window][action]
+        ?? 999 // last resort — never block on missing config
 
     } catch (error) {
       logger.error('Failed to get user tier for rate limiting', { userId }, error as Error)
