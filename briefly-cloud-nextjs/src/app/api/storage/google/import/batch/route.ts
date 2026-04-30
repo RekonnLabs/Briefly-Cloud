@@ -48,6 +48,7 @@ async function createGoogleBatchImportHandler(
   request: Request,
   context: ApiContext
 ): Promise<NextResponse> {
+  console.log('[BATCH-ENTRY] handler body reached', { userId: context?.user?.id, method: request.method })
   const { user } = context
   if (!user) {
     return ApiResponse.unauthorized('User not authenticated')
