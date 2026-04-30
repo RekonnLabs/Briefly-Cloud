@@ -432,8 +432,10 @@ export class RateLimiter {
     window: RateLimitWindow
   ): Promise<number> {
     try {
-      // Get user's subscription tier — user data lives in app.profiles, not app.users
+      // Get user's subscription tier — lives in app.profiles (explicit schema required;
+      // supabaseAdmin defaults to public schema and public.profiles does not exist)
       const { data: user, error } = await supabaseAdmin
+        .schema('app')
         .from('profiles')
         .select('subscription_tier')
         .eq('id', userId)
