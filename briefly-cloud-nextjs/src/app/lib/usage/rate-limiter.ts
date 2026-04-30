@@ -263,11 +263,16 @@ export class RateLimiter {
       }
 
     } catch (error) {
-      logger.error('Failed to check rate limit', {
+      const err = error as any
+      logger.error('[rate-limit:check-failed]', {
         userId,
         action,
         window,
-        increment
+        errorCode: err?.code,
+        errorMessage: err?.message,
+        errorDetails: err?.details,
+        errorHint: err?.hint,
+        errorStatus: err?.status
       }, error as Error)
 
       // Return conservative result on error
@@ -464,7 +469,13 @@ export class RateLimiter {
         ?? 999 // last resort — never block on missing config
 
     } catch (error) {
-      logger.error('Failed to get user tier for rate limiting', { userId }, error as Error)
+      const err = error as any
+      logger.error('[rate-limit:get-tier-failed]', {
+        userId,
+        errorCode: err?.code,
+        errorMessage: err?.message,
+        errorStatus: err?.status
+      }, error as Error)
       return this.DEFAULT_LIMITS.free[window][action]
     }
   }
