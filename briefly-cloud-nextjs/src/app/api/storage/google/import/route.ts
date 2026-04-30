@@ -34,15 +34,18 @@ async function importGoogleFileHandler(request: Request, context: ApiContext): P
 
   if (!body.fileId) return ApiResponse.badRequest('fileId is required')
 
-  // ── Rate limit: document_upload (System B) ───────────────────────────────────
-  try {
-    await enforceRateLimit(user.id, 'document_upload', 'minute')
-  } catch (err: any) {
-    if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
-      return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 60 })
+  // ── Rate limit: document_upload (System B) ─────────────────────────────────────────────
+  // DISABLE_RATE_LIMIT=true bypasses this block entirely (debug/testing only).
+  if (process.env.DISABLE_RATE_LIMIT !== 'true') {
+    try {
+      await enforceRateLimit(user.id, 'document_upload', 'minute')
+    } catch (err: any) {
+      if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+        return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 60 })
+      }
+      // Supabase unreachable — fail-closed: block the request
+      return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 30 })
     }
-    // Supabase unreachable — fail-closed: block the request
-    return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 30 })
   }
 
   // Build a minimal CloudStorageFile descriptor from the values the UI passes.

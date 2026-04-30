@@ -302,19 +302,22 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     // Runs after quota gate, before any paid API call.
     // On Supabase error: apply stricter in-memory fallback (5/min) rather than
     // letting the request through unthrottled.
-    try {
-      await enforceRateLimit(user.id, 'chat_message', 'minute')
-    } catch (err: any) {
-      if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
-        return ApiResponse.tooManyRequests(
-          err.message || 'Rate limit exceeded',
-          { retryAfter: err.details?.retryAfter ?? 60 }
-        )
-      }
-      // Supabase unreachable — apply in-memory fallback (5 req/min)
-      logger.warn('[rate-limit:supabase-unreachable]', { userId: user.id, action: 'chat_message', correlationId: rid })
-      if (!inMemoryFallback(user.id, 'chat_message', 5)) {
-        return ApiResponse.tooManyRequests('Rate limit exceeded (service degraded)', { retryAfter: 60 })
+    // DISABLE_RATE_LIMIT=true bypasses this block entirely (debug/testing only).
+    if (process.env.DISABLE_RATE_LIMIT !== 'true') {
+      try {
+        await enforceRateLimit(user.id, 'chat_message', 'minute')
+      } catch (err: any) {
+        if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+          return ApiResponse.tooManyRequests(
+            err.message || 'Rate limit exceeded',
+            { retryAfter: err.details?.retryAfter ?? 60 }
+          )
+        }
+        // Supabase unreachable — apply in-memory fallback (5 req/min)
+        logger.warn('[rate-limit:supabase-unreachable]', { userId: user.id, action: 'chat_message', correlationId: rid })
+        if (!inMemoryFallback(user.id, 'chat_message', 5)) {
+          return ApiResponse.tooManyRequests('Rate limit exceeded (service degraded)', { retryAfter: 60 })
+        }
       }
     }
 
