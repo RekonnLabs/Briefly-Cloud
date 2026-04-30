@@ -22,7 +22,7 @@
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
-import { enforceRateLimit } from '@/app/lib/usage/rate-limiter'
+import { enforceRateLimit, checkRateLimit } from '@/app/lib/usage/rate-limiter'
 import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
 import { logger } from '@/app/lib/logger'
 import { getUserLimits } from '@/app/lib/usage/quota-enforcement'
@@ -93,9 +93,26 @@ async function createGoogleBatchImportHandler(
 
     // ── Phase 1: job creation ──────────────────────────────────────────────────
     // Rate limit: folder_import (System B)
+    // TEMPORARY DIAGNOSTIC — remove after root cause confirmed
+    logger.info('[rate-limit:pre-check]', {
+      userId: user.id,
+      action: 'folder_import',
+      window: 'hour'
+    })
     try {
+      const rateLimitResult = await checkRateLimit(user.id, 'folder_import', 'hour')
+      logger.info('[rate-limit:check-result]', {
+        allowed: rateLimitResult.allowed,
+        limit: rateLimitResult.limit,
+        remaining: rateLimitResult.remaining,
+        retryAfter: rateLimitResult.retryAfter
+      })
       await enforceRateLimit(user.id, 'folder_import', 'hour')
     } catch (err: any) {
+      logger.info('[rate-limit:caught]', {
+        code: err?.code,
+        message: err?.message
+      })
       if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
         return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 3600 })
       }
