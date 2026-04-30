@@ -132,7 +132,7 @@ export async function getRelevantContext(
   // Search for documents with a higher limit to allow for filtering
   const searchResults = await searchDocuments(userId, retrievalQuery, {
     limit: effectiveTopK * 2, // Get more results to filter from
-    threshold: 0.3, // Use a lower threshold initially, we'll filter later
+    threshold: 0.20, // Match budget threshold — pre-filter must not be more restrictive than budget
   })
   
   // Quest 3D: Log raw search results
@@ -164,10 +164,9 @@ export async function getRelevantContext(
   }
 
   // Apply token + chunk count limits.
-  // Hard cap at 8 chunks regardless of token budget — production logs showed
-  // 14-chunk contexts causing zero-token outputs in gpt-5-mini (19-20s latency).
-  // The 8-chunk limit keeps context focused on highest-relevance passages.
-  const MAX_CHUNKS = 8
+  // Hard cap at 10 chunks — matches balanced budget topK=10.
+  // Original 8-chunk limit was set when topK=6; raised to match the new topK.
+  const MAX_CHUNKS = 10
   let totalTokens = 0
   const tokenLimitedResults: typeof thresholdFiltered = []
   let filteredByTokenLimit = 0
@@ -188,11 +187,10 @@ export async function getRelevantContext(
     }
   }
 
-  // Hard cap: send at most 6 chunks to the LLM regardless of how many passed the
-  // threshold and token filters. With topK=10 and low thresholds, 14+ chunks can
-  // pass all filters — GPT-5-mini times out and produces zero tokens when given
-  // that much context. We keep the top-6 by relevance score (already sorted).
-  const MAX_CHUNKS_TO_LLM = 6
+  // Hard cap: send at most 10 chunks to the LLM — matches balanced budget topK=10.
+  // Previous cap of 6 was silently overriding the topK=10 budget setting.
+  // Monitor for latency regressions; reduce if gpt-4o times out on dense context.
+  const MAX_CHUNKS_TO_LLM = 10
   const cappedResults = tokenLimitedResults.slice(0, MAX_CHUNKS_TO_LLM)
 
   if (tokenLimitedResults.length > MAX_CHUNKS_TO_LLM) {
