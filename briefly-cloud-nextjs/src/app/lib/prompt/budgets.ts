@@ -19,7 +19,7 @@ export const BUDGETS: Record<Budget, ChatBudget> = {
     maxTokens: 1000, 
     topK: 4,
     contextTokenLimit: 2000,
-    similarityThreshold: 0.3  // lowered from 0.45 — checklist/fragmented docs score lower by nature
+    similarityThreshold: 0.20 // lowered from 0.30 — broader recall for fragmented/checklist docs
   },
   balanced: { 
     model: 'gpt-4o', 
@@ -27,7 +27,7 @@ export const BUDGETS: Record<Budget, ChatBudget> = {
     topK: 10,           // raised from 6 — with 4 docs × 5 chunks = 20 total, topK=6 only
                         // retrieved 12 raw candidates and missed lower-ranked but relevant chunks
     contextTokenLimit: 4000,
-    similarityThreshold: 0.30
+    similarityThreshold: 0.20
   },
   quality: { 
     model: 'gpt-4o', 
