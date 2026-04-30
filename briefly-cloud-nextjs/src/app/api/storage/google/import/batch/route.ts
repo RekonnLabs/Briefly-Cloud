@@ -22,7 +22,7 @@
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
-import { enforceRateLimit, checkRateLimit } from '@/app/lib/usage/rate-limiter'
+import { enforceRateLimit } from '@/app/lib/usage/rate-limiter'
 import { ImportJobManager } from '@/app/lib/jobs/import-job-manager'
 import { logger } from '@/app/lib/logger'
 import { getUserLimits } from '@/app/lib/usage/quota-enforcement'
@@ -48,7 +48,6 @@ async function createGoogleBatchImportHandler(
   request: Request,
   context: ApiContext
 ): Promise<NextResponse> {
-  console.log('[BATCH-ENTRY] handler body reached', { userId: context?.user?.id, method: request.method })
   const { user } = context
   if (!user) {
     return ApiResponse.unauthorized('User not authenticated')
@@ -65,14 +64,16 @@ async function createGoogleBatchImportHandler(
       if (limit < 1 || limit > 20) return ApiResponse.badRequest('limit must be between 1 and 20')
 
       // Rate limit: document_upload per chunk (System B)
-      try {
-        await enforceRateLimit(user.id, 'document_upload', 'minute')
-      } catch (err: any) {
-        if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
-          return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 60 })
+      if (process.env.DISABLE_RATE_LIMIT !== 'true') {
+        try {
+          await enforceRateLimit(user.id, 'document_upload', 'minute')
+        } catch (err: any) {
+          if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+            return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 60 })
+          }
+          // Supabase unreachable — fail-closed
+          return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 30 })
         }
-        // Supabase unreachable — fail-closed
-        return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 30 })
       }
 
       // Verify job belongs to this user
@@ -94,31 +95,16 @@ async function createGoogleBatchImportHandler(
 
     // ── Phase 1: job creation ──────────────────────────────────────────────────
     // Rate limit: folder_import (System B)
-    // TEMPORARY DIAGNOSTIC — remove after root cause confirmed
-    logger.info('[rate-limit:pre-check]', {
-      userId: user.id,
-      action: 'folder_import',
-      window: 'hour'
-    })
-    try {
-      const rateLimitResult = await checkRateLimit(user.id, 'folder_import', 'hour')
-      logger.info('[rate-limit:check-result]', {
-        allowed: rateLimitResult.allowed,
-        limit: rateLimitResult.limit,
-        remaining: rateLimitResult.remaining,
-        retryAfter: rateLimitResult.retryAfter
-      })
-      await enforceRateLimit(user.id, 'folder_import', 'hour')
-    } catch (err: any) {
-      logger.info('[rate-limit:caught]', {
-        code: err?.code,
-        message: err?.message
-      })
-      if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
-        return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 3600 })
+    if (process.env.DISABLE_RATE_LIMIT !== 'true') {
+      try {
+        await enforceRateLimit(user.id, 'folder_import', 'hour')
+      } catch (err: any) {
+        if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.statusCode === 429) {
+          return ApiResponse.tooManyRequests(err.message || 'Rate limit exceeded', { retryAfter: err.details?.retryAfter ?? 3600 })
+        }
+        // Supabase unreachable — fail-closed
+        return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 60 })
       }
-      // Supabase unreachable — fail-closed
-      return ApiResponse.tooManyRequests('Rate limit check unavailable. Please try again shortly.', { retryAfter: 60 })
     }
 
     const folderId = (body as BatchCreateRequest).folderId || 'root'
