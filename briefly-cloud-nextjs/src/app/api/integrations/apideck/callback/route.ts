@@ -315,8 +315,27 @@ const handler = async (_req: Request, ctx: ApiContext) => {
       summary: connectionSummary
     });
 
+    // Only process the connection matching the provider the user just authorized.
+    // Apideck returns ALL connections in the vault on every callback — without this
+    // filter, connecting Google Drive also upserts a phantom OneDrive row (and vice
+    // versa) because previously-authorized connections are returned as 'callable'.
+    const connectionsToProcess = connections.filter(
+      c => c.service_id && mapServiceIdToProvider(c.service_id) === providerFromState
+    );
+    if (connectionsToProcess.length === 0) {
+      console.warn('[apideck:callback:get] No connections matched provider', providerFromState, '— falling back to placeholder');
+      await upsertConnection({
+        user: ctx.user.id,
+        provider: providerFromState,
+        consumer: ctx.user.id,
+        conn: 'pending',
+        status: 'pending'
+      }, logger.createChildLogger({ provider: providerFromState, connectionId: 'pending' }));
+      return Response.redirect(`${base}&connected=1`);
+    }
+
     // Process each connection with detailed logging
-    for (const connection of connections) {
+    for (const connection of connectionsToProcess) {
       const connectionStartTime = Date.now();
       
       // Use connection.id (UUID) not connection.connection_id (service string like
