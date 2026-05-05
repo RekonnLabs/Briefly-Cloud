@@ -319,11 +319,13 @@ const handler = async (_req: Request, ctx: ApiContext) => {
     for (const connection of connections) {
       const connectionStartTime = Date.now();
       
-      if (!connection?.connection_id || !connection?.service_id) {
+      // Use connection.id (UUID) not connection.connection_id (service string like
+      // "google-drive") — the UUID is what the Apideck API requires for file listing.
+      if (!connection?.id || !connection?.service_id) {
         logger.logConnectionProcessing(connection, 'unknown', 'error', {
           message: 'Missing required connection fields',
           category: 'invalid_connection',
-          hasConnectionId: !!connection?.connection_id,
+          hasConnectionId: !!connection?.id,
           hasServiceId: !!connection?.service_id
         });
         
@@ -337,6 +339,27 @@ const handler = async (_req: Request, ctx: ApiContext) => {
         });
         continue;
       }
+
+      // Only upsert connections that are in a callable state — skip authorised-but-not-callable
+      // rows (e.g. state === 'authorized' but health !== 'ok') to avoid writing phantom connections.
+      const isCallable = connection.state === 'callable' || connection.health === 'ok';
+      if (!isCallable) {
+        logger.logConnectionProcessing(connection, mapServiceIdToProvider(connection.service_id), 'error', {
+          message: 'Connection not callable — skipping upsert',
+          category: 'not_callable',
+          state: connection.state,
+          health: connection.health
+        });
+        processingStats.failedConnections++;
+        processingStats.nonRetryableFailures++;
+        processingStats.errors.push({
+          connection,
+          error: `Connection not callable (state=${connection.state}, health=${connection.health})`,
+          category: 'not_callable',
+          retryable: false
+        });
+        continue;
+      }
       
       const provider = mapServiceIdToProvider(connection.service_id);
       
@@ -345,12 +368,12 @@ const handler = async (_req: Request, ctx: ApiContext) => {
       
       // Process connection with enhanced error handling
       const result = await upsertConnection({
-        user: ctx.user.id, 
-        provider, 
-        consumer: ctx.user.id, 
-        conn: connection.connection_id, 
-        status: connection.status ?? 'connected' 
-      }, logger.createChildLogger({ provider, connectionId: connection.connection_id }));
+        user: ctx.user.id,
+        provider,
+        consumer: ctx.user.id,
+        conn: connection.id,          // UUID — required by Apideck file listing API
+        status: 'connected'           // only callable connections reach this point
+      }, logger.createChildLogger({ provider, connectionId: connection.id }));
 
       const connectionDuration = Date.now() - connectionStartTime;
       connectionProcessingTimes.push(connectionDuration);
