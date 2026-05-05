@@ -185,9 +185,9 @@ export async function extractTextFromBuffer(
  * Extract text from PDF buffer
  *
  * Uses pdfjs-dist instead of pdf-parse. pdf-parse reads a hardcoded test fixture
- * (./test/data/05-versions-space.pdf) on import which doesn't exist in Vercel's
- * serverless runtime, causing ENOENT on every PDF upload.
- * pdfjs-dist is safe in Node.js/serverless — no filesystem reads on import.
+ * from disk at import time which does not exist in Vercel's serverless runtime,
+ * causing ENOENT on every PDF upload. pdfjs-dist is safe in Node.js/serverless
+ * environments — no filesystem reads at import time, all processing is in-memory.
  */
 async function extractPdfText(buffer: Buffer): Promise<{
   text: string
