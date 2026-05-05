@@ -202,7 +202,16 @@ const upsertConnection = async (
 };
 
 const handler = async (_req: Request, ctx: ApiContext) => {
-  const base = new URL('/auth/oauth-complete?provider=google', process.env.NEXT_PUBLIC_SITE_URL!).toString();
+  // Extract provider from the state param Apideck echoes back in the callback URL.
+  // Fall back to 'google' so existing Google Drive flows are unaffected.
+  const callbackUrl = new URL(_req.url);
+  const stateParam = callbackUrl.searchParams.get('state') ?? '';
+  const providerFromState = stateParam.includes('microsoft') || stateParam.includes('onedrive')
+    ? 'microsoft'
+    : stateParam.includes('dropbox')
+    ? 'dropbox'
+    : 'google';
+  const base = new URL(`/auth/oauth-complete?provider=${providerFromState}`, process.env.NEXT_PUBLIC_SITE_URL!).toString();
   
   // Initialize comprehensive logging
   const logger = createCallbackLogger({
@@ -274,6 +283,27 @@ const handler = async (_req: Request, ctx: ApiContext) => {
 
     const connections = json?.data ?? [];
     processingStats.totalConnections = connections.length;
+
+    // If Apideck returns an empty list, the connection may not have propagated yet.
+    // Upsert a placeholder row so the UI reflects the connection immediately.
+    // A subsequent health check will update the real connection_id.
+    if (connections.length === 0) {
+      console.warn('[apideck:callback:get] listConnections returned empty — upserting placeholder for', providerFromState);
+      const placeholderResult = await upsertConnection({
+        user: ctx.user.id,
+        provider: providerFromState,
+        consumer: ctx.user.id,
+        conn: `pending-${ctx.user.id}-${Date.now()}`,
+        status: 'connected'
+      }, logger.createChildLogger({ provider: providerFromState, connectionId: 'pending' }));
+      if (placeholderResult.success) {
+        logger.logRedirectDecision('success', 'Placeholder upserted for empty connection list', base + '&connected=1');
+        return NextResponse.redirect(base + '&connected=1');
+      } else {
+        logger.logRedirectDecision('failure', 'Placeholder upsert failed', base + '&error=connection_failed');
+        return NextResponse.redirect(base + '&error=connection_failed');
+      }
+    }
 
     // Log connection summary
     const connectionSummary = summarizeConnections(connections);
@@ -446,14 +476,24 @@ const postHandler = async (req: Request, ctx: ApiContext) => {
       // Apideck returned an empty list — connection may not have propagated yet.
       // Upsert a placeholder 'connected' row so the UI reflects the connection
       // immediately. A subsequent health check will update the real connection_id.
-      console.warn('[apideck:callback:post] listConnections returned empty — upserting placeholder for google');
+      // Extract provider from state param so Microsoft/Dropbox users get the right
+      // placeholder instead of a hardcoded 'google' row.
+      const postStateParam = (() => {
+        try { return new URL(req.url).searchParams.get('state') ?? ''; } catch { return ''; }
+      })();
+      const postProvider = postStateParam.includes('microsoft') || postStateParam.includes('onedrive')
+        ? 'microsoft'
+        : postStateParam.includes('dropbox')
+        ? 'dropbox'
+        : 'google';
+      console.warn('[apideck:callback:post] listConnections returned empty — upserting placeholder for', postProvider);
       const placeholderResult = await upsertConnection({
         user: ctx.user.id,
-        provider: 'google',
+        provider: postProvider,
         consumer: ctx.user.id,
         conn: `pending-${ctx.user.id}-${Date.now()}`,
         status: 'connected'
-      }, logger.createChildLogger({ provider: 'google', connectionId: 'pending' }));
+      }, logger.createChildLogger({ provider: postProvider, connectionId: 'pending' }));
       if (placeholderResult.success) successCount++;
     } else {
       for (const connection of connections) {

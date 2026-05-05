@@ -183,6 +183,11 @@ export async function extractTextFromBuffer(
 
 /**
  * Extract text from PDF buffer
+ *
+ * Uses pdfjs-dist instead of pdf-parse. pdf-parse reads a hardcoded test fixture
+ * (./test/data/05-versions-space.pdf) on import which doesn't exist in Vercel's
+ * serverless runtime, causing ENOENT on every PDF upload.
+ * pdfjs-dist is safe in Node.js/serverless — no filesystem reads on import.
  */
 async function extractPdfText(buffer: Buffer): Promise<{
   text: string
@@ -190,13 +195,25 @@ async function extractPdfText(buffer: Buffer): Promise<{
   warnings: string[]
 }> {
   try {
-    const pdfParse = (await import('pdf-parse')).default
-    const data = await pdfParse(buffer)
-    
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    // Disable the worker thread — not available in Node.js/serverless environments
+    pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+    const pdf = await loadingTask.promise
+    const pages: string[] = []
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      pages.push(content.items.map((item: any) => ('str' in item ? item.str : '')).join(' '))
+    }
+
+    const text = pages.join('\n')
     return {
-      text: data.text,
-      pageCount: data.numpages,
-      warnings: data.text.length === 0 ? ['PDF appears to contain no extractable text'] : [],
+      text,
+      pageCount: pdf.numPages,
+      warnings: text.trim().length === 0 ? ['PDF appears to contain no extractable text (may be image-based)'] : [],
     }
   } catch (error) {
     throw createError.internal(`PDF extraction failed: ${error instanceof Error ? error.message : String(error)}`)

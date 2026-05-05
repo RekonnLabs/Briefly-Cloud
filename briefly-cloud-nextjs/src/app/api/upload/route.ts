@@ -317,6 +317,20 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
         processingError instanceof Error ? processingError.message : 'Unknown error'
       )
 
+      // Sync files.processing_status to 'failed' so the UI reflects the error.
+      // Without this, processing_status stays 'pending' forever because it is
+      // only written on the success path above.
+      try {
+        await filesRepo.updateProcessingStatus(user.id, fileId, 'failed')
+      } catch (statusSyncError) {
+        // Best-effort: don't mask the original processing error
+        console.error('[upload:status-sync-failed]', {
+          error: statusSyncError instanceof Error ? statusSyncError.message : String(statusSyncError),
+          fileId,
+          correlationId
+        })
+      }
+
       // Log the processing error but continue with upload success
       logApiUsage(user.id, '/api/upload', 'processing_failed', {
         file_name: file.name,
