@@ -65,10 +65,9 @@ function getClientForModel(model: string, userApiKey?: string): OpenAI {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Embedding configuration — always uses OpenAI, never Groq
-// Embeddings stay on text-embedding-3-small until Gemini Embedding 2 goes GA
+// Embedding configuration — Gemini Embedding 2 (SPEC 4 migration)
 // ─────────────────────────────────────────────────────────────────────────────
-export const EMBEDDING_MODEL = 'text-embedding-3-small'
+export const EMBEDDING_MODEL = 'gemini-embedding-2-preview'
 export const EMBEDDING_DIMENSIONS = 1536
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +79,7 @@ export const EMBEDDING_DIMENSIONS = 1536
 //   CHAT_MODEL_BOOST default: openai/gpt-oss-120b      (Groq — ~500 TPS, $0.15/$0.60 per 1M)
 //
 // Groq pricing: $0.59/$0.79 per 1M (Llama 3.3 70B), $0.05/$0.08 (Llama 3.1 8B), $0.15/$0.60 (gpt-oss-120b)
-// Embeddings always stay on OpenAI (text-embedding-3-small) regardless of inference provider.
+// Embeddings use Gemini Embedding 2 (gemini-embedding-2-preview) — SPEC 4 migration.
 // ─────────────────────────────────────────────────────────────────────────────
 export const FREE_CHAT_MODEL  = 'llama-3.1-8b-instant'    // Groq LPU — ~840 TPS
 export const PRO_CHAT_MODEL   = 'llama-3.3-70b-versatile' // Groq LPU — ~394 TPS
@@ -106,21 +105,26 @@ export function resolveChatModel(tier: SubscriptionTier): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Embeddings — always OpenAI, BYOK-aware
+// Embeddings — Gemini Embedding 2 (SPEC 4 migration)
+// Uses question-answering task prefix for query-side calls (conversationMemory).
 // ─────────────────────────────────────────────────────────────────────────────
 export async function generateEmbeddings(
   texts: string[],
-  userApiKey?: string
+  _userApiKey?: string  // BYOK not supported for Gemini embedding; system key used
 ): Promise<number[][]> {
-  // Embeddings always go to OpenAI regardless of inference provider
-  const client = userApiKey ? createUserOpenAIClient(userApiKey) : openai
+  const { GoogleGenAI } = await import('@google/genai')
+  const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
   try {
-    const response = await client.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: texts,
-      dimensions: EMBEDDING_DIMENSIONS,
-    })
-    return response.data.map(item => item.embedding)
+    const results: number[][] = []
+    for (const text of texts) {
+      const res = await genai.models.embedContent({
+        model: EMBEDDING_MODEL,
+        contents: `task: question answering | query: ${text}`,
+        config: { outputDimensionality: EMBEDDING_DIMENSIONS },
+      })
+      results.push(res.embeddings![0].values!)
+    }
+    return results
   } catch (error) {
     console.error('Error generating embeddings:', error)
     throw new Error('Failed to generate embeddings')

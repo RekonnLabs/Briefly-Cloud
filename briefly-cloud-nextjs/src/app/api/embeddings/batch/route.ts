@@ -16,7 +16,7 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 // Validation schema
 const batchEmbeddingRequestSchema = z.object({
   texts: z.array(z.string().min(1)).min(1).max(100), // Max 100 texts at once
-  model: z.enum(['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']).optional(),
+  model: z.enum(['gemini-embedding-2-preview', 'text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']).optional(),
   dimensions: z.number().min(256).max(3072).optional(),
   include_metadata: z.boolean().optional().default(true),
   include_similarities: z.boolean().optional().default(false),

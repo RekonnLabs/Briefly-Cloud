@@ -33,7 +33,7 @@ const envSchema = z.object({
   CHAT_MODEL_PRO: z.string().default('gpt-5-mini'),
   CHAT_MODEL_BYOK: z.string().default('gpt-5-mini'),
   FEATURE_GPT5: z.string().transform(val => val === 'true').default('true'),
-  EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+  EMBEDDING_MODEL: z.string().default('gemini-embedding-2-preview'),
   EMBEDDING_DIMENSIONS: z.string().transform(Number).default('1536'),
   
   // Vector Storage

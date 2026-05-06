@@ -19,13 +19,13 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 // Validation schemas
 const embeddingRequestSchema = z.object({
   text: z.string().min(1).max(100000), // Max ~100k characters
-  model: z.enum(['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']).optional(),
+  model: z.enum(['gemini-embedding-2-preview', 'text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']).optional(),
   dimensions: z.number().min(256).max(3072).optional(),
 })
 
 const batchEmbeddingRequestSchema = z.object({
   texts: z.array(z.string().min(1)).min(1).max(100), // Max 100 texts at once
-  model: z.enum(['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']).optional(),
+  model: z.enum(['gemini-embedding-2-preview', 'text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']).optional(),
   dimensions: z.number().min(256).max(3072).optional(),
 })
 
@@ -217,7 +217,7 @@ async function getEmbeddingInfoHandler(_request: Request, context: ApiContext): 
         name,
         ...config,
         available: true,
-        recommended_for: name === 'text-embedding-3-small' 
+        recommended_for: name === 'gemini-embedding-2-preview' 
           ? ['general_use', 'cost_effective', 'fast_processing']
           : name === 'text-embedding-3-large'
           ? ['high_accuracy', 'advanced_search', 'complex_documents']
@@ -246,7 +246,7 @@ async function getEmbeddingInfoHandler(_request: Request, context: ApiContext): 
         byok_support: {
           description: 'Bring Your Own Key for Pro BYOK users',
           supported: true,
-          models: ['text-embedding-3-small', 'text-embedding-3-large'],
+          models: ['gemini-embedding-2-preview', 'text-embedding-3-small', 'text-embedding-3-large'],
         },
       },
       

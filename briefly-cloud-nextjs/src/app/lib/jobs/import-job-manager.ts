@@ -1254,47 +1254,36 @@ export class ImportJobManager {
             file.name
           )
 
-          // Image-based PDF: pdf-parse returns empty string for scanned/image PDFs.
-          // Fall back to GPT-4o-mini vision extraction if the feature flag is enabled.
+          // Image-based PDF: pdfjs-dist returns empty string for scanned/image PDFs.
+          // SPEC 4 Step 3: Use Gemini native PDF embedding instead of GPT-4o-mini vision.
+          // embedPdfPages uploads the raw buffer to the Gemini Files API and embeds it
+          // directly — no OCR/text-extraction step needed.
           if (
             (file.mimeType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) &&
             !extraction.text.trim()
           ) {
-            if (process.env.PDF_VISION_EXTRACTION_ENABLED === 'true') {
-              // Bump heartbeat every 10s during long vision extraction so the
-              // frontend doesn't mark the job as stale (60s threshold).
-              const hbInterval = setInterval(() => {
-                this.updateJobProgress(job.id, { current_file: `${file.name} (vision extraction)` })
-                  .catch(() => {}) // best-effort, never block
-              }, 10_000)
-              try {
-                const { extractPdfWithVision } = await import('@/app/lib/indexing/pdf-vision-extractor')
-                const visionResult = await extractPdfWithVision(buffer, file.name)
-                clearInterval(hbInterval)
-                if (visionResult.text.trim()) {
-                  logger.info('[import:vision-fallback-success]', {
-                    fileName: file.name,
-                    pagesProcessed: visionResult.pagesProcessed,
-                    costUsd: visionResult.costUsd,
-                    textLength: visionResult.text.length
-                  })
-                  extraction = { text: visionResult.text }
-                } else {
-                  const reason = 'Image-based PDF — vision extraction returned no text'
-                  await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
-                  return { ok: false, file, reason }
-                }
-              } catch (visionErr) {
-                clearInterval(hbInterval)
-                const reason = visionErr instanceof Error
-                  ? `Vision extraction failed: ${visionErr.message}`
-                  : 'Vision extraction failed'
-                logger.warn('[import:vision-fallback-failed]', { fileName: file.name, error: reason })
-                await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
-                return { ok: false, file, reason }
-              }
-            } else {
-              const reason = 'Image-based PDF — vision extraction not enabled'
+            const hbInterval = setInterval(() => {
+              this.updateJobProgress(job.id, { current_file: `${file.name} (native PDF embed)` })
+                .catch(() => {})
+            }, 10_000)
+            try {
+              const { embedPdfPages } = await import('@/app/lib/indexing/pdf-vision-extractor')
+              const pdfEmbedResult = await embedPdfPages(buffer, file.name)
+              clearInterval(hbInterval)
+              logger.info('[import:native-pdf-embed-success]', {
+                fileName: file.name,
+                embeddingCount: pdfEmbedResult.embeddings.length,
+                costUsd: pdfEmbedResult.costUsd,
+              })
+              // Signal to Phase 2 that this file has pre-built embeddings
+              // (no text chunks to generate — embeddings are stored directly).
+              return { ok: true as const, file, buffer, text: '', mimeType: file.mimeType || 'application/pdf', nativePdfEmbeddings: pdfEmbedResult.embeddings }
+            } catch (embedErr) {
+              clearInterval(hbInterval)
+              const reason = embedErr instanceof Error
+                ? `Native PDF embed failed: ${embedErr.message}`
+                : 'Native PDF embed failed'
+              logger.warn('[import:native-pdf-embed-failed]', { fileName: file.name, error: reason })
               await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
               return { ok: false, file, reason }
             }
@@ -1330,6 +1319,8 @@ export class ImportJobManager {
       contentHash: string
       chunks: ReturnType<typeof createTextChunks>
       chunkOffset: number
+      /** Pre-built embeddings for image-based PDFs (Gemini native embed path). */
+      nativePdfEmbeddings?: number[][]
     }
     const fileGroups: FileGroup[] = []
     const allChunkTexts: string[] = []
@@ -1337,6 +1328,7 @@ export class ImportJobManager {
     for (const outcome of downloadOutcomes) {
       if (!outcome.ok) continue
       const { file, buffer, text, mimeType } = outcome
+      const nativePdfEmbeddings = (outcome as any).nativePdfEmbeddings as number[][] | undefined
 
       const contentHash = createHash('sha256').update(buffer).digest('hex')
 
@@ -1381,6 +1373,13 @@ export class ImportJobManager {
         meta: { content_hash: contentHash, provider_version: file.modifiedTime, external_id: file.id, file_name: file.name, mime_type: mimeType }
       })
 
+      // Image-based PDFs arrive with pre-built embeddings from the Gemini native embed path.
+      // Skip text chunking for these — store a single synthetic chunk with the whole-doc embedding.
+      if (nativePdfEmbeddings && nativePdfEmbeddings.length > 0) {
+        fileGroups.push({ file, buffer, mimeType, appFileId, contentHash, chunks: [], chunkOffset: allChunkTexts.length, nativePdfEmbeddings })
+        continue
+      }
+
       const chunks = createTextChunks(text, appFileId, file.name, mimeType, job.userId, 1000)
       if (chunks.length === 0) {
         await this.updateFileStatus(job.id, file.id, { status: 'failed', error: 'No text chunks extracted' })
@@ -1412,7 +1411,48 @@ export class ImportJobManager {
     const vectorStore = getVectorStore()
 
     for (const group of fileGroups) {
-      const { file, buffer, mimeType, appFileId, contentHash, chunks, chunkOffset } = group
+      const { file, buffer, mimeType, appFileId, contentHash, chunks, chunkOffset, nativePdfEmbeddings } = group
+
+      // ── Native PDF embed path (image-based PDFs) ──────────────────────────
+      if (nativePdfEmbeddings && nativePdfEmbeddings.length > 0) {
+        const EMBED_MODEL = 'gemini-embedding-2-preview'
+        const nativeVectorDocs = nativePdfEmbeddings.map((embedding, i) => ({
+          id: `${appFileId}_native_${i}`,
+          content: `[image-based PDF: ${file.name}]`,
+          embedding,
+          metadata: {
+            fileId: appFileId, fileName: file.name, chunkIndex: i,
+            userId: job.userId, source: job.provider, externalId: file.id,
+            createdAt: new Date().toISOString(),
+            embeddingModel: EMBED_MODEL,
+            embeddingDimensions: embedding.length,
+            mimeType, isNativePdfEmbed: true
+          }
+        }))
+        try {
+          await vectorStore.addDocuments(job.userId, nativeVectorDocs)
+          await supabaseAdmin.from('file_processing_history').insert({
+            user_id: job.userId, job_id: job.id, external_id: file.id, provider: job.provider,
+            file_name: file.name, content_hash: contentHash, provider_version: file.modifiedTime || new Date().toISOString(),
+            file_size: buffer.length, mime_type: mimeType, status: 'completed',
+            chunks_created: nativePdfEmbeddings.length, app_file_id: appFileId, processed_at: new Date()
+          })
+          await fileIngestRepo.upsert({
+            file_id: appFileId, owner_id: job.userId, status: 'ready', source: job.provider,
+            meta: { content_hash: contentHash, processed_at: new Date().toISOString(), chunks_created: nativePdfEmbeddings.length }
+          })
+          supabaseAdmin.rpc('increment_document_usage', { p_user_id: job.userId, p_bytes: buffer.length })
+            .then(({ error: e }) => { if (e) logger.warn('increment_document_usage failed', { userId: job.userId, error: e.message }) })
+          await this.updateFileStatus(job.id, file.id, { status: 'completed' })
+        } catch (writeErr) {
+          logger.error('Native PDF embed vector write failed', { jobId, fileId: file.id, error: writeErr instanceof Error ? writeErr.message : 'Unknown' })
+          await this.updateFileStatus(job.id, file.id, { status: 'failed', error: 'Vector write failed' })
+          await fileIngestRepo.updateStatus(job.userId, appFileId, 'error', writeErr instanceof Error ? writeErr.message : 'Unknown').catch(() => {})
+        }
+        continue
+      }
+
+      // ── Standard text-chunk embed path ────────────────────────────────────
       const embeddings = embeddingResult!.embeddings.slice(chunkOffset, chunkOffset + chunks.length)
 
       const vectorDocs = chunks.map((chunk, i) => ({

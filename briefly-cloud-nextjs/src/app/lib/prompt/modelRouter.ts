@@ -10,7 +10,7 @@ type RouteOpts = { budget?: 'fast' | 'balanced' | 'quality'; tier?: UserTier }
 //   CHAT_MODEL_FREE  default: llama-3.1-8b-instant      $0.05/$0.08 per 1M  ~840 TPS
 //   CHAT_MODEL_BOOST default: openai/gpt-oss-120b       $0.15/$0.60 per 1M  ~500 TPS
 //
-// Embeddings always stay on OpenAI (text-embedding-3-small) regardless of inference provider.
+// Embeddings use Gemini Embedding 2 (gemini-embedding-2-preview) — SPEC 4 migration.
 // Override any model via Vercel env vars — no code deploy needed.
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_MODEL_PRO   = process.env.CHAT_MODEL_PRO   || 'llama-3.3-70b-versatile'  // Groq LPU — ~394 TPS

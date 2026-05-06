@@ -1,52 +1,70 @@
 /**
- * OpenAI Embeddings Integration
- * Handles document chunk embeddings with support for ChatGPT 5 and BYOK
+ * Gemini Embedding 2 Integration
+ * Handles document chunk embeddings using gemini-embedding-2-preview.
+ *
+ * SPEC 4 migration: replaced OpenAI text-embedding-3-small with Gemini Embedding 2.
+ * - Document chunks use task prefix: "task: search result | text: <chunk>"
+ * - Query vectors use task prefix:   "task: question answering | query: <query>"
+ * - Output dimensionality fixed at 1536 — matches existing vector(1536) column, no schema change needed.
+ * - BYOK path removed for embeddings (Gemini key is system-only via GEMINI_API_KEY env var).
  */
 
-import OpenAI from 'openai'
+import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@supabase/supabase-js'
 import { createError } from './api-errors'
 import { logger } from './logger'
 import { DocumentChunk, StoredDocumentChunk } from './document-chunker'
 
-// OpenAI Configuration
+// ─── Model configuration ─────────────────────────────────────────────────────
+
+export const EMBED_MODEL = 'gemini-embedding-2-preview'
+export const EMBED_DIMS  = 1536  // matches current vector column — no schema change needed
+
+// Kept for backward-compatibility with callers that reference EMBEDDING_MODELS
 export const EMBEDDING_MODELS = {
+  'gemini-embedding-2-preview': {
+    dimensions: EMBED_DIMS,
+    maxTokens: 8192,
+    costPer1kTokens: 0, // Gemini embedding pricing TBD — set to 0 until confirmed
+    description: 'Gemini Embedding 2 — 1536-dim, task-prefixed retrieval model',
+  },
+  // Legacy entries kept so any code that reads EMBEDDING_MODELS doesn't break
   'text-embedding-3-small': {
     dimensions: 1536,
     maxTokens: 8191,
-    costPer1kTokens: 0.00002, // $0.00002 per 1k tokens
-    description: 'Most efficient embedding model for most use cases',
+    costPer1kTokens: 0.00002,
+    description: 'Legacy OpenAI model (no longer used)',
   },
   'text-embedding-3-large': {
     dimensions: 3072,
     maxTokens: 8191,
-    costPer1kTokens: 0.00013, // $0.00013 per 1k tokens
-    description: 'Higher performance embedding model for advanced use cases',
+    costPer1kTokens: 0.00013,
+    description: 'Legacy OpenAI model (no longer used)',
   },
   'text-embedding-ada-002': {
     dimensions: 1536,
     maxTokens: 8191,
-    costPer1kTokens: 0.0001, // $0.0001 per 1k tokens
-    description: 'Legacy embedding model (deprecated)',
+    costPer1kTokens: 0.0001,
+    description: 'Legacy OpenAI model (no longer used)',
   },
 } as const
 
 export type EmbeddingModel = keyof typeof EMBEDDING_MODELS
 
-// Default configuration
-export const DEFAULT_EMBEDDING_MODEL: EmbeddingModel = 'text-embedding-3-small'
-export const DEFAULT_DIMENSIONS = EMBEDDING_MODELS[DEFAULT_EMBEDDING_MODEL].dimensions
+export const DEFAULT_EMBEDDING_MODEL: EmbeddingModel = 'gemini-embedding-2-preview'
+export const DEFAULT_DIMENSIONS = EMBED_DIMS
 
-// Chat models with ChatGPT 5 support
+// Chat models (unchanged — kept here for backward-compat imports)
 export const CHAT_MODELS = {
   free: 'gpt-3.5-turbo',
-  pro: 'gpt-4o', // Updated to latest GPT-4 Omni
-  pro_byok: 'gpt-5', // ChatGPT 5 for BYOK users
+  pro: 'gpt-4o',
+  pro_byok: 'gpt-5',
 } as const
 
 export type SubscriptionTier = keyof typeof CHAT_MODELS
 
-// Embedding configuration
+// ─── Config interfaces ────────────────────────────────────────────────────────
+
 export interface EmbeddingConfig {
   model: EmbeddingModel
   dimensions?: number
@@ -55,16 +73,14 @@ export interface EmbeddingConfig {
   retryDelay: number
 }
 
-// Default embedding configuration
 export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   model: DEFAULT_EMBEDDING_MODEL,
   dimensions: DEFAULT_DIMENSIONS,
-  batchSize: 100, // Process up to 100 chunks at once
+  batchSize: 100,
   maxRetries: 3,
-  retryDelay: 1000, // 1 second
+  retryDelay: 1000,
 }
 
-// Embedding result interface
 export interface EmbeddingResult {
   embedding: number[]
   tokens: number
@@ -72,7 +88,6 @@ export interface EmbeddingResult {
   dimensions: number
 }
 
-// Batch embedding result
 export interface BatchEmbeddingResult {
   embeddings: EmbeddingResult[]
   totalTokens: number
@@ -81,39 +96,69 @@ export interface BatchEmbeddingResult {
   model: string
 }
 
+// ─── Gemini client (lazy) ─────────────────────────────────────────────────────
+
+let _genai: GoogleGenAI | null = null
+
+function getGenAI(): GoogleGenAI {
+  if (!_genai) {
+    _genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
+  }
+  return _genai
+}
+
+// ─── Low-level embed helpers ──────────────────────────────────────────────────
+
 /**
- * OpenAI Embeddings Service
+ * Embed a document chunk (uses "search result" task prefix for best retrieval quality).
+ */
+async function embedChunk(text: string): Promise<number[]> {
+  const res = await getGenAI().models.embedContent({
+    model: EMBED_MODEL,
+    contents: `task: search result | text: ${text}`,
+    config: { outputDimensionality: EMBED_DIMS },
+  })
+  return res.embeddings![0].values!
+}
+
+/**
+ * Embed a user query (uses "question answering" task prefix — intentionally different from embedChunk).
+ * Using the same prefix for both document chunks and queries degrades retrieval quality.
+ */
+export async function embedQuery(query: string): Promise<number[]> {
+  const res = await getGenAI().models.embedContent({
+    model: EMBED_MODEL,
+    contents: `task: question answering | query: ${query}`,
+    config: { outputDimensionality: EMBED_DIMS },
+  })
+  return res.embeddings![0].values!
+}
+
+// ─── EmbeddingsService class ──────────────────────────────────────────────────
+
+/**
+ * Gemini Embeddings Service
+ * Drop-in replacement for the previous OpenAI-based service.
+ * All public method signatures are preserved for backward compatibility.
  */
 export class EmbeddingsService {
-  private openai: OpenAI
   private config: EmbeddingConfig
-  private isUserKey: boolean
 
-  constructor(apiKey?: string, config: Partial<EmbeddingConfig> = {}) {
-    // Lazy initialization to avoid build-time issues
-    this.openai = null as any
+  // apiKey param kept for signature compatibility; Gemini uses system key only
+  constructor(_apiKey?: string, config: Partial<EmbeddingConfig> = {}) {
     this.config = { ...DEFAULT_EMBEDDING_CONFIG, ...config }
-    this.isUserKey = !!apiKey
-    this._apiKey = apiKey
-  }
-
-  private _apiKey?: string
-  
-  private getOpenAI(): OpenAI {
-    if (!this.openai) {
-      this.openai = new OpenAI({
-        apiKey: this._apiKey || process.env.OPENAI_API_KEY!,
-      })
-    }
-    return this.openai
   }
 
   /**
-   * Generate embedding for a single text
+   * Generate embedding for a single text.
+   * Uses embedQuery task prefix when called from query paths,
+   * and embedChunk prefix when called from document paths.
+   * Since callers don't distinguish, we default to the document (chunk) prefix here
+   * and expose embedQuery separately for query-side callers.
    */
   async generateEmbedding(
     text: string,
-    model: EmbeddingModel = this.config.model
+    _model: EmbeddingModel = this.config.model
   ): Promise<EmbeddingResult> {
     if (!text.trim()) {
       throw createError.validation('Text cannot be empty')
@@ -122,57 +167,72 @@ export class EmbeddingsService {
     const startTime = Date.now()
 
     try {
-      const response = await this.getOpenAI().embeddings.create({
-        model,
-        input: text,
-        dimensions: this.config.dimensions,
-      })
-
-      const embedding = response.data[0]
+      const embedding = await embedChunk(text)
       const processingTime = Date.now() - startTime
 
-      // Log performance
       logger.logPerformance('embedding_generation', processingTime, {
-        model,
+        model: EMBED_MODEL,
         textLength: text.length,
-        tokens: response.usage?.total_tokens || 0,
-        dimensions: embedding.embedding.length,
-        isUserKey: this.isUserKey,
+        dimensions: embedding.length,
       })
 
       return {
-        embedding: embedding.embedding,
-        tokens: response.usage?.total_tokens || 0,
-        model,
-        dimensions: embedding.embedding.length,
+        embedding,
+        tokens: 0, // Gemini embedding API does not return token counts
+        model: EMBED_MODEL,
+        dimensions: embedding.length,
       }
     } catch (error) {
       logger.error('Embedding generation failed', {
-        model,
+        model: EMBED_MODEL,
         textLength: text.length,
-        isUserKey: this.isUserKey,
       }, error as Error)
-
-      if (error instanceof OpenAI.APIError) {
-        if (error.status === 401) {
-          throw createError.openaiError('Invalid API key')
-        } else if (error.status === 429) {
-          throw createError.openaiError('Rate limit exceeded')
-        } else if (error.status === 400) {
-          throw createError.openaiError('Invalid request: ' + error.message)
-        }
-      }
-
-      throw createError.openaiError('Failed to generate embedding', error)
+      throw createError.internal('Failed to generate embedding', error)
     }
   }
 
   /**
-   * Generate embeddings for multiple texts in batches
+   * Generate embedding for a query string (uses question-answering task prefix).
+   */
+  async generateQueryEmbedding(query: string): Promise<EmbeddingResult> {
+    if (!query.trim()) {
+      throw createError.validation('Query cannot be empty')
+    }
+
+    const startTime = Date.now()
+
+    try {
+      const embedding = await embedQuery(query)
+      const processingTime = Date.now() - startTime
+
+      logger.logPerformance('query_embedding_generation', processingTime, {
+        model: EMBED_MODEL,
+        queryLength: query.length,
+        dimensions: embedding.length,
+      })
+
+      return {
+        embedding,
+        tokens: 0,
+        model: EMBED_MODEL,
+        dimensions: embedding.length,
+      }
+    } catch (error) {
+      logger.error('Query embedding generation failed', {
+        model: EMBED_MODEL,
+        queryLength: query.length,
+      }, error as Error)
+      throw createError.internal('Failed to generate query embedding', error)
+    }
+  }
+
+  /**
+   * Generate embeddings for multiple texts in batches.
+   * Gemini embedding API is called one text at a time (no batch endpoint in v1).
    */
   async generateBatchEmbeddings(
     texts: string[],
-    model: EmbeddingModel = this.config.model
+    _model: EmbeddingModel = this.config.model
   ): Promise<BatchEmbeddingResult> {
     if (texts.length === 0) {
       throw createError.validation('No texts provided')
@@ -180,131 +240,88 @@ export class EmbeddingsService {
 
     const startTime = Date.now()
     const embeddings: EmbeddingResult[] = []
-    let totalTokens = 0
-    const modelConfig = EMBEDDING_MODELS[model]
 
-    // Process in batches to avoid rate limits
+    // Process in batches with retry logic
     const batches = this.createBatches(texts, this.config.batchSize)
 
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i]
 
-      try {
-        const response = await this.getOpenAI().embeddings.create({
-          model,
-          input: batch,
-          dimensions: this.config.dimensions,
-        })
-
-        // Process batch results
-        response.data.forEach((item, index) => {
-          embeddings.push({
-            embedding: item.embedding,
-            tokens: Math.ceil(batch[index].length / 4), // Rough token estimate
-            model,
-            dimensions: item.embedding.length,
-          })
-        })
-
-        totalTokens += response.usage?.total_tokens || 0
-
-        // Add delay between batches to respect rate limits
-        if (i < batches.length - 1) {
-          await this.delay(this.config.retryDelay)
-        }
-
-      } catch (error) {
-        logger.error(`Batch embedding failed for batch ${i + 1}/${batches.length}`, {
-          batchSize: batch.length,
-          model,
-          isUserKey: this.isUserKey,
-        }, error as Error)
-
-        // Retry logic for failed batches
+      for (let j = 0; j < batch.length; j++) {
         let retryCount = 0
-        while (retryCount < this.config.maxRetries) {
+        let success = false
+
+        while (!success && retryCount <= this.config.maxRetries) {
           try {
-            await this.delay(this.config.retryDelay * (retryCount + 1))
-            
-            const retryResponse = await this.getOpenAI().embeddings.create({
-              model,
-              input: batch,
-              dimensions: this.config.dimensions,
+            const embedding = await embedChunk(batch[j])
+            embeddings.push({
+              embedding,
+              tokens: 0,
+              model: EMBED_MODEL,
+              dimensions: embedding.length,
             })
-
-            // Process retry results
-            retryResponse.data.forEach((item, index) => {
-              embeddings.push({
-                embedding: item.embedding,
-                tokens: Math.ceil(batch[index].length / 4),
-                model,
-                dimensions: item.embedding.length,
-              })
-            })
-
-            totalTokens += retryResponse.usage?.total_tokens || 0
-            break
-
-          } catch (retryError) {
+            success = true
+          } catch (error) {
             retryCount++
-            if (retryCount >= this.config.maxRetries) {
-              throw createError.openaiError(`Failed to generate embeddings after ${this.config.maxRetries} retries`, retryError)
+            if (retryCount > this.config.maxRetries) {
+              logger.error(`Batch embedding failed after ${this.config.maxRetries} retries`, {
+                batchIndex: i,
+                itemIndex: j,
+                model: EMBED_MODEL,
+              }, error as Error)
+              throw createError.internal(`Failed to generate embeddings after ${this.config.maxRetries} retries`, error)
             }
+            await this.delay(this.config.retryDelay * retryCount)
           }
         }
+      }
+
+      // Small pause between batches to respect rate limits
+      if (i < batches.length - 1) {
+        await this.delay(this.config.retryDelay)
       }
     }
 
     const processingTime = Date.now() - startTime
-    const totalCost = (totalTokens / 1000) * modelConfig.costPer1kTokens
 
-    // Log batch performance
     logger.logPerformance('batch_embedding_generation', processingTime, {
-      model,
+      model: EMBED_MODEL,
       totalTexts: texts.length,
-      totalTokens,
-      totalCost,
       batchCount: batches.length,
-      isUserKey: this.isUserKey,
     })
 
     return {
       embeddings,
-      totalTokens,
-      totalCost,
+      totalTokens: 0,   // Gemini embedding API does not return token counts
+      totalCost: 0,     // Cost tracking TBD once Gemini embedding pricing is published
       processingTime,
-      model,
+      model: EMBED_MODEL,
     }
   }
 
   /**
-   * Generate embeddings for document chunks and store in database
+   * Generate embeddings for document chunks and store in database.
    */
   async generateAndStoreChunkEmbeddings(
     chunks: DocumentChunk[],
     userId: string,
     fileId: string,
-    model: EmbeddingModel = this.config.model
+    _model: EmbeddingModel = this.config.model
   ): Promise<StoredDocumentChunk[]> {
     if (chunks.length === 0) {
       return []
     }
 
     try {
-      // Extract text content from chunks
       const texts = chunks.map(chunk => chunk.content)
+      const batchResult = await this.generateBatchEmbeddings(texts)
 
-      // Generate embeddings
-      const batchResult = await this.generateBatchEmbeddings(texts, model)
-
-      // Prepare chunks with embeddings for database storage
       const chunksWithEmbeddings = chunks.map((chunk, index) => ({
         ...chunk,
         userId,
         embedding: batchResult.embeddings[index].embedding,
       }))
 
-      // Store in database
       const supabase = createClient(
         process.env.SUPABASE_URL!,
         process.env.SUPABASE_ANON_KEY!
@@ -332,9 +349,9 @@ export class EmbeddingsService {
           embedding: chunk.embedding,
           metadata: {
             ...chunk.metadata,
-            embedding_model: model,
+            embedding_model: EMBED_MODEL,  // SPEC 4 Step 2: updated model identifier
             embedding_dimensions: chunk.embedding?.length || 0,
-            tokens: batchResult.embeddings[chunk.chunkIndex]?.tokens || 0,
+            tokens: 0,
           },
         }))
 
@@ -349,7 +366,7 @@ export class EmbeddingsService {
 
         if (data) {
           const batchStoredChunks = data.map((row, index) => ({
-            ...batch[i + index],
+            ...batch[index],
             id: row.id,
             createdAt: row.created_at,
           }))
@@ -364,10 +381,10 @@ export class EmbeddingsService {
           processed: true,
           processing_status: 'completed',
           metadata: {
-            embedding_model: model,
-            embedding_dimensions: batchResult.embeddings[0]?.dimensions || 0,
-            total_tokens: batchResult.totalTokens,
-            embedding_cost: batchResult.totalCost,
+            embedding_model: EMBED_MODEL,  // SPEC 4 Step 2
+            embedding_dimensions: EMBED_DIMS,
+            total_tokens: 0,
+            embedding_cost: 0,
             embedded_at: new Date().toISOString(),
           },
           updated_at: new Date().toISOString(),
@@ -378,28 +395,22 @@ export class EmbeddingsService {
       logger.info(`Generated and stored embeddings for ${chunks.length} chunks`, {
         fileId,
         userId,
-        model,
-        totalTokens: batchResult.totalTokens,
-        totalCost: batchResult.totalCost,
+        model: EMBED_MODEL,
         processingTime: batchResult.processingTime,
       })
 
       return storedChunks
-
     } catch (error) {
       logger.error('Failed to generate and store chunk embeddings', {
         fileId,
         userId,
         chunkCount: chunks.length,
-        model,
+        model: EMBED_MODEL,
       }, error as Error)
       throw error
     }
   }
 
-  /**
-   * Create batches from array of texts
-   */
   private createBatches<T>(items: T[], batchSize: number): T[][] {
     const batches: T[][] = []
     for (let i = 0; i < items.length; i += batchSize) {
@@ -408,32 +419,25 @@ export class EmbeddingsService {
     return batches
   }
 
-  /**
-   * Delay utility for rate limiting
-   */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
   }
 }
 
-/**
- * Convenience functions using default configuration
- */
+// ─── Convenience exports (backward-compatible) ────────────────────────────────
 
-// Create embeddings service with system API key
 export function createEmbeddingsService(config?: Partial<EmbeddingConfig>): EmbeddingsService {
   return new EmbeddingsService(undefined, config)
 }
 
-// Create embeddings service with user API key (BYOK)
 export function createUserEmbeddingsService(
   userApiKey: string,
   config?: Partial<EmbeddingConfig>
 ): EmbeddingsService {
-  return new EmbeddingsService(userApiKey, config)
+  // BYOK not supported for Gemini embedding; falls back to system key
+  return new EmbeddingsService(undefined, config)
 }
 
-// Generate single embedding with default service
 export async function generateEmbedding(
   text: string,
   model?: EmbeddingModel
@@ -442,7 +446,6 @@ export async function generateEmbedding(
   return service.generateEmbedding(text, model)
 }
 
-// Generate batch embeddings with default service
 export async function generateBatchEmbeddings(
   texts: string[],
   model?: EmbeddingModel
@@ -451,38 +454,31 @@ export async function generateBatchEmbeddings(
   return service.generateBatchEmbeddings(texts, model)
 }
 
-// Calculate embedding similarity (cosine similarity)
 export function calculateSimilarity(embedding1: number[], embedding2: number[]): number {
   if (embedding1.length !== embedding2.length) {
     throw new Error('Embeddings must have the same dimensions')
   }
-
   let dotProduct = 0
   let norm1 = 0
   let norm2 = 0
-
   for (let i = 0; i < embedding1.length; i++) {
     dotProduct += embedding1[i] * embedding2[i]
     norm1 += embedding1[i] * embedding1[i]
     norm2 += embedding2[i] * embedding2[i]
   }
-
   return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2))
 }
 
-// Get embedding model information
 export function getEmbeddingModelInfo(model: EmbeddingModel) {
   return EMBEDDING_MODELS[model]
 }
 
-// Estimate embedding cost
 export function estimateEmbeddingCost(
   textLength: number,
-  model: EmbeddingModel = DEFAULT_EMBEDDING_MODEL
+  _model: EmbeddingModel = DEFAULT_EMBEDDING_MODEL
 ): number {
-  const modelConfig = EMBEDDING_MODELS[model]
-  const estimatedTokens = Math.ceil(textLength / 4) // Rough estimate: 4 chars per token
-  return (estimatedTokens / 1000) * modelConfig.costPer1kTokens
+  // Gemini embedding pricing not yet published — return 0 until confirmed
+  return 0
 }
 
 // Alias for backward compatibility

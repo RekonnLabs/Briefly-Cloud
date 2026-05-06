@@ -17,7 +17,7 @@ import { z } from 'zod'
 
 // Validation schema
 const chunkEmbeddingRequestSchema = z.object({
-  model: z.enum(['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']).optional(),
+  model: z.enum(['gemini-embedding-2-preview', 'text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']).optional(),
   dimensions: z.number().min(256).max(3072).optional(),
   force_regenerate: z.boolean().optional().default(false),
   save_to_database: z.boolean().optional().default(true),

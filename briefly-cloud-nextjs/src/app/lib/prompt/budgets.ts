@@ -9,7 +9,7 @@ export interface ChatBudget {
 }
 
 export const BUDGETS: Record<Budget, ChatBudget> = {
-  // text-embedding-3-small cosine similarity ranges:
+  // gemini-embedding-2-preview cosine similarity ranges (similar to text-embedding-3-small):
   // 0.7+  = strong match (exact or near-exact content)
   // 0.5-0.7 = good semantic match
   // 0.3-0.5 = weak/tangential match
