@@ -64,7 +64,7 @@ async function getPlanStatusHandler(req: Request, context: ApiContext): Promise<
     const effectiveTrialEnd = trialEndDate || defaultTrialEnd
     
     const trialActive = now < effectiveTrialEnd && userProfile?.subscription_tier === 'free'
-    const paidActive = userProfile?.subscription_status === 'active' && 
+    const paidActive = ['active', 'trialing'].includes(userProfile?.subscription_status ?? '') &&
                       userProfile?.subscription_tier !== 'free'
 
     return NextResponse.json({

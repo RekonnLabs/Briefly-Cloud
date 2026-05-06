@@ -8,18 +8,21 @@ export interface ChatBudget {
   similarityThreshold: number
 }
 
+// Gemini Embedding 2 cosine similarity thresholds.
+// Score ranges differ from text-embedding-3-small — tune via SIMILARITY_THRESHOLD env var
+// after first real imports rather than relying on these defaults.
+// Default values retained from prior calibration; expect adjustment needed post-migration.
+const DEFAULT_THRESHOLD = process.env.SIMILARITY_THRESHOLD
+  ? parseFloat(process.env.SIMILARITY_THRESHOLD)
+  : null
+
 export const BUDGETS: Record<Budget, ChatBudget> = {
-  // gemini-embedding-2-preview cosine similarity ranges (similar to text-embedding-3-small):
-  // 0.7+  = strong match (exact or near-exact content)
-  // 0.5-0.7 = good semantic match
-  // 0.3-0.5 = weak/tangential match
-  // <0.3  = likely irrelevant
   fast: { 
     model: 'gpt-4o-mini', 
     maxTokens: 1000, 
     topK: 4,
     contextTokenLimit: 2000,
-    similarityThreshold: 0.20 // lowered from 0.30 — broader recall for fragmented/checklist docs
+    similarityThreshold: DEFAULT_THRESHOLD ?? 0.20 // lowered from 0.30 — broader recall for fragmented/checklist docs
   },
   balanced: { 
     model: 'gpt-4o', 
@@ -27,17 +30,18 @@ export const BUDGETS: Record<Budget, ChatBudget> = {
     topK: 10,           // raised from 6 — with 4 docs × 5 chunks = 20 total, topK=6 only
                         // retrieved 12 raw candidates and missed lower-ranked but relevant chunks
     contextTokenLimit: 4000,
-    similarityThreshold: 0.20
+    similarityThreshold: DEFAULT_THRESHOLD ?? 0.20  // only active budget currently
   },
   quality: { 
     model: 'gpt-4o', 
     maxTokens: 4000, 
     topK: 8,
     contextTokenLimit: 8000,
-    similarityThreshold: 0.35
+    similarityThreshold: DEFAULT_THRESHOLD ?? 0.35
   }
 } as const
 
+// NOTE: chooseBudget() currently hardcodes 'balanced' — fast and quality are inactive.
 export function chooseBudget(_input?: unknown): Budget {
   return 'balanced'
 }
