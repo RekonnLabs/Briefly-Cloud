@@ -1,3 +1,13 @@
+// =============================================================================
+// TODO (naming debt): This file is named openai.ts but as of the SPEC 4
+// embedding migration it also drives Gemini Embedding 2 calls via @google/genai.
+// The file should be renamed to lib/ai-client.ts (or lib/llm-client.ts) in a
+// future cleanup pass, with all two import sites updated:
+//   - src/app/api/chat/route.ts
+//   - src/app/lib/prompt/conversationMemory.ts
+// The rename is safe to batch with the next non-urgent refactor; no runtime
+// behaviour changes are needed.
+// =============================================================================
 import OpenAI from 'openai'
 
 // ─────────────────────────────────────────────────────────────────────────────
