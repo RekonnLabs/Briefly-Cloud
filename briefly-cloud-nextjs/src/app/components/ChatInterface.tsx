@@ -228,6 +228,40 @@ export function ChatInterface() {
     scrollToBottom();
   }, [messages, streamingContent, isWaitingForFirstToken, scrollToBottom]);
 
+  // Hydrate most recent conversation on mount
+  useEffect(() => {
+    let cancelled = false
+
+    async function hydrate() {
+      try {
+        const res = await fetch('/api/chat/conversations/recent')
+        if (!res.ok || cancelled) return
+
+        const { conversation, messages: dbMessages } = await res.json()
+        if (!conversation || !dbMessages?.length || cancelled) return
+
+        // Map DB rows to the Message shape used in state.
+        // provenance and intent_mode columns are jsonb/text — already structured.
+        const hydrated: Message[] = dbMessages.map((m: any) => ({
+          id: String(m.id),
+          role: m.role,
+          content: m.content,
+          provenance: m.provenance ?? undefined,
+          intentMode: m.intent_mode ?? undefined,
+          timestamp: new Date(m.created_at),
+        }))
+
+        setMessages(hydrated)
+        setConversationId(conversation.id)
+      } catch (err) {
+        console.warn('[chat:hydrate] failed — starting fresh', err)
+      }
+    }
+
+    hydrate()
+    return () => { cancelled = true }
+  }, []) // mount only
+
   // Update mode hint as user types
   useEffect(() => {
     if (input.trim()) {
@@ -380,6 +414,18 @@ export function ChatInterface() {
     }
   };
 
+  function handleNewChat() {
+    // Abort any in-flight stream
+    abortControllerRef.current?.abort()
+
+    // Clear conversation state — next sendMessage will create a new conversation row
+    setMessages([])
+    setConversationId(null)
+    setStreamingContent('')
+    setIsLoading(false)
+    setIsWaitingForFirstToken(false)
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -390,9 +436,17 @@ export function ChatInterface() {
   return (
     <div className="h-full flex flex-col bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-xl">
       {/* Header */}
-      <div className="p-4 border-b border-gray-700/50">
-        <h2 className="text-lg font-semibold text-white">AI Chat</h2>
-        <p className="text-sm text-gray-300">Ask questions about your documents</p>
+      <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">AI Chat</h2>
+          <p className="text-sm text-gray-300">Ask questions about your documents</p>
+        </div>
+        <button
+          onClick={handleNewChat}
+          className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded border border-gray-700 hover:border-gray-500"
+        >
+          + New Chat
+        </button>
       </div>
 
       {/* Messages */}
