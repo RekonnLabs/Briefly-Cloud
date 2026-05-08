@@ -176,12 +176,10 @@ const nextConfig = {
   },
 
   // Server external packages
-  // pdfjs-dist MUST be listed here: it is an ESM-only module with internal
-  // worker references that Next.js cannot bundle correctly. Without this,
-  // the dynamic import('pdfjs-dist/legacy/build/pdf.mjs') inside
-  // document-extractor.ts produces a broken bundle and throws on every
-  // PDF upload in production ("Extraction error" with reason: null).
-  serverExternalPackages: ['@supabase/supabase-js', 'pdfjs-dist'],
+  // unpdf MUST be listed here: it is an ESM-only module that bundles
+  // pdfjs-dist internally. Without this, Next.js tries to bundle it and
+  // produces a broken bundle that throws on every PDF upload in production.
+  serverExternalPackages: ['@supabase/supabase-js', 'unpdf'],
   
   // Experimental features
   experimental: {

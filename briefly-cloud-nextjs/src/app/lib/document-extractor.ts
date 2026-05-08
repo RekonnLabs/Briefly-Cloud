@@ -184,10 +184,18 @@ export async function extractTextFromBuffer(
 /**
  * Extract text from PDF buffer
  *
- * Uses pdfjs-dist instead of pdf-parse. pdf-parse reads a hardcoded test fixture
- * from disk at import time which does not exist in Vercel's serverless runtime,
- * causing ENOENT on every PDF upload. pdfjs-dist is safe in Node.js/serverless
- * environments — no filesystem reads at import time, all processing is in-memory.
+ * Uses unpdf for text extraction. unpdf is a serverless-safe wrapper around
+ * pdfjs-dist that ships its own bundled worker — no external worker file,
+ * no DOMMatrix polyfill, no ENOENT on Vercel's Node.js 18 runtime.
+ *
+ * Previous attempts:
+ *   pdf-parse  — reads a hardcoded test fixture from disk at import time;
+ *                ENOENT on Vercel serverless (Spec 1 migration away from this).
+ *   pdfjs-dist — requires pdf.worker.mjs on disk at runtime; Vercel's function
+ *                bundle does not include it, causing "Cannot find module" errors.
+ *                Also requires DOMMatrix polyfill on Node.js 18.
+ *   unpdf      — bundles pdfjs internally, no worker file needed, no DOM APIs
+ *                required. Works in Node.js 18+, Edge, and Cloudflare Workers.
  */
 async function extractPdfText(buffer: Buffer): Promise<{
   text: string
@@ -195,52 +203,14 @@ async function extractPdfText(buffer: Buffer): Promise<{
   warnings: string[]
 }> {
   try {
-    // pdfjs-dist v5 uses DOMMatrix internally for transform calculations.
-    // DOMMatrix is a browser DOM API that does not exist in Node.js 18
-    // (Vercel's default runtime). Without this polyfill, every PDF upload
-    // throws "ReferenceError: DOMMatrix is not defined" at module load time.
-    // Node.js 19+ has it natively; this guard is a no-op on those runtimes.
-    if (typeof globalThis.DOMMatrix === 'undefined') {
-      // Minimal stub — pdfjs only needs the constructor and basic matrix ops
-      // for rendering (which we don't use). Text extraction via getTextContent
-      // does not exercise the transform path, so a stub is safe here.
-      ;(globalThis as any).DOMMatrix = class DOMMatrix {
-        a=1; b=0; c=0; d=1; e=0; f=0
-        static fromMatrix() { return new (globalThis as any).DOMMatrix() }
-        static fromFloat32Array() { return new (globalThis as any).DOMMatrix() }
-        static fromFloat64Array() { return new (globalThis as any).DOMMatrix() }
-        multiply() { return new (globalThis as any).DOMMatrix() }
-        translate() { return new (globalThis as any).DOMMatrix() }
-        scale() { return new (globalThis as any).DOMMatrix() }
-        rotate() { return new (globalThis as any).DOMMatrix() }
-        inverse() { return new (globalThis as any).DOMMatrix() }
-        transformPoint(p: any) { return p || { x: 0, y: 0 } }
-        toFloat32Array() { return new Float32Array(16) }
-        toFloat64Array() { return new Float64Array(16) }
-      }
-    }
-
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    // pdfjs-dist v5: workerSrc='' no longer disables the worker thread.
-    // Pass disableWorker:true directly in getDocument options instead.
-    // (The old workerSrc='' pattern silently failed in v5, causing
-    //  "No GlobalWorkerOptions.workerSrc specified" on every PDF upload.)
-
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), disableWorker: true } as any)
-    const pdf = await loadingTask.promise
-    const pages: string[] = []
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i)
-      const content = await page.getTextContent()
-      pages.push(content.items.map((item: any) => ('str' in item ? item.str : '')).join(' '))
-    }
-
-    const text = pages.join('\n')
+    const { extractText } = await import('unpdf')
+    const { text, totalPages } = await extractText(new Uint8Array(buffer), { mergePages: true })
     return {
-      text,
-      pageCount: pdf.numPages,
-      warnings: text.trim().length === 0 ? ['PDF appears to contain no extractable text (may be image-based)'] : [],
+      text: text ?? '',
+      pageCount: totalPages,
+      warnings: (text ?? '').trim().length === 0
+        ? ['PDF appears to contain no extractable text (may be image-based)']
+        : [],
     }
   } catch (error) {
     throw createError.internal(`PDF extraction failed: ${error instanceof Error ? error.message : String(error)}`)
