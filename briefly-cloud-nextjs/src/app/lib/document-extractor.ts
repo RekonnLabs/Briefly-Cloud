@@ -196,10 +196,12 @@ async function extractPdfText(buffer: Buffer): Promise<{
 }> {
   try {
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
-    // Disable the worker thread — not available in Node.js/serverless environments
-    pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+    // pdfjs-dist v5: workerSrc='' no longer disables the worker thread.
+    // Pass disableWorker:true directly in getDocument options instead.
+    // (The old workerSrc='' pattern silently failed in v5, causing
+    //  "No GlobalWorkerOptions.workerSrc specified" on every PDF upload.)
 
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), disableWorker: true } as any)
     const pdf = await loadingTask.promise
     const pages: string[] = []
 

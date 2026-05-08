@@ -1159,7 +1159,7 @@ export class ImportJobManager {
     await this.updateJobProgress(jobId, progress)
 
     const totalAttempted = progress.processed + progress.failed + progress.skipped
-    const done = totalAttempted >= progress.total
+    const done = progress.total > 0 && totalAttempted >= progress.total
 
     if (done) {
       const outputData = {
@@ -1496,7 +1496,10 @@ export class ImportJobManager {
     await this.updateJobProgress(jobId, progress)
 
     const totalAttempted = progress.processed + progress.failed + progress.skipped
-    const done = totalAttempted >= progress.total
+    // Guard: never mark done if total is 0 (job has no files, or total hasn't been
+    // written yet). A 0-total job should stay in 'processing' until the client
+    // explicitly marks it done or it times out.
+    const done = progress.total > 0 && totalAttempted >= progress.total
 
     if (done) {
       const outputData = {
@@ -1681,7 +1684,14 @@ export class ImportJobManager {
       const processed = fileStatuses.filter(f => f.status === 'completed').length
       const failed = fileStatuses.filter(f => f.status === 'failed').length
       const skipped = fileStatuses.filter(f => f.status === 'skipped' || f.status === 'duplicate').length
-      const total = currentProgress.total || fileStatuses.length
+
+      // IMPORTANT: use the authoritative total stored in progress.total (written by
+      // prepareJobForChunkedProcessing before any chunk runs). Do NOT fall back to
+      // fileStatuses.length — file_statuses only contains files that have been
+      // *started*, so early in the job it under-counts the total and causes the
+      // done-check (totalAttempted >= total) to fire prematurely, marking the job
+      // completed before all chunks have been processed.
+      const total = currentProgress.total ?? fileStatuses.length
 
       const percentage = total > 0 ? Math.round(((processed + failed + skipped) / total) * 100) : 0
 
