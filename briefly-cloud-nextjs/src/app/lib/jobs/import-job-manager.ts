@@ -1293,12 +1293,9 @@ export class ImportJobManager {
         } catch (err) {
           clearTimeout(tid)
           const raw = err instanceof Error ? err.message : 'Unknown error'
-          const friendly = raw.includes('timeout') || raw.includes('aborted') ? 'Processing timeout'
-            : raw.includes('too large') ? 'File too large'
-            : raw.includes('Unsupported') || raw.includes('mime_type') ? 'Unsupported file type'
-            : raw.includes('extract') || raw.includes('Extraction') ? 'Extraction error'
-            : raw.includes('empty') ? 'Downloaded file is empty'
-            : raw
+          // DIAGNOSTIC: store raw error so we can see the actual exception in production
+          // TODO: restore friendly mapper once root cause is confirmed
+          const friendly = raw
           await this.updateFileStatus(job.id, file.id, { status: 'failed', error: friendly })
           return { ok: false, file, reason: friendly }
         }
