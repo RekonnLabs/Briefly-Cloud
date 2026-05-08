@@ -195,6 +195,31 @@ async function extractPdfText(buffer: Buffer): Promise<{
   warnings: string[]
 }> {
   try {
+    // pdfjs-dist v5 uses DOMMatrix internally for transform calculations.
+    // DOMMatrix is a browser DOM API that does not exist in Node.js 18
+    // (Vercel's default runtime). Without this polyfill, every PDF upload
+    // throws "ReferenceError: DOMMatrix is not defined" at module load time.
+    // Node.js 19+ has it natively; this guard is a no-op on those runtimes.
+    if (typeof globalThis.DOMMatrix === 'undefined') {
+      // Minimal stub — pdfjs only needs the constructor and basic matrix ops
+      // for rendering (which we don't use). Text extraction via getTextContent
+      // does not exercise the transform path, so a stub is safe here.
+      ;(globalThis as any).DOMMatrix = class DOMMatrix {
+        a=1; b=0; c=0; d=1; e=0; f=0
+        static fromMatrix() { return new (globalThis as any).DOMMatrix() }
+        static fromFloat32Array() { return new (globalThis as any).DOMMatrix() }
+        static fromFloat64Array() { return new (globalThis as any).DOMMatrix() }
+        multiply() { return new (globalThis as any).DOMMatrix() }
+        translate() { return new (globalThis as any).DOMMatrix() }
+        scale() { return new (globalThis as any).DOMMatrix() }
+        rotate() { return new (globalThis as any).DOMMatrix() }
+        inverse() { return new (globalThis as any).DOMMatrix() }
+        transformPoint(p: any) { return p || { x: 0, y: 0 } }
+        toFloat32Array() { return new Float32Array(16) }
+        toFloat64Array() { return new Float64Array(16) }
+      }
+    }
+
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
     // pdfjs-dist v5: workerSrc='' no longer disables the worker thread.
     // Pass disableWorker:true directly in getDocument options instead.
