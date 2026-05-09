@@ -1678,8 +1678,19 @@ export class ImportJobManager {
         throw createDatabaseError('Failed to get job for progress calculation', error)
       }
 
-      const fileStatuses = (job.file_statuses as ImportFileStatus[]) || []
+      const rawStatuses = (job.file_statuses as ImportFileStatus[]) || []
       const currentProgress = job.progress as ImportJob['progress']
+
+      // Dedup by fileId — take the latest entry per file (entries are appended
+      // chronologically, so the last entry for a given fileId is the current state).
+      // Without dedup, a file that starts as 'pending' then moves to 'duplicate'
+      // leaves two entries in the array; the stale 'pending' entry inflates
+      // totalAttempted below total and prevents the done-check from ever firing.
+      const latestByFileId = new Map<string, ImportFileStatus>()
+      for (const fs of rawStatuses) {
+        latestByFileId.set(fs.fileId, fs)
+      }
+      const fileStatuses = Array.from(latestByFileId.values())
 
       const processed = fileStatuses.filter(f => f.status === 'completed').length
       const failed = fileStatuses.filter(f => f.status === 'failed').length
