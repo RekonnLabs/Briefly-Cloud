@@ -199,7 +199,7 @@ async function getGoogleBatchImportStatusHandler(
       folderId: statusData.job.folderId,
       progress: statusData.job.progress,
       summary: statusData.summary,
-      recentFiles: statusData.recentFiles,
+      fileStatuses: statusData.recentFiles ?? [],
       createdAt: statusData.job.createdAt,
       startedAt: statusData.job.startedAt,
       completedAt: statusData.job.completedAt,

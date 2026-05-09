@@ -753,8 +753,25 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       await driveChunkLoop(jobId, providerId, 0);
 
       // driveChunkLoop fires the quota-changed event on completion;
-      // show a success toast here as well for single-file UX.
-      showSuccess(`Successfully imported ${fileName}`, 'The file has been added to your document library.');
+      // Check the final job status to show the right toast for single-file UX.
+      // A skipped/duplicate result is not a failure — show a friendly message.
+      try {
+        const providerEndpoint = '/api/storage/google/import/batch';
+        const statusRes = await fetch(`${providerEndpoint}?jobId=${encodeURIComponent(jobId)}`);
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          const progress = statusData.data?.progress;
+          if (progress && progress.skipped > 0 && progress.processed === 0 && progress.failed === 0) {
+            showSuccess(`Already imported`, `${fileName} is already in your document library.`);
+          } else {
+            showSuccess(`Successfully imported ${fileName}`, 'The file has been added to your document library.');
+          }
+        } else {
+          showSuccess(`Successfully imported ${fileName}`, 'The file has been added to your document library.');
+        }
+      } catch {
+        showSuccess(`Successfully imported ${fileName}`, 'The file has been added to your document library.');
+      }
     } catch (error) {
       console.error('Import error:', error);
       showError(`Failed to import ${fileName}`, 'Please try again or check your connection.');

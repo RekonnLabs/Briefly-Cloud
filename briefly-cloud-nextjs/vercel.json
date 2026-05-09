@@ -18,6 +18,9 @@
     "src/app/api/embeddings/**/*.ts": {
       "maxDuration": 120
     },
+    "src/app/api/storage/**/*.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron/**/*.ts": {
       "maxDuration": 300
     }

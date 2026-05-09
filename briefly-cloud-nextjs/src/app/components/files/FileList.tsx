@@ -1,23 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useEffect, useState, useCallback } from 'react'
 import { logger } from '@/app/lib/logger'
 
-// Create browser client for client component (read-only — list/fetch only)
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// FileList fetches from the API (not Supabase directly) so it works with
+// the service-role auth layer and avoids RLS issues with the anon key.
 
 interface FileRecord {
   id: string
   name: string
   mime_type: string
-  size_bytes: number
-  processing_status: 'pending' | 'processing' | 'completed' | 'failed' | 'deleted'
+  size: number
+  processing_status: string
+  source: string | null
+  error_message: string | null
   created_at: string
-  updated_at: string
 }
 
 export function FileList() {
@@ -29,35 +26,30 @@ export function FileList() {
   // Tracks which file is currently being deleted or replaced (shows loading state)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchFiles()
-  }, [])
-
-  async function fetchFiles() {
+  const fetchFiles = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      const { data, error: fetchError } = await supabase
-        .schema('app')
-        .from('files')
-        .select('id, name, mime_type, size_bytes, processing_status, created_at, updated_at')
-        .neq('processing_status', 'deleted')
-        .order('created_at', { ascending: false })
-        .limit(50)
-
-      if (fetchError) {
-        throw fetchError
+      const res = await fetch('/api/upload/files?limit=50&sort_by=created_at&sort_order=desc')
+      if (!res.ok) {
+        throw new Error(`Failed to load files: ${res.status}`)
       }
-
-      setFiles(data || [])
+      const result = await res.json()
+      // API returns { data: { items: [...], total, ... } }
+      const items: FileRecord[] = result?.data?.items ?? []
+      setFiles(items)
     } catch (err) {
       logger.error('Failed to fetch files', err as Error)
       setError('Failed to load files. Please try again.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchFiles()
+  }, [fetchFiles])
 
   // Routes through the API — handles chunks, storage, ingest record, and usage counters
   async function handleDelete(fileId: string) {
@@ -133,15 +125,17 @@ export function FileList() {
   }
 
   function getStatusBadge(status: string) {
-    const statusColors = {
+    const statusColors: Record<string, string> = {
       pending: 'bg-yellow-500/20 text-yellow-400',
       processing: 'bg-blue-500/20 text-blue-400',
+      ready: 'bg-green-500/20 text-green-400',
       completed: 'bg-green-500/20 text-green-400',
-      failed: 'bg-red-500/20 text-red-400'
+      failed: 'bg-red-500/20 text-red-400',
+      error: 'bg-red-500/20 text-red-400',
     }
-    
+
     return (
-      <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[status as keyof typeof statusColors] || 'bg-gray-500/20 text-gray-400'}`}>
+      <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[status] ?? 'bg-gray-500/20 text-gray-400'}`}>
         {status}
       </span>
     )
@@ -207,7 +201,7 @@ export function FileList() {
                   {file.mime_type}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                  {formatFileSize(file.size_bytes)}
+                  {formatFileSize(file.size)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   {getStatusBadge(file.processing_status)}
