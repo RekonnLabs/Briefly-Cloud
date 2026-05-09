@@ -1214,7 +1214,43 @@ export class ImportJobManager {
     const allFiles = (job.inputData.fileList as CloudStorageFile[]) || []
     const chunk = allFiles.slice(offset, offset + limit)
 
-    // ── Phase 1: parallel download + extract ─────────────────────────────────
+    // ── Terminal-state guard ───────────────────────────────────────────────
+    // If offset is at or past the end of fileList, no further work
+    // is possible from this entry point. Force done:true so the
+    // client stops polling, and reconcile any stuck file_status
+    // rows so progress numbers reflect reality.
+    if (chunk.length === 0) {
+      logger.info('Chunk request past end of fileList — terminating', {
+        jobId, offset, fileListLength: allFiles.length
+      })
+      // Reconcile any files left in pending/processing — they will not
+      // be retried by the chunk loop, so mark them as failed with a clear
+      // reason. This makes the file_status table accurate and lets
+      // calculateProgress return a totalAttempted that matches total.
+      await this.reconcileStuckFileStatuses(jobId,
+        'Job terminated before processing — chunk loop reached end of file list'
+      )
+      const progress = await this.calculateProgress(jobId)
+      await this.updateJobProgress(jobId, { ...progress, current_file: null })
+      await this.updateJobStatus(jobId, 'completed', {
+        completed_at: new Date(),
+        output_data: {
+          totalFiles: progress.total,
+          processedFiles: progress.processed,
+          failedFiles: progress.failed,
+          skippedFiles: progress.skipped,
+          duplicateFiles: await this.countFilesByStatus(jobId, 'duplicate')
+        }
+      })
+      return {
+        processed: 0,
+        failed: 0,
+        skipped: 0,
+        done: true
+      }
+    }
+
+    // ── Phase 1: parallel download + extract ──────────────────────────────────
     type DownloadOk = { ok: true; file: CloudStorageFile; buffer: Buffer; text: string; mimeType: string }
     type DownloadFail = { ok: false; file: CloudStorageFile; reason: string }
     type DownloadOutcome = DownloadOk | DownloadFail
@@ -1720,6 +1756,50 @@ export class ImportJobManager {
         error: error instanceof Error ? error.message : 'Unknown error'
       })
       throw error
+    }
+  }
+
+  /**
+   * Reconcile stuck file_status rows to 'failed'.
+   * Called by the terminal-state guard when offset reaches the end of fileList.
+   * Any file still in 'pending' or 'processing' will never be retried by the
+   * chunk loop, so we mark them failed with a clear reason so calculateProgress
+   * returns a totalAttempted that matches total.
+   */
+  private static async reconcileStuckFileStatuses(
+    jobId: string,
+    reason: string
+  ): Promise<void> {
+    try {
+      const { data: job, error } = await supabaseAdmin
+        .from('job_logs')
+        .select('file_statuses')
+        .eq('id', jobId)
+        .single()
+      if (error || !job) return
+      const fileStatuses = (job.file_statuses as ImportFileStatus[]) || []
+      // Dedup by fileId (same logic as calculateProgress)
+      const latestByFileId = new Map<string, ImportFileStatus>()
+      for (const fs of fileStatuses) {
+        latestByFileId.set(fs.fileId, fs)
+      }
+      const stuck = Array.from(latestByFileId.values()).filter(
+        f => f.status === 'pending' || f.status === 'processing'
+      )
+      if (stuck.length === 0) return
+      for (const fs of stuck) {
+        await this.updateFileStatus(jobId, fs.fileId, {
+          status: 'failed',
+          reason
+        })
+      }
+      logger.warn('Reconciled stuck file_status rows', {
+        jobId, count: stuck.length, reason
+      })
+    } catch (err) {
+      logger.error('reconcileStuckFileStatuses failed', {
+        jobId, error: err instanceof Error ? err.message : 'Unknown'
+      })
     }
   }
 

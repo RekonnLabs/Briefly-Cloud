@@ -154,6 +154,21 @@ export async function extractTextFromBuffer(
       warnings: warnings.length,
     })
     
+    // NEW: strip Postgres-incompatible characters from extracted text.
+    // \u0000 (null byte) is rejected by Postgres text columns with error 22P05.
+    // PDFs with binary streams routinely produce nulls in unpdf output.
+    // We strip defensively across all extractor types — DOCX/XLSX can also
+    // produce nulls from corrupt embedded objects.
+    const originalLength = text.length
+    text = text.replace(/\u0000/g, '')
+    if (text.length !== originalLength) {
+      const stripped = originalLength - text.length
+      warnings.push(`Stripped ${stripped} null byte(s) from extracted text`)
+      logger.warn('Null bytes stripped from extracted text', {
+        fileName, mimeType, extractorType, strippedCount: stripped
+      })
+    }
+
     return {
       text,
       metadata: {

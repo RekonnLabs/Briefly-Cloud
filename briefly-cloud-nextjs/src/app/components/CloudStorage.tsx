@@ -24,7 +24,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Cloud, Download, ExternalLink, RefreshCw, AlertCircle, Play, Pause, X, CheckCircle, XCircle, Clock, Folder, FolderOpen, CreditCard } from 'lucide-react';
 import { Breadcrumb, type BreadcrumbItem } from './ui/Breadcrumb';
 import { Button } from './ui/button';
@@ -124,6 +124,11 @@ interface PlanStatus {
   subscriptionTier: string;
 }
 
+// Tracks active chunk loops by jobId. Prevents two loops from running
+// against the same job (e.g. from a manual console resume on top of
+// an existing in-flight loop, which caused the May 9 runaway).
+const activeLoops = new Set<string>()
+
 export function CloudStorage({ userId }: CloudStorageProps = {}) {
   const { showSuccess, showError } = useToast();
   
@@ -154,6 +159,10 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
 
   const [importingFiles, setImportingFiles] = useState<Set<string>>(new Set());
   const [batchJobs, setBatchJobs] = useState<Map<string, ImportJob>>(new Map());
+  // Ref mirror of batchJobs — avoids stale closures inside the long-running
+  // driveChunkLoop when reading progress.total for the offset cap check.
+  const batchJobsRef = useRef(batchJobs)
+  useEffect(() => { batchJobsRef.current = batchJobs }, [batchJobs])
   const [showJobDetails, setShowJobDetails] = useState<string | null>(null);
   const [isProcessingPickerFiles, setIsProcessingPickerFiles] = useState(false);
   const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
@@ -802,88 +811,139 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     providerId: 'google' | 'microsoft',
     startOffset: number = 0
   ) => {
-    const endpoint = providerId === 'google'
-      ? '/api/storage/google/import/batch'
-      : '/api/storage/microsoft/import/batch';
-    const CHUNK_SIZE = 10;
-    let offset = startOffset;
-    let consecutiveErrors = 0;
+    // ── Single-loop guard ──────────────────────────────────────────────────
+    // Prevents two loops from running against the same job (e.g. from a manual
+    // console resume on top of an existing in-flight loop).
+    if (activeLoops.has(jobId)) {
+      console.warn(`[batch-chunk] Loop already running for job ${jobId} — ignoring duplicate start`)
+      return
+    }
+    activeLoops.add(jobId)
+    try {
+      const endpoint = providerId === 'google'
+        ? '/api/storage/google/import/batch'
+        : '/api/storage/microsoft/import/batch';
+      const CHUNK_SIZE = 10;
+      let offset = startOffset;
+      let consecutiveErrors = 0;
+      let consecutiveNoProgress = 0; // NEW: no-progress counter
 
-    // Concurrent polling interval — runs every 3s WHILE a chunk is in-flight
-    // so the progress bar updates as individual files complete, not just between chunks.
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
-    const startPolling = () => {
-      if (pollTimer) return;
-      pollTimer = setInterval(async () => {
+      // Concurrent polling interval — runs every 3s WHILE a chunk is in-flight
+      // so the progress bar updates as individual files complete, not just between chunks.
+      let pollTimer: ReturnType<typeof setInterval> | null = null;
+      const startPolling = () => {
+        if (pollTimer) return;
+        pollTimer = setInterval(async () => {
+          try {
+            const res = await fetch(`${endpoint}?jobId=${encodeURIComponent(jobId)}`);
+            if (res.ok) {
+              const r = await res.json();
+              setBatchJobs(prev => new Map(prev).set(jobId, r.data as ImportJob));
+            }
+          } catch { /* non-fatal — next tick will retry */ }
+        }, 3000);
+      };
+      const stopPolling = () => {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      };
+
+      while (true) {
+        startPolling(); // ensure polling is running before each chunk call
         try {
-          const res = await fetch(`${endpoint}?jobId=${encodeURIComponent(jobId)}`);
-          if (res.ok) {
-            const r = await res.json();
-            setBatchJobs(prev => new Map(prev).set(jobId, r.data as ImportJob));
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId, offset, limit: CHUNK_SIZE }),
+            // Hard browser-side timeout: abort if the server hasn't responded in 55s.
+            // The server has a 30s per-file timeout, so a healthy chunk always returns
+            // well within this window. This prevents infinite hangs if the Vercel
+            // function silently times out at the infrastructure level.
+            signal: AbortSignal.timeout(55_000)
+          });
+
+          if (!response.ok) {
+            consecutiveErrors++;
+            console.error(`[batch-chunk] HTTP ${response.status} at offset ${offset}`);
+            if (consecutiveErrors >= 3) {
+              stopPolling();
+              showError('Import stalled', 'Too many consecutive errors. Please resume or restart the import.');
+              break;
+            }
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
           }
-        } catch { /* non-fatal — next tick will retry */ }
-      }, 3000);
-    };
-    const stopPolling = () => {
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    };
 
-    while (true) {
-      startPolling(); // ensure polling is running before each chunk call
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jobId, offset, limit: CHUNK_SIZE }),
-          // Hard browser-side timeout: abort if the server hasn't responded in 55s.
-          // The server has a 30s per-file timeout, so a healthy chunk always returns
-          // well within this window. This prevents infinite hangs if the Vercel
-          // function silently times out at the infrastructure level.
-          signal: AbortSignal.timeout(55_000)
-        });
+          consecutiveErrors = 0;
+          const result = await response.json();
+          const chunk = result.data as { processed: number; failed: number; skipped: number; done: boolean };
 
-        if (!response.ok) {
-          consecutiveErrors++;
-          console.error(`[batch-chunk] HTTP ${response.status} at offset ${offset}`);
-          if (consecutiveErrors >= 3) {
+          // Immediate status refresh after chunk completes (supplements the interval)
+          try {
+            const statusRes = await fetch(`${endpoint}?jobId=${encodeURIComponent(jobId)}`);
+            if (statusRes.ok) {
+              const statusResult = await statusRes.json();
+              setBatchJobs(prev => new Map(prev).set(jobId, statusResult.data as ImportJob));
+            }
+          } catch { /* non-fatal */ }
+
+          if (chunk.done) {
             stopPolling();
-            showError('Import stalled', 'Too many consecutive errors. Please resume or restart the import.');
+            window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
             break;
           }
-          await new Promise(r => setTimeout(r, 2000));
-          continue;
-        }
 
-        consecutiveErrors = 0;
-        const result = await response.json();
-        const chunk = result.data as { processed: number; failed: number; skipped: number; done: boolean };
-
-        // Immediate status refresh after chunk completes (supplements the interval)
-        try {
-          const statusRes = await fetch(`${endpoint}?jobId=${encodeURIComponent(jobId)}`);
-          if (statusRes.ok) {
-            const statusResult = await statusRes.json();
-            setBatchJobs(prev => new Map(prev).set(jobId, statusResult.data as ImportJob));
+          // ── Hard offset cap ─────────────────────────────────────────────
+          // Defensive: even if the server fails to return done:true,
+          // stop once offset exceeds the known total file count.
+          const currentJob = batchJobsRef.current?.get(jobId)
+          const totalFiles = currentJob?.progress?.total
+          if (typeof totalFiles === 'number' && totalFiles > 0 && offset + CHUNK_SIZE >= totalFiles) {
+            console.warn(
+              `[batch-chunk] Offset cap reached (offset=${offset}, total=${totalFiles}) — stopping loop. ` +
+              'If files remain unprocessed, server returned done:false past end of fileList.'
+            )
+            stopPolling();
+            window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
+            break;
           }
-        } catch { /* non-fatal */ }
 
-        if (chunk.done) {
-          stopPolling();
-          window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
-          break;
-        }
+          // ── No-progress detection ────────────────────────────────────────
+          // If a chunk does zero work, the server is making no forward
+          // progress (job state corrupt, infrastructure issue, etc.).
+          // Bail after 3 consecutive zero-progress chunks.
+          if (chunk.processed === 0 && chunk.failed === 0 && chunk.skipped === 0) {
+            consecutiveNoProgress++;
+            if (consecutiveNoProgress >= 3) {
+              console.error(
+                `[batch-chunk] No progress for 3 consecutive chunks at offset ${offset} — stopping. ` +
+                'Server is returning done:false but performing no work.'
+              );
+              stopPolling();
+              showError(
+                'Import stalled',
+                'Server reported no progress on three consecutive chunks. The job has been stopped. Check the file list and resume if needed.'
+              );
+              break;
+            }
+          } else {
+            consecutiveNoProgress = 0;
+          }
 
-        offset += CHUNK_SIZE;
-      } catch (err) {
-        consecutiveErrors++;
-        console.error('[batch-chunk] Network error at offset', offset, err);
-        if (consecutiveErrors >= 3) {
-          stopPolling();
-          showError('Import stalled', 'Network errors prevented the import from completing. Please resume.');
-          break;
+          offset += CHUNK_SIZE;
+        } catch (err) {
+          consecutiveErrors++;
+          console.error('[batch-chunk] Network error at offset', offset, err);
+          if (consecutiveErrors >= 3) {
+            stopPolling();
+            showError('Import stalled', 'Network errors prevented the import from completing. Please resume.');
+            break;
+          }
+          await new Promise(r => setTimeout(r, 3000));
         }
-        await new Promise(r => setTimeout(r, 3000));
       }
+    } finally {
+      // Always clean up the active-loop registry, even on uncaught throw
+      activeLoops.delete(jobId)
     }
   }, [showError]);
 
