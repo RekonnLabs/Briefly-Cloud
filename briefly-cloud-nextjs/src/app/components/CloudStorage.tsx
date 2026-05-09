@@ -897,7 +897,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
           // stop once offset exceeds the known total file count.
           const currentJob = batchJobsRef.current?.get(jobId)
           const totalFiles = currentJob?.progress?.total
-          if (typeof totalFiles === 'number' && totalFiles > 0 && offset + CHUNK_SIZE >= totalFiles) {
+          if (typeof totalFiles === 'number' && totalFiles > 0 && offset >= totalFiles) {
             console.warn(
               `[batch-chunk] Offset cap reached (offset=${offset}, total=${totalFiles}) — stopping loop. ` +
               'If files remain unprocessed, server returned done:false past end of fileList.'
