@@ -1214,6 +1214,31 @@ export class ImportJobManager {
     const allFiles = (job.inputData.fileList as CloudStorageFile[]) || []
     const chunk = allFiles.slice(offset, offset + limit)
 
+    // ── Empty-chunk guard ─────────────────────────────────────────────────────
+    // When offset >= allFiles.length the slice is empty. Without this guard,
+    // Promise.allSettled([]) returns immediately with no file statuses written,
+    // calculateProgress returns the same stale counts, totalAttempted never
+    // reaches total, done is always false, and the client loops forever.
+    if (chunk.length === 0) {
+      const progress = await this.calculateProgress(jobId)
+      await this.updateJobProgress(jobId, progress)
+      const totalAttempted = progress.processed + progress.failed + progress.skipped
+      const alreadyDone = progress.total > 0 && totalAttempted >= progress.total
+      if (alreadyDone) {
+        const outputData = {
+          totalFiles: progress.total, processedFiles: progress.processed,
+          failedFiles: progress.failed, skippedFiles: progress.skipped,
+          duplicateFiles: await this.countFilesByStatus(jobId, 'duplicate')
+        }
+        await this.updateJobProgress(jobId, { ...progress, current_file: null })
+        await this.updateJobStatus(jobId, 'completed', { completed_at: new Date(), output_data: outputData })
+      }
+      logger.info('processChunkParallel: empty chunk (offset past end of file list)', {
+        jobId, offset, totalFiles: allFiles.length, done: true
+      })
+      return { processed: progress.processed, failed: progress.failed, skipped: progress.skipped, done: true }
+    }
+
     // ── Phase 1: parallel download + extract ─────────────────────────────────
     type DownloadOk = { ok: true; file: CloudStorageFile; buffer: Buffer; text: string; mimeType: string }
     type DownloadFail = { ok: false; file: CloudStorageFile; reason: string }

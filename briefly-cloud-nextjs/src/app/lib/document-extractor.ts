@@ -353,6 +353,11 @@ async function extractCsvText(buffer: Buffer): Promise<{
  */
 function cleanExtractedText(text: string): string {
   return text
+    // Strip null bytes — Postgres TEXT columns reject \u0000 (error code 22P05:
+    // "unsupported Unicode escape sequence"). PDFs and some DOCX/XLSX files
+    // embed null bytes in binary regions that text extractors pass through
+    // verbatim. This must be the first operation before any other processing.
+    .replace(/\u0000/g, '')
     // Normalize line breaks
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
