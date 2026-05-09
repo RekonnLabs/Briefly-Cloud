@@ -834,7 +834,12 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jobId, offset, limit: CHUNK_SIZE })
+          body: JSON.stringify({ jobId, offset, limit: CHUNK_SIZE }),
+          // Hard browser-side timeout: abort if the server hasn't responded in 55s.
+          // The server has a 30s per-file timeout, so a healthy chunk always returns
+          // well within this window. This prevents infinite hangs if the Vercel
+          // function silently times out at the infrastructure level.
+          signal: AbortSignal.timeout(55_000)
         });
 
         if (!response.ok) {

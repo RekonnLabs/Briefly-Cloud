@@ -176,10 +176,15 @@ const nextConfig = {
   },
 
   // Server external packages
-  // unpdf MUST be listed here: it is an ESM-only module that bundles
-  // pdfjs-dist internally. Without this, Next.js tries to bundle it and
-  // produces a broken bundle that throws on every PDF upload in production.
-  serverExternalPackages: ['@supabase/supabase-js', 'unpdf'],
+  // These packages use native Node.js APIs, binary addons, or complex module
+  // structures (ESM-only, CJS with dynamic requires, etc.) that break when
+  // bundled by Next.js. They MUST be loaded at runtime as external modules.
+  //
+  // unpdf    — ESM-only, bundles pdfjs-dist internally; broken when bundled
+  // mammoth  — CJS with dynamic requires; hangs silently when bundled
+  // xlsx     — CJS with complex internal structure; broken when bundled
+  // jszip    — required by mammoth and xlsx internally
+  serverExternalPackages: ['@supabase/supabase-js', 'unpdf', 'mammoth', 'xlsx', 'jszip'],
   
   // Experimental features
   experimental: {
