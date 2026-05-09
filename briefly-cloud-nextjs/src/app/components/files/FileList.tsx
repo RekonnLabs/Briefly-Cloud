@@ -37,7 +37,7 @@ export function FileList() {
       }
       const result = await res.json()
       // API returns { data: { items: [...], total, ... } }
-      const items: FileRecord[] = result?.data?.items ?? []
+      const items: FileRecord[] = result?.data?.data ?? result?.data?.items ?? []
       setFiles(items)
     } catch (err) {
       logger.error('Failed to fetch files', err as Error)
