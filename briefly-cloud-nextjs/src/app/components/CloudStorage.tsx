@@ -799,7 +799,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
       if (pollTimer) return;
       pollTimer = setInterval(async () => {
         try {
-          const res = await fetch(`${endpoint}?jobId=${jobId}`);
+          const res = await fetch(`${endpoint}?jobId=${encodeURIComponent(jobId)}`);
           if (res.ok) {
             const r = await res.json();
             setBatchJobs(prev => new Map(prev).set(jobId, r.data as ImportJob));
@@ -838,7 +838,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
 
         // Immediate status refresh after chunk completes (supplements the interval)
         try {
-          const statusRes = await fetch(`${endpoint}?jobId=${jobId}`);
+          const statusRes = await fetch(`${endpoint}?jobId=${encodeURIComponent(jobId)}`);
           if (statusRes.ok) {
             const statusResult = await statusRes.json();
             setBatchJobs(prev => new Map(prev).set(jobId, statusResult.data as ImportJob));
@@ -918,7 +918,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
 
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`${endpoint}?jobId=${jobId}`);
+        const response = await fetch(`${endpoint}?jobId=${encodeURIComponent(jobId)}`);
         if (response.ok) {
           const result = await response.json();
           const job: ImportJob = result.data;
