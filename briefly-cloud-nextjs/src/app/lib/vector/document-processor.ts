@@ -54,12 +54,9 @@ export class DocumentProcessor implements IDocumentProcessor {
       // No need to update it here as it's immutable and part of unique constraint
 
       // Step 1: Create text chunks
-      const chunks = createTextChunks(content, {
-        chunkSize: 1000,
-        chunkOverlap: 200,
-        fileId,
-        fileName
-      })
+      // Signature: createTextChunks(text, fileId, fileName, mimeType, userId, maxChunkSize?)
+      const mimeTypeForChunker = (metadata?.fileType as string | undefined) ?? ''
+      const chunks = createTextChunks(content, fileId, fileName, mimeTypeForChunker, userId, 1000)
 
       if (chunks.length === 0) {
         logger.warn('No chunks created from document', { userId, fileId, fileName })

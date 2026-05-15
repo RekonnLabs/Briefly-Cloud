@@ -171,6 +171,47 @@ export class DocumentChunker {
    * Markdown table blocks are treated as atomic units — they are never split mid-row
    * and are emitted as their own chunk with chunkType: 'table' regardless of size.
    */
+  /**
+   * Split an oversized block of text (> maxChunkSize) by single newlines,
+   * then accumulate lines into maxChunkSize chunks.
+   * Used as a fallback for PDFs/slides that have no double-newline paragraph breaks.
+   */
+  private splitOversizedBlock(
+    block: string,
+    fileId: string,
+    fileName: string,
+    mimeType: string,
+    startChunkIndex: number,
+    startPosition: number
+  ): { chunks: DocumentChunk[]; nextChunkIndex: number; nextPosition: number } {
+    const result: DocumentChunk[] = []
+    const lines = block.split('\n').filter(l => l.trim())
+    let current = ''
+    let chunkIndex = startChunkIndex
+    let pos = startPosition
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (current && (current.length + trimmed.length + 1) > this.config.maxChunkSize) {
+        result.push(this.createChunkObject(
+          current.trim(), chunkIndex, fileId, fileName, mimeType, pos, pos + current.length, 'text'
+        ))
+        chunkIndex++
+        pos += current.length
+        current = trimmed
+      } else {
+        current += (current ? '\n' : '') + trimmed
+      }
+    }
+    if (current.trim()) {
+      result.push(this.createChunkObject(
+        current.trim(), chunkIndex, fileId, fileName, mimeType, pos, pos + current.length, 'text'
+      ))
+      chunkIndex++
+      pos += current.length
+    }
+    return { chunks: result, nextChunkIndex: chunkIndex, nextPosition: pos }
+  }
+
   private createParagraphChunks(
     text: string,
     fileId: string,
@@ -238,18 +279,29 @@ export class DocumentChunker {
       if (wouldExceed) {
         // Save current chunk if it meets minimum size
         if (currentChunk.length >= (this.config.minChunkSize || 0)) {
-          chunks.push(this.createChunkObject(
-            currentChunk.trim(),
-            chunkIndex,
-            fileId,
-            fileName,
-            mimeType,
-            startPosition,
-            startPosition + currentChunk.length,
-            'text'
-          ))
-          chunkIndex++
-          startPosition += currentChunk.length
+          // If the accumulated chunk itself is oversized (e.g. a single huge paragraph
+          // from a PDF with no \n\n separators), fall back to line-based splitting.
+          if (currentChunk.length > this.config.maxChunkSize) {
+            const split = this.splitOversizedBlock(
+              currentChunk, fileId, fileName, mimeType, chunkIndex, startPosition
+            )
+            chunks.push(...split.chunks)
+            chunkIndex = split.nextChunkIndex
+            startPosition = split.nextPosition
+          } else {
+            chunks.push(this.createChunkObject(
+              currentChunk.trim(),
+              chunkIndex,
+              fileId,
+              fileName,
+              mimeType,
+              startPosition,
+              startPosition + currentChunk.length,
+              'text'
+            ))
+            chunkIndex++
+            startPosition += currentChunk.length
+          }
         }
         
         // Start new chunk
@@ -262,16 +314,24 @@ export class DocumentChunker {
     
     // Add final text chunk
     if (currentChunk.trim() && currentChunk.length >= (this.config.minChunkSize || 0)) {
-      chunks.push(this.createChunkObject(
-        currentChunk.trim(),
-        chunkIndex,
-        fileId,
-        fileName,
-        mimeType,
-        startPosition,
-        startPosition + currentChunk.length,
-        'text'
-      ))
+      // Same oversized fallback for the final accumulated chunk
+      if (currentChunk.length > this.config.maxChunkSize) {
+        const split = this.splitOversizedBlock(
+          currentChunk, fileId, fileName, mimeType, chunkIndex, startPosition
+        )
+        chunks.push(...split.chunks)
+      } else {
+        chunks.push(this.createChunkObject(
+          currentChunk.trim(),
+          chunkIndex,
+          fileId,
+          fileName,
+          mimeType,
+          startPosition,
+          startPosition + currentChunk.length,
+          'text'
+        ))
+      }
     }
     
     return chunks
