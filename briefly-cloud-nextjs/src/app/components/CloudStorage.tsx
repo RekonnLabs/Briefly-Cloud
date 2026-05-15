@@ -91,6 +91,9 @@ interface ImportJob {
     failedFiles: number;
     skippedFiles: number;
     duplicateFiles: number;
+    // Spec 11: files excluded due to quota cap
+    skippedQuotaCount?: number;
+    skippedQuotaFiles?: Array<{ id: string; name: string }>;
   };
   errorMessage?: string;
 }
@@ -1510,6 +1513,23 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                         {job.outputData.duplicateFiles > 0 && `, skipped ${job.outputData.duplicateFiles} duplicates`}
                         {job.outputData.failedFiles > 0 && `, ${job.outputData.failedFiles} failed`}
                       </div>
+                      {/* Spec 11: quota cap warning */}
+                      {(job.outputData.skippedQuotaCount ?? 0) > 0 && (
+                        <div className="mt-2 p-2 bg-yellow-900/30 border border-yellow-700/50 rounded text-xs text-yellow-300">
+                          <span className="font-semibold">{job.outputData.skippedQuotaCount} file{job.outputData.skippedQuotaCount === 1 ? '' : 's'} not imported</span>
+                          {' '}— your plan limit was reached. The newest files were prioritized.
+                          {job.outputData.skippedQuotaFiles && job.outputData.skippedQuotaFiles.length > 0 && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer hover:text-yellow-200">Show excluded files</summary>
+                              <ul className="mt-1 space-y-0.5 pl-2">
+                                {job.outputData.skippedQuotaFiles.map(f => (
+                                  <li key={f.id} className="truncate text-yellow-400/80">{f.name}</li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 

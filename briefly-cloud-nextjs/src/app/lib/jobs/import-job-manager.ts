@@ -24,6 +24,7 @@ import { getVectorStore } from '@/app/lib/vector/vector-store-factory'
 
 import { Apideck, apideckHeaders } from '@/app/lib/integrations/apideck'
 import type { CloudStorageFile, CloudStorageProvider } from '@/app/lib/cloud-storage/types'
+import type { ExtractedContent } from '@/app/lib/document-router'
 
 // Helper function for database errors since createError.database might not exist
 const createDatabaseError = (message: string, originalError?: any) => {
@@ -646,38 +647,62 @@ export class ImportJobManager {
   /**
    * Check if file is a duplicate based on content hash and provider version
    */
+  /**
+   * Three-case duplicate detection (Spec 11):
+   *   'exact'   — same external_id + same provider_version (modifiedTime) → skip
+   *   'updated' — same external_id + different provider_version → re-index
+   *   'new'     — no prior record → index fresh
+   *
+   * A fourth case (similar filename, different content) is handled downstream:
+   * both files are indexed and the user is warned via the import summary.
+   */
+  private static async checkForDuplicateThreeCase(
+    userId: string,
+    provider: string,
+    file: CloudStorageFile
+  ): Promise<'exact' | 'updated' | 'new'> {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('file_processing_history')
+        .select('id, provider_version')
+        .eq('user_id', userId)
+        .eq('provider', provider)
+        .eq('external_id', file.id)
+        .eq('status', 'completed')
+        .order('processed_at', { ascending: false })
+        .limit(1)
+
+      if (error) {
+        logger.warn('[import:dup-check-error]', { error: error.message, fileId: file.id })
+        return 'new' // Assume new if we can't check
+      }
+
+      if (!data || data.length === 0) return 'new'
+
+      const storedVersion = data[0].provider_version
+      const currentVersion = file.modifiedTime ?? null
+
+      // If no modifiedTime is available, treat as exact to avoid re-indexing on every import
+      if (!storedVersion || !currentVersion) return 'exact'
+
+      return storedVersion === currentVersion ? 'exact' : 'updated'
+    } catch (err) {
+      logger.warn('[import:dup-check-exception]', {
+        userId, provider, fileId: file.id,
+        error: err instanceof Error ? err.message : 'Unknown'
+      })
+      return 'new'
+    }
+  }
+
+  /** @deprecated Use checkForDuplicateThreeCase instead */
   private static async checkForDuplicate(
     userId: string,
     provider: string,
     file: CloudStorageFile
   ): Promise<boolean> {
-    try {
-      // For now, check by external_id and provider
-      // In a full implementation, we would also check content hash
-      const { data, error } = await supabaseAdmin
-        .from('file_processing_history')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('provider', provider)
-        .eq('external_id', file.id)
-        .eq('status', 'completed')
-        .limit(1)
-
-      if (error) {
-        logger.warn('Error checking for duplicates', { error: error.message })
-        return false // Assume not duplicate if we can't check
-      }
-
-      return (data && data.length > 0)
-    } catch (error) {
-      logger.warn('Error checking for duplicates', {
-        userId,
-        provider,
-        fileId: file.id,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      })
-      return false // Assume not duplicate if we can't check
-    }
+    const result = await this.checkForDuplicateThreeCase(userId, provider, file)
+    return result === 'exact'
   }
 
   /**
@@ -1267,11 +1292,25 @@ export class ImportJobManager {
         await this.updateFileStatus(job.id, file.id, { status: 'processing' })
         await this.updateJobProgress(job.id, { current_file: file.name })
 
-        // Duplicate check
-        const isDuplicate = await this.checkForDuplicate(job.userId, job.provider, file)
-        if (isDuplicate) {
-          await this.updateFileStatus(job.id, file.id, { status: 'duplicate', reason: 'File already processed with same content hash' })
+        // Three-case duplicate check (Spec 11)
+        const dupCase = await this.checkForDuplicateThreeCase(job.userId, job.provider, file)
+        if (dupCase === 'exact') {
+          await this.updateFileStatus(job.id, file.id, { status: 'duplicate', reason: 'File already indexed (unchanged)' })
           return { ok: false, file, reason: 'duplicate' }
+        }
+        if (dupCase === 'updated') {
+          // Clear old chunks so re-index is clean
+          const { data: oldFile } = await supabaseAdmin
+            .from('files')
+            .select('id')
+            .eq('owner_id', job.userId)
+            .eq('external_id', file.id)
+            .maybeSingle()
+          if (oldFile?.id) {
+            const vs = getVectorStore()
+            await vs.deleteUserDocuments(job.userId, oldFile.id).catch(() => {})
+          }
+          logger.info('[import:re-index-updated]', { jobId: job.id, fileId: file.id, fileName: file.name })
         }
 
         // File size guard (100 MB)
@@ -1292,48 +1331,18 @@ export class ImportJobManager {
           clearTimeout(tid)
           logger.info('[import:download-ok]', { jobId: job.id, fileId: file.id, fileName: file.name, bytes: buffer.length })
 
-          let extraction = await extractTextFromBuffer(
-            buffer,
-            file.mimeType || 'application/octet-stream',
-            file.name
-          )
+          // Route through Document Intelligence Router (Spec 11)
+          const { routeDocument } = await import('@/app/lib/document-router')
+          const resolvedMime = file.mimeType || 'application/octet-stream'
+          const routeResult = await routeDocument(buffer, resolvedMime, file.name)
 
-          // Image-based PDF: pdfjs-dist returns empty string for scanned/image PDFs.
-          // SPEC 4 Step 3: Use Gemini native PDF embedding instead of GPT-4o-mini vision.
-          // embedPdfPages uploads the raw buffer to the Gemini Files API and embeds it
-          // directly — no OCR/text-extraction step needed.
-          if (
-            (file.mimeType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) &&
-            !extraction.text.trim()
-          ) {
-            const hbInterval = setInterval(() => {
-              this.updateJobProgress(job.id, { current_file: `${file.name} (native PDF embed)` })
-                .catch(() => {})
-            }, 10_000)
-            try {
-              const { embedPdfPages } = await import('@/app/lib/indexing/pdf-vision-extractor')
-              const pdfEmbedResult = await embedPdfPages(buffer, file.name)
-              clearInterval(hbInterval)
-              logger.info('[import:native-pdf-embed-success]', {
-                fileName: file.name,
-                embeddingCount: pdfEmbedResult.embeddings.length,
-                costUsd: pdfEmbedResult.costUsd,
-              })
-              // Signal to Phase 2 that this file has pre-built embeddings
-              // (no text chunks to generate — embeddings are stored directly).
-              return { ok: true as const, file, buffer, text: '', mimeType: file.mimeType || 'application/pdf', nativePdfEmbeddings: pdfEmbedResult.embeddings }
-            } catch (embedErr) {
-              clearInterval(hbInterval)
-              const reason = embedErr instanceof Error
-                ? `Native PDF embed failed: ${embedErr.message}`
-                : 'Native PDF embed failed'
-              logger.warn('[import:native-pdf-embed-failed]', { fileName: file.name, error: reason })
-              await this.updateFileStatus(job.id, file.id, { status: 'failed', error: reason })
-              return { ok: false, file, reason }
-            }
-          }
+          logger.info('[import:router-ok]', {
+            jobId: job.id, fileId: file.id, fileName: file.name,
+            contentItems: routeResult.contents.length,
+            visionPages: routeResult.profile.visionPageCount,
+          })
 
-          return { ok: true, file, buffer, text: extraction.text, mimeType: file.mimeType || 'application/octet-stream' }
+          return { ok: true, file, buffer, mimeType: resolvedMime, routeContents: routeResult.contents, routeProfile: routeResult.profile }
         } catch (err) {
           clearTimeout(tid)
           const raw = err instanceof Error ? err.message : 'Unknown error'
@@ -1361,24 +1370,28 @@ export class ImportJobManager {
     }))
 
     // ── Phase 2: chunk all successfully extracted files ───────────────────────
+    // Each outcome now carries routeContents (ExtractedContent[]) from the router.
+    // We flatten all content items into a single allChunkTexts array for one batch
+    // embedding call, tracking per-file offsets for reassembly in Phase 4.
     type FileGroup = {
       file: CloudStorageFile
       buffer: Buffer
       mimeType: string
       appFileId: string
       contentHash: string
-      chunks: ReturnType<typeof createTextChunks>
+      chunks: Array<ReturnType<typeof createTextChunks>[number] & {
+        _contentMeta: Pick<ExtractedContent, 'extractionMethod' | 'contentType' | 'sourcePage' | 'sourceSheet' | 'visionModel'>
+      }>
       chunkOffset: number
-      /** Pre-built embeddings for image-based PDFs (Gemini native embed path). */
-      nativePdfEmbeddings?: number[][]
     }
     const fileGroups: FileGroup[] = []
     const allChunkTexts: string[] = []
 
     for (const outcome of downloadOutcomes) {
       if (!outcome.ok) continue
-      const { file, buffer, text, mimeType } = outcome
-      const nativePdfEmbeddings = (outcome as any).nativePdfEmbeddings as number[][] | undefined
+      const { file, buffer, mimeType } = outcome
+      const routeContents = (outcome as any).routeContents as ExtractedContent[]
+      const routeProfile = (outcome as any).routeProfile as { visionPageCount: number; totalPages: number }
 
       const contentHash = createHash('sha256').update(buffer).digest('hex')
 
@@ -1395,7 +1408,7 @@ export class ImportJobManager {
         await supabaseAdmin.from('files').update({
           name: file.name, size_bytes: buffer.length, mime_type: mimeType,
           processed: false, processing_status: 'pending',
-          metadata: { content_hash: contentHash, provider_version: file.modifiedTime },
+          metadata: { content_hash: contentHash, provider_version: file.modifiedTime, vision_page_count: routeProfile?.visionPageCount },
           updated_at: new Date().toISOString()
         }).eq('id', existingFile.id)
         appFileId = existingFile.id
@@ -1408,7 +1421,7 @@ export class ImportJobManager {
             source: job.provider === 'google' ? 'google' : 'microsoft',
             external_id: file.id, external_url: file.webViewLink,
             processed: false, processing_status: 'pending',
-            metadata: { content_hash: contentHash, provider_version: file.modifiedTime }
+            metadata: { content_hash: contentHash, provider_version: file.modifiedTime, vision_page_count: routeProfile?.visionPageCount }
           })
           .select('id').single()
         if (insertErr || !inserted) {
@@ -1423,21 +1436,32 @@ export class ImportJobManager {
         meta: { content_hash: contentHash, provider_version: file.modifiedTime, external_id: file.id, file_name: file.name, mime_type: mimeType }
       })
 
-      // Image-based PDFs arrive with pre-built embeddings from the Gemini native embed path.
-      // Skip text chunking for these — store a single synthetic chunk with the whole-doc embedding.
-      if (nativePdfEmbeddings && nativePdfEmbeddings.length > 0) {
-        fileGroups.push({ file, buffer, mimeType, appFileId, contentHash, chunks: [], chunkOffset: allChunkTexts.length, nativePdfEmbeddings })
-        continue
+      // Chunk each ExtractedContent item independently, preserving its metadata
+      const enrichedChunks: FileGroup['chunks'] = []
+      for (const item of (routeContents ?? [])) {
+        if (!item.text.trim()) continue
+        const itemChunks = createTextChunks(item.text, appFileId, file.name, mimeType, job.userId, 1000)
+        for (const chunk of itemChunks) {
+          enrichedChunks.push({
+            ...chunk,
+            _contentMeta: {
+              extractionMethod: item.extractionMethod,
+              contentType: item.contentType,
+              sourcePage: item.sourcePage,
+              sourceSheet: item.sourceSheet,
+              visionModel: item.visionModel,
+            },
+          })
+        }
       }
 
-      const chunks = createTextChunks(text, appFileId, file.name, mimeType, job.userId, 1000)
-      if (chunks.length === 0) {
+      if (enrichedChunks.length === 0) {
         await this.updateFileStatus(job.id, file.id, { status: 'failed', error: 'No text chunks extracted' })
         continue
       }
 
-      fileGroups.push({ file, buffer, mimeType, appFileId, contentHash, chunks, chunkOffset: allChunkTexts.length })
-      allChunkTexts.push(...chunks.map(c => c.content))
+      fileGroups.push({ file, buffer, mimeType, appFileId, contentHash, chunks: enrichedChunks, chunkOffset: allChunkTexts.length })
+      allChunkTexts.push(...enrichedChunks.map(c => c.content))
     }
 
     // ── Phase 3: single batch embedding call ──────────────────────────────────
@@ -1461,48 +1485,8 @@ export class ImportJobManager {
     const vectorStore = getVectorStore()
 
     for (const group of fileGroups) {
-      const { file, buffer, mimeType, appFileId, contentHash, chunks, chunkOffset, nativePdfEmbeddings } = group
+      const { file, buffer, mimeType, appFileId, contentHash, chunks, chunkOffset } = group
 
-      // ── Native PDF embed path (image-based PDFs) ──────────────────────────
-      if (nativePdfEmbeddings && nativePdfEmbeddings.length > 0) {
-        const EMBED_MODEL = 'gemini-embedding-2-preview'
-        const nativeVectorDocs = nativePdfEmbeddings.map((embedding, i) => ({
-          id: `${appFileId}_native_${i}`,
-          content: `[image-based PDF: ${file.name}]`,
-          embedding,
-          metadata: {
-            fileId: appFileId, fileName: file.name, chunkIndex: i,
-            userId: job.userId, source: job.provider, externalId: file.id,
-            createdAt: new Date().toISOString(),
-            embeddingModel: EMBED_MODEL,
-            embeddingDimensions: embedding.length,
-            mimeType, isNativePdfEmbed: true
-          }
-        }))
-        try {
-          await vectorStore.addDocuments(job.userId, nativeVectorDocs)
-          await supabaseAdmin.from('file_processing_history').insert({
-            user_id: job.userId, job_id: job.id, external_id: file.id, provider: job.provider,
-            file_name: file.name, content_hash: contentHash, provider_version: file.modifiedTime || new Date().toISOString(),
-            file_size: buffer.length, mime_type: mimeType, status: 'completed',
-            chunks_created: nativePdfEmbeddings.length, app_file_id: appFileId, processed_at: new Date()
-          })
-          await fileIngestRepo.upsert({
-            file_id: appFileId, owner_id: job.userId, status: 'ready', source: job.provider,
-            meta: { content_hash: contentHash, processed_at: new Date().toISOString(), chunks_created: nativePdfEmbeddings.length }
-          })
-          supabaseAdmin.rpc('increment_document_usage', { p_user_id: job.userId, p_bytes: buffer.length })
-            .then(({ error: e }) => { if (e) logger.warn('increment_document_usage failed', { userId: job.userId, error: e.message }) })
-          await this.updateFileStatus(job.id, file.id, { status: 'completed' })
-        } catch (writeErr) {
-          logger.error('Native PDF embed vector write failed', { jobId, fileId: file.id, error: writeErr instanceof Error ? writeErr.message : 'Unknown' })
-          await this.updateFileStatus(job.id, file.id, { status: 'failed', error: 'Vector write failed' })
-          await fileIngestRepo.updateStatus(job.userId, appFileId, 'error', writeErr instanceof Error ? writeErr.message : 'Unknown').catch(() => {})
-        }
-        continue
-      }
-
-      // ── Standard text-chunk embed path ────────────────────────────────────
       const embeddings = embeddingResult!.embeddings.slice(chunkOffset, chunkOffset + chunks.length)
 
       const vectorDocs = chunks.map((chunk, i) => ({
@@ -1515,7 +1499,14 @@ export class ImportJobManager {
           createdAt: new Date().toISOString(),
           embeddingModel: embeddingResult!.model,
           embeddingDimensions: embeddings[i].embedding.length,
-          mimeType, ...chunk.metadata
+          mimeType,
+          // Spec 11 enriched fields from Document Intelligence Router
+          extractionMethod: (chunk as any)._contentMeta?.extractionMethod,
+          contentType: (chunk as any)._contentMeta?.contentType,
+          sourcePage: (chunk as any)._contentMeta?.sourcePage,
+          sourceSheet: (chunk as any)._contentMeta?.sourceSheet,
+          visionModel: (chunk as any)._contentMeta?.visionModel,
+          ...chunk.metadata
         }
       }))
 
@@ -1598,13 +1589,56 @@ export class ImportJobManager {
     await this.updateJobStatus(job.id, 'processing', { started_at: new Date() })
     const files: CloudStorageFile[] = options.files ?? await this.getAllFilesToImport(job)
 
+    // ── Pre-flight: sort newest-first, then apply quota cap (Spec 11) ──────────
+    // Sort by modifiedTime DESC so the most recently changed files are processed
+    // first. If the user's quota is exhausted mid-import, the oldest files are
+    // the ones silently dropped — not the newest ones the user just edited.
+    const sortedFiles = [...files].sort((a, b) => {
+      const ta = a.modifiedTime ? new Date(a.modifiedTime).getTime() : 0
+      const tb = b.modifiedTime ? new Date(b.modifiedTime).getTime() : 0
+      return tb - ta // DESC
+    })
+
+    // Quota check: get current usage and tier limit
+    let quotaCapFiles = sortedFiles
+    let skippedQuotaFiles: CloudStorageFile[] = []
+    try {
+      const userProfile = await usersRepo.getById(userId)
+      if (userProfile) {
+        const tierLimits: Record<string, number> = { free: 25, pro: 500, pro_byok: 5000 }
+        const maxFiles = tierLimits[userProfile.tier ?? 'free'] ?? 25
+        const { data: existingCount } = await supabaseAdmin
+          .from('files')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', userId)
+        const currentCount = (existingCount as any)?.count ?? 0
+        const slotsRemaining = Math.max(0, maxFiles - currentCount)
+        if (slotsRemaining < sortedFiles.length) {
+          quotaCapFiles = sortedFiles.slice(0, slotsRemaining)
+          skippedQuotaFiles = sortedFiles.slice(slotsRemaining)
+          logger.info('[import:quota-cap]', {
+            userId, totalFiles: sortedFiles.length,
+            slotsRemaining, skippedCount: skippedQuotaFiles.length
+          })
+        }
+      }
+    } catch (quotaErr) {
+      logger.warn('[import:quota-check-failed]', { userId, error: quotaErr instanceof Error ? quotaErr.message : 'Unknown' })
+      // Proceed with full list if quota check fails
+    }
+
     // Persist the file list and total count into input_data so each chunk
     // invocation can slice it without re-listing from the provider
     await supabaseAdmin
       .from('job_logs')
       .update({
-        input_data: { ...job.inputData, fileList: files, maxRetries: options.maxRetries || 3 },
-        progress: { total: files.length, processed: 0, failed: 0, skipped: 0, current_file: null, percentage: 0 }
+        input_data: {
+          ...job.inputData,
+          fileList: quotaCapFiles,
+          skippedQuotaFiles: skippedQuotaFiles.map(f => ({ id: f.id, name: f.name })),
+          maxRetries: options.maxRetries || 3
+        },
+        progress: { total: quotaCapFiles.length, processed: 0, failed: 0, skipped: 0, current_file: null, percentage: 0 }
       })
       .eq('id', job.id)
 
@@ -1612,10 +1646,19 @@ export class ImportJobManager {
       jobId: job.id,
       userId,
       provider,
-      totalFiles: files.length
+      totalFiles: quotaCapFiles.length,
+      skippedQuotaFiles: skippedQuotaFiles.length,
     })
 
-    return { ...job, progress: { ...job.progress, total: files.length } }
+    return {
+      ...job,
+      progress: { ...job.progress, total: quotaCapFiles.length },
+      // Surface skipped quota files so the UI can show a clear message
+      outputData: skippedQuotaFiles.length > 0 ? {
+        skippedQuotaFiles: skippedQuotaFiles.map(f => ({ id: f.id, name: f.name })),
+        skippedQuotaCount: skippedQuotaFiles.length,
+      } : undefined,
+    }
   }
 
   /**

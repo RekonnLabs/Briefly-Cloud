@@ -14,6 +14,7 @@ import { supabaseApp } from '@/app/lib/supabase-clients'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import { chunksRepo } from '@/app/lib/repos/chunks-repo'
 import { computeContentHash } from '@/app/lib/utils/content-hash'
+import type { ExtractedContent } from '@/app/lib/document-router'
 
 import type {
   IDocumentProcessor,
@@ -438,6 +439,157 @@ export class DocumentProcessor implements IDocumentProcessor {
   }
 
   /**
+   * Process a document from pre-extracted ExtractedContent[] items (Spec 11 router path).
+   *
+   * Each ExtractedContent item is independently chunked and embedded. Enriched
+   * metadata (extractionMethod, contentType, sourcePage, visionModel) is
+   * propagated into every chunk's metadata for provenance and citation.
+   *
+   * This is a drop-in companion to processDocument() — it does not change the
+   * existing interface and can be called alongside it without conflict.
+   */
+  async processDocumentFromContents(
+    userId: string,
+    fileId: string,
+    fileName: string,
+    contents: ExtractedContent[],
+    metadata: Record<string, any> = {}
+  ): Promise<void> {
+    try {
+      logger.info('[document-processor:from-contents:start]', {
+        userId,
+        fileId,
+        fileName,
+        contentItems: contents.length,
+        visionItems: contents.filter(c => c.extractionMethod === 'vision').length,
+      })
+
+      // Step 1: Chunk each ExtractedContent item independently
+      const allChunks: Array<ReturnType<typeof createTextChunks>[number] & {
+        _contentMeta: Pick<ExtractedContent, 'extractionMethod' | 'contentType' | 'sourcePage' | 'sourceSheet' | 'visionModel'>
+      }> = []
+
+      const mimeTypeForChunker = (metadata?.fileType as string | undefined) ?? ''
+
+      for (const item of contents) {
+        if (!item.text.trim()) continue
+        const itemChunks = createTextChunks(item.text, fileId, fileName, mimeTypeForChunker, userId, 1000)
+        for (const chunk of itemChunks) {
+          allChunks.push({
+            ...chunk,
+            _contentMeta: {
+              extractionMethod: item.extractionMethod,
+              contentType: item.contentType,
+              sourcePage: item.sourcePage,
+              sourceSheet: item.sourceSheet,
+              visionModel: item.visionModel,
+            },
+          })
+        }
+      }
+
+      if (allChunks.length === 0) {
+        logger.warn('[document-processor:from-contents:no-chunks]', { userId, fileId, fileName })
+        return
+      }
+
+      // Step 2: Generate embeddings for all chunks
+      const chunkTexts = allChunks.map(c => c.content)
+      const embeddingResult = await generateEmbeddings(chunkTexts)
+
+      if (embeddingResult.embeddings.length !== allChunks.length) {
+        throw new Error('Mismatch between chunks and embeddings count')
+      }
+
+      // Step 3: Build VectorDocuments with enriched metadata
+      const vectorDocuments: VectorDocument[] = allChunks.map((chunk, index) => ({
+        id: `${fileId}_${chunk.chunkIndex}`,
+        content: chunk.content,
+        embedding: embeddingResult.embeddings[index].embedding,
+        metadata: {
+          ...metadata,
+          ...chunk.metadata,
+          // Spec 11 enriched fields
+          extractionMethod: chunk._contentMeta.extractionMethod,
+          contentType: chunk._contentMeta.contentType,
+          sourcePage: chunk._contentMeta.sourcePage,
+          sourceSheet: chunk._contentMeta.sourceSheet,
+          visionModel: chunk._contentMeta.visionModel,
+          // Canonical fields (override everything)
+          fileId,
+          fileName,
+          userId,
+          chunkIndex: chunk.chunkIndex,
+          createdAt: new Date().toISOString(),
+          embeddingModel: embeddingResult.model,
+          embeddingDimensions: embeddingResult.dimensions,
+        },
+      }))
+
+      // Step 4: Delete old chunks (re-index path)
+      const existingChunks = await supabaseApp
+        .schema('app')
+        .from('document_chunks')
+        .select('id')
+        .eq('file_id', fileId)
+        .eq('owner_id', userId)
+
+      if (existingChunks.data && existingChunks.data.length > 0) {
+        await supabaseApp
+          .schema('app')
+          .from('document_chunks')
+          .delete()
+          .eq('file_id', fileId)
+          .eq('owner_id', userId)
+      }
+
+      // Step 5: Store vectors
+      await this.vectorStore.addDocuments(userId, vectorDocuments)
+
+      // Step 6: Update processing status
+      await filesRepo.updateProcessingStatus(userId, fileId, 'completed')
+
+      // Step 7: Log usage
+      await supabaseApp
+        .from('usage_logs')
+        .insert({
+          user_id: userId,
+          action: 'document_processed',
+          resource_type: 'document',
+          resource_id: fileId,
+          quantity: allChunks.length,
+          metadata: {
+            file_name: fileName,
+            content_items: contents.length,
+            chunks_created: allChunks.length,
+            vision_items: contents.filter(c => c.extractionMethod === 'vision').length,
+            embedding_model: embeddingResult.model,
+            processing_time: Date.now(),
+          },
+        })
+
+      logger.info('[document-processor:from-contents:done]', {
+        userId,
+        fileId,
+        fileName,
+        chunksCreated: allChunks.length,
+        embeddingModel: embeddingResult.model,
+      })
+    } catch (error) {
+      logger.error('[document-processor:from-contents:failed]', {
+        userId,
+        fileId,
+        fileName,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      try {
+        await filesRepo.updateProcessingStatus(userId, fileId, 'failed')
+      } catch (_) { /* ignore */ }
+      throw createError.processingError('Document processing failed', error as Error)
+    }
+  }
+
+  /**
    * Batch process multiple documents
    */
   async batchProcessDocuments(
@@ -532,6 +684,20 @@ export async function processDocument(
 ): Promise<void> {
   const processor = getDocumentProcessor()
   return processor.processDocument(userId, fileId, fileName, content, metadata)
+}
+
+/**
+ * Process a document from pre-extracted ExtractedContent[] items (Spec 11 router path).
+ */
+export async function processDocumentFromContents(
+  userId: string,
+  fileId: string,
+  fileName: string,
+  contents: ExtractedContent[],
+  metadata?: Record<string, any>
+): Promise<void> {
+  const processor = getDocumentProcessor()
+  return processor.processDocumentFromContents(userId, fileId, fileName, contents, metadata ?? {})
 }
 
 /**

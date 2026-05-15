@@ -144,16 +144,18 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
       ingestStatus = 'processing'
       await fileIngestRepo.updateStatus(user.id, createdFile.id, 'processing', null)
 
-      // extractTextFromBuffer interface is unchanged per Spec 10 constraint
-      const { extractTextFromBuffer } = await import('@/app/lib/document-extractor')
-      const extraction = await extractTextFromBuffer(fileBuffer, mimeType, fileName)
+      // Route document through Document Intelligence Router (Spec 11)
+      const { routeDocument } = await import('@/app/lib/document-router')
+      const { contents, profile } = await routeDocument(fileBuffer, mimeType, fileName)
 
-      const { processDocument } = await import('@/app/lib/vector/document-processor')
-      await processDocument(user.id, createdFile.id, fileName, extraction.text, {
+      const { processDocumentFromContents } = await import('@/app/lib/vector/document-processor')
+      await processDocumentFromContents(user.id, createdFile.id, fileName, contents, {
         fileType: mimeType,
         fileSize: fileBuffer.length,
         uploadedAt: new Date().toISOString(),
         source: 'upload',
+        visionPageCount: profile.visionPageCount,
+        totalPages: profile.totalPages,
       })
 
       ingestStatus = 'ready'

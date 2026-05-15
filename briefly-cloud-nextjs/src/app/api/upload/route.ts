@@ -291,17 +291,21 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
       ingestStatus = 'processing'
       await fileIngestRepo.updateStatus(user.id, fileId, 'processing', null)
 
-      // 1) Extract text from the uploaded buffer
-      const { extractTextFromBuffer } = await import('@/app/lib/document-extractor')
-      const extraction = await extractTextFromBuffer(Buffer.from(fileBuffer), file.type, file.name)
-      
-      // 2) Process document with new vector pipeline
-      const { processDocument } = await import('@/app/lib/vector/document-processor')
-      await processDocument(user.id, fileId, file.name, extraction.text, {
+      // 1) Route document through Document Intelligence Router (Spec 11)
+      //    Classifies file, runs vision extraction for image-heavy pages, returns
+      //    ExtractedContent[] ready for chunking and embedding.
+      const { routeDocument } = await import('@/app/lib/document-router')
+      const { contents, profile } = await routeDocument(Buffer.from(fileBuffer), file.type, file.name)
+
+      // 2) Process document with enriched content items
+      const { processDocumentFromContents } = await import('@/app/lib/vector/document-processor')
+      await processDocumentFromContents(user.id, fileId, file.name, contents, {
         fileType: file.type,
         fileSize: file.size,
         uploadedAt: new Date().toISOString(),
-        source: 'upload'
+        source: 'upload',
+        visionPageCount: profile.visionPageCount,
+        totalPages: profile.totalPages,
       })
       ingestStatus = 'ready'
       await fileIngestRepo.updateStatus(user.id, fileId, 'ready', null)
