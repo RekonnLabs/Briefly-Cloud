@@ -4,6 +4,7 @@ import { ApiResponse, parsePaginationParams, createPaginatedResponse } from '@/a
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin'
 import { logApiUsage } from '@/app/lib/logger'
+import { getUserLimits } from '@/app/lib/usage/quota-enforcement'
 
 // Tier limits for reference
 const TIER_LIMITS = {
@@ -86,8 +87,15 @@ async function getUserUsageHandler(request: Request, context: ApiContext): Promi
       ? Math.min(100, Math.round((apiCallsCount / apiCallsLimit) * 100))
       : 0
 
-    const storageUsedBytes = userProfile?.storage_used_bytes ?? 0
-    const storageLimitBytes = userProfile?.storage_limit_bytes ?? tierLimits.storage_bytes
+    // Spec 8A: derive storage from v_user_limits (live COUNT against app.files)
+    // so the banner and sidebar always agree — never reads the stale profile counter.
+    const liveLimits = await getUserLimits(user.id)
+    const storageUsedBytes = liveLimits
+      ? Math.round(liveLimits.storage_used_mb * 1048576)
+      : (userProfile?.storage_used_bytes ?? 0)
+    const storageLimitBytes = liveLimits
+      ? Math.round(liveLimits.storage_limit_mb * 1048576)
+      : (userProfile?.storage_limit_bytes ?? tierLimits.storage_bytes)
     const storagePercentage = storageLimitBytes > 0
       ? Math.min(100, Math.round((storageUsedBytes / storageLimitBytes) * 100))
       : 0
