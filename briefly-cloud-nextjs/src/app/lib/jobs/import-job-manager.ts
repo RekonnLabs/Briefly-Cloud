@@ -870,6 +870,12 @@ export class ImportJobManager {
         },
       })
 
+      // Update app.files processing_status to completed so the Files tab shows the correct state
+      await supabaseAdmin
+        .from('files')
+        .update({ processing_status: 'completed', processed: true })
+        .eq('id', fileMetadata.id)
+
       // Increment profile usage counters — fire-and-forget, don't block on failure
       console.log('[usage-counter] calling increment_document_usage', job.userId, fileBuffer.length)
       supabaseAdmin.rpc('increment_document_usage', {

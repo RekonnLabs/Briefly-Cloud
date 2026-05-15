@@ -111,8 +111,12 @@ export function FileList() {
     }
   }
 
-  function formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes'
+  function formatFileSize(bytes: number, source?: string | null): string {
+    if (bytes === 0) {
+      // Cloud-imported files (Google Drive, OneDrive) have no local size — show dash
+      if (source === 'google' || source === 'microsoft') return '—'
+      return '0 Bytes'
+    }
     const k = 1024
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
@@ -201,7 +205,7 @@ export function FileList() {
                   {file.mime_type}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                  {formatFileSize(file.size)}
+                  {formatFileSize(file.size, file.source)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   {getStatusBadge(file.processing_status)}

@@ -160,10 +160,14 @@ function validateProvenance(
   }
 
   // Context was provided AND the LLM cited at least one VALIDATED source — grounded
+  // Count unique source names that appear in validatedCitations (not raw occurrence count)
+  const validatedSourceCount = uniqueSources.filter(s =>
+    validatedCitations.some(c => normalizeSource(c) === normalizeSource(s))
+  ).length
   return {
     type: 'grounded',
     contextCount,
-    citationsFound: validatedCitations.length,
+    citationsFound: validatedSourceCount,
     sources: uniqueSources,
     model
   }
