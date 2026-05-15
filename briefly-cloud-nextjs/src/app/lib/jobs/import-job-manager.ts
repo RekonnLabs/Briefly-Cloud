@@ -1661,47 +1661,21 @@ export class ImportJobManager {
     fileId: string,
     updates: Partial<ImportFileStatus>
   ): Promise<void> {
-    try {
-      // Get current job to update file status
-      const { data: job, error: jobError } = await supabaseAdmin
-        .from('job_logs')
-        .select('file_statuses')
-        .eq('id', jobId)
-        .single()
-
-      if (jobError || !job) {
-        throw createDatabaseError('Failed to get job for file status update', jobError)
-      }
-
-      const fileStatuses = (job.file_statuses as ImportFileStatus[]) || []
-      const fileIndex = fileStatuses.findIndex(f => f.fileId === fileId)
-
-      if (fileIndex >= 0) {
-        // Update existing file status
-        fileStatuses[fileIndex] = {
-          ...fileStatuses[fileIndex],
-          ...updates,
-          timestamp: new Date()
-        }
-
-        const { error } = await supabaseAdmin
-          .from('job_logs')
-          .update({
-            file_statuses: fileStatuses,
-            updated_at: new Date()
-          })
-          .eq('id', jobId)
-
-        if (error) {
-          throw createDatabaseError('Failed to update file status', error)
-        }
-      }
-    } catch (error) {
-      logger.error('Error updating file status', {
+    const { error } = await supabaseAdmin.rpc('update_file_status_in_job', {
+      p_job_id:   jobId,
+      p_file_id:  fileId,
+      p_status:   updates.status   ?? null,
+      p_reason:   updates.reason   ?? null,
+      p_error:    updates.error    ?? null,
+      p_filename: updates.fileName ?? null,
+    })
+    if (error) {
+      logger.error('update_file_status_in_job RPC failed', {
         jobId,
         fileId,
-        updates,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        status: updates.status,
+        error: error.message,
+        code: (error as any).code,
       })
       throw error
     }

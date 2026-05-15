@@ -163,6 +163,8 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
   // driveChunkLoop when reading progress.total for the offset cap check.
   const batchJobsRef = useRef(batchJobs)
   useEffect(() => { batchJobsRef.current = batchJobs }, [batchJobs])
+  // Guard against concurrent job creation (e.g. double-click or rapid re-render)
+  const isStartingImportRef = useRef(false)
   const [showJobDetails, setShowJobDetails] = useState<string | null>(null);
   const [isProcessingPickerFiles, setIsProcessingPickerFiles] = useState(false);
   const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null);
@@ -897,9 +899,9 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
           // stop once offset exceeds the known total file count.
           const currentJob = batchJobsRef.current?.get(jobId)
           const totalFiles = currentJob?.progress?.total
-          if (typeof totalFiles === 'number' && totalFiles > 0 && offset >= totalFiles) {
+          if (typeof totalFiles === 'number' && totalFiles > 0 && offset + CHUNK_SIZE >= totalFiles) {
             console.warn(
-              `[batch-chunk] Offset cap reached (offset=${offset}, total=${totalFiles}) — stopping loop. ` +
+              `[batch-chunk] Offset cap reached (offset=${offset}, CHUNK_SIZE=${CHUNK_SIZE}, total=${totalFiles}) — stopping loop. ` +
               'If files remain unprocessed, server returned done:false past end of fileList.'
             )
             stopPolling();
@@ -948,8 +950,15 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
   }, [showError]);
 
   const startBatchImport = async (providerId: 'google' | 'microsoft', folderId?: string) => {
+    // Prevent concurrent job creation from double-clicks or rapid re-renders
+    if (isStartingImportRef.current) {
+      console.warn('[batch-import] startBatchImport called while already starting — ignoring')
+      return
+    }
+    isStartingImportRef.current = true
+
     const provider = providers.find(p => p.id === providerId);
-    if (!provider) return;
+    if (!provider) { isStartingImportRef.current = false; return; }
 
     const targetFolderId = folderId || provider.currentFolderId;
     const endpoint = providerId === 'google'
@@ -980,6 +989,8 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
     } catch (error) {
       console.error('Batch import error:', error);
       showError('Failed to start batch import', 'Please try again or check your connection.');
+    } finally {
+      isStartingImportRef.current = false
     }
   };
 
