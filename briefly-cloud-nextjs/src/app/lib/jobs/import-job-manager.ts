@@ -1281,8 +1281,10 @@ export class ImportJobManager {
         const tid = setTimeout(() => abort.abort(), 30_000)
         try {
           const provider = this.providers[job.provider]
+          logger.info('[import:download-start]', { jobId: job.id, fileId: file.id, fileName: file.name, mimeType: file.mimeType, provider: job.provider })
           const buffer = await this.downloadFileWithStreaming(provider, job.userId, file, job.provider)
           clearTimeout(tid)
+          logger.info('[import:download-ok]', { jobId: job.id, fileId: file.id, fileName: file.name, bytes: buffer.length })
 
           let extraction = await extractTextFromBuffer(
             buffer,
@@ -1329,6 +1331,12 @@ export class ImportJobManager {
         } catch (err) {
           clearTimeout(tid)
           const raw = err instanceof Error ? err.message : 'Unknown error'
+          const stack = err instanceof Error ? err.stack : undefined
+          logger.error('[import:download-failed]', {
+            jobId: job.id, fileId: file.id, fileName: file.name,
+            provider: job.provider, mimeType: file.mimeType,
+            error: raw, stack
+          })
           const friendly = raw.includes('timeout') || raw.includes('aborted') ? 'Processing timeout'
             : raw.includes('too large') ? 'File too large'
             : raw.includes('Unsupported') || raw.includes('mime_type') ? 'Unsupported file type'
