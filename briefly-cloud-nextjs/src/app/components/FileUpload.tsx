@@ -12,6 +12,11 @@ interface UploadedFile {
   error?: string;
 }
 
+// Vercel serverless body limit is ~4.5 MB.
+// Files above this threshold use the presign → PUT → process flow so the
+// binary never passes through Vercel.
+const PRESIGN_THRESHOLD_BYTES = 4 * 1024 * 1024 // 4 MB
+
 export function FileUpload() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -30,8 +35,8 @@ export function FileUpload() {
   const supportedExtensions = ['.pdf', '.docx', '.xlsx', '.pptx', '.txt', '.md', '.csv'];
 
   const validateFile = (file: File): string | null => {
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
-      return 'File size must be less than 50MB';
+    if (file.size > 100 * 1024 * 1024) { // 100 MB hard cap (pro_byok tier)
+      return 'File size must be less than 100 MB';
     }
     
     if (!supportedTypes.includes(file.type) && !supportedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
@@ -39,6 +44,67 @@ export function FileUpload() {
     }
     
     return null;
+  };
+
+  // ── Presign flow (Spec 10) — for files > 4 MB ─────────────────────────────
+  // Step 1: POST /api/upload/presign  → { signedUrl, storagePath, token }
+  // Step 2: PUT  signedUrl            → raw file body (bypasses Vercel)
+  // Step 3: POST /api/upload/process  → { storagePath, fileName, mimeType, fileSize }
+  const uploadLargeFile = async (file: File, fileId: string): Promise<void> => {
+    // Step 1 — get presigned URL
+    const presignRes = await fetch('/api/upload/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+      }),
+    });
+
+    if (!presignRes.ok) {
+      const err = await presignRes.json().catch(() => ({}));
+      throw new Error(err.message || err.error || `Presign failed: ${presignRes.status}`);
+    }
+
+    const { data: presignData } = await presignRes.json();
+    const { signedUrl, storagePath } = presignData as { signedUrl: string; storagePath: string; token: string };
+
+    setUploadedFiles(prev =>
+      prev.map(f => f.id === fileId ? { ...f, progress: 30 } : f)
+    );
+
+    // Step 2 — PUT directly to Supabase Storage (bypasses Vercel body limit)
+    const putRes = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+
+    if (!putRes.ok) {
+      throw new Error(`Storage upload failed: ${putRes.status} ${putRes.statusText}`);
+    }
+
+    setUploadedFiles(prev =>
+      prev.map(f => f.id === fileId ? { ...f, status: 'processing', progress: 60 } : f)
+    );
+
+    // Step 3 — trigger server-side extraction + vector pipeline
+    const processRes = await fetch('/api/upload/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storagePath,
+        fileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+      }),
+    });
+
+    if (!processRes.ok) {
+      const err = await processRes.json().catch(() => ({}));
+      throw new Error(err.message || err.error || `Processing failed: ${processRes.status}`);
+    }
   };
 
   const uploadFile = async (file: File) => {
@@ -53,84 +119,87 @@ export function FileUpload() {
 
     setUploadedFiles(prev => [...prev, uploadedFile]);
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      // Enhanced error handling with retry logic
-      const { retryFileUpload } = await import('@/app/lib/retry');
       const { captureFileProcessingError, capturePerformanceMetric } = await import('@/app/lib/error-monitoring');
-
-      const makeUploadRequest = async () => {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Upload failed: ${response.status}`);
-        }
-
-        return response;
-      };
-
       const startTime = Date.now();
-      const response = await retryFileUpload(makeUploadRequest);
-      const result = await response.json();
-      
-      setUploadedFiles(prev => 
-        prev.map(f => 
-          f.id === fileId 
-            ? { ...f, status: 'processing', progress: 50 }
-            : f
-        )
-      );
 
-      // Simulate processing time
+      if (file.size > PRESIGN_THRESHOLD_BYTES) {
+        // ── Large file: presign → PUT → process ─────────────────────────────
+        setUploadedFiles(prev =>
+          prev.map(f => f.id === fileId ? { ...f, progress: 10 } : f)
+        );
+        await uploadLargeFile(file, fileId);
+      } else {
+        // ── Small file: existing direct upload flow ──────────────────────────
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const { retryFileUpload } = await import('@/app/lib/retry');
+
+        const makeUploadRequest = async () => {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Upload failed: ${response.status}`);
+          }
+
+          return response;
+        };
+
+        await retryFileUpload(makeUploadRequest);
+
+        setUploadedFiles(prev =>
+          prev.map(f => f.id === fileId ? { ...f, status: 'processing', progress: 50 } : f)
+        );
+      }
+
+      // Simulate brief processing indicator before marking complete
       setTimeout(() => {
-        setUploadedFiles(prev => 
-          prev.map(f => 
-            f.id === fileId 
+        setUploadedFiles(prev =>
+          prev.map(f =>
+            f.id === fileId
               ? { ...f, status: 'completed', progress: 100 }
               : f
           )
         );
-        
+
         // Notify the Sidebar quota card to refresh immediately
         window.dispatchEvent(new CustomEvent('briefly:quota-changed'));
 
-        // Capture successful upload for monitoring
         capturePerformanceMetric('file_upload', Date.now() - startTime, true);
       }, 2000);
 
     } catch (error) {
       console.error('Upload error:', error);
-      
-      // Capture error for monitoring
+
       const { captureFileProcessingError } = await import('@/app/lib/error-monitoring');
       captureFileProcessingError(error as Error, file.type, file.size);
 
-      // Provide user-friendly error messages
       let errorMessage = 'Upload failed. Please try again.';
-      
+
       if (error instanceof Error) {
-        if (error.message.includes('file size')) {
-          errorMessage = 'File is too large. Please choose a smaller file.';
-        } else if (error.message.includes('file type')) {
-          errorMessage = 'File type not supported. Please upload a PDF, DOCX, or TXT file.';
+        if (error.message.includes('file size') || error.message.includes('exceeds')) {
+          errorMessage = 'File is too large for your plan. Please upgrade or choose a smaller file.';
+        } else if (error.message.includes('file type') || error.message.includes('Unsupported')) {
+          errorMessage = 'File type not supported. Please upload a PDF, DOCX, or similar file.';
         } else if (error.message.includes('network')) {
           errorMessage = 'Network error during upload. Please check your connection.';
         } else if (error.message.includes('timeout')) {
           errorMessage = 'Upload timed out. Please try again.';
-        } else if (error.message.includes('usage limit')) {
-          errorMessage = 'You\'ve reached your upload limit. Please upgrade your plan.';
+        } else if (error.message.includes('usage limit') || error.message.includes('QUOTA')) {
+          errorMessage = "You've reached your upload limit. Please upgrade your plan.";
+        } else if (error.message.includes('413') || error.message.includes('PAYLOAD')) {
+          errorMessage = 'File too large for direct upload. Please try again — it will use the large-file upload path.';
         }
       }
 
-      setUploadedFiles(prev => 
-        prev.map(f => 
-          f.id === fileId 
+      setUploadedFiles(prev =>
+        prev.map(f =>
+          f.id === fileId
             ? { ...f, status: 'error', error: errorMessage }
             : f
         )
@@ -227,7 +296,7 @@ export function FileUpload() {
           Drop files here or click to upload
         </h3>
         <p className="text-sm text-gray-600 mb-4">
-          Supported formats: PDF, DOCX, XLSX, PPTX, TXT, MD, CSV (max 50MB)
+          Supported formats: PDF, DOCX, XLSX, PPTX, TXT, MD, CSV (up to 100 MB)
         </p>
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -263,7 +332,7 @@ export function FileUpload() {
                   <p className="text-xs text-gray-500">
                     {formatFileSize(file.size)} • {getStatusText(file.status)}
                   </p>
-                  {file.status === 'uploading' && (
+                  {(file.status === 'uploading' || file.status === 'processing') && (
                     <div className="mt-2">
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
