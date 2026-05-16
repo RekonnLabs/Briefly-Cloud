@@ -144,7 +144,24 @@ export class PgVectorStore implements IVectorStore {
           p_content: doc.content,
           p_embedding: doc.embedding ?? null,
           p_token_count: doc.metadata.tokenCount ?? doc.metadata.tokens ?? null,
-          p_source: doc.metadata.source ?? 'indexing_pipeline'
+          // Spec 11 Option B: encode enriched extraction metadata into source as a
+          // structured string so it reaches the DB without a schema migration.
+          // Format: {extractionMethod}:{contentType}:{sourcePage}
+          // Examples: "text_library:text:page-0", "vision:gemini-2.5-flash:slide:page-37"
+          p_source: (() => {
+            const em = doc.metadata.extractionMethod as string | undefined
+            const ct = doc.metadata.contentType as string | undefined
+            const sp = doc.metadata.sourcePage as number | undefined
+            const vm = doc.metadata.visionModel as string | undefined
+            if (em) {
+              const parts = [em]
+              if (vm && em === 'vision') parts.push(vm)
+              if (ct) parts.push(ct)
+              if (sp != null) parts.push(`page-${sp}`)
+              return parts.join(':')
+            }
+            return doc.metadata.source ?? 'indexing_pipeline'
+          })()
         }
         
         console.log('[VECTOR_INSERT_PAYLOAD]', {

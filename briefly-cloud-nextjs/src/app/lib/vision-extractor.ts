@@ -22,8 +22,8 @@ const VISION_THRESHOLD_CHARS = parseInt(process.env.VISION_THRESHOLD_CHARS ?? '5
 /** Gemini model used for vision extraction. */
 const VISION_MODEL = 'gemini-2.5-flash'
 
-/** Maximum file size for Gemini Files API inline upload (20 MB). */
-const GEMINI_FILES_API_MAX_BYTES = 20 * 1024 * 1024
+/** Maximum file size for Gemini Files API upload (2 GB — actual Files API limit, not the inline data limit). */
+const GEMINI_FILES_API_MAX_BYTES = 2 * 1024 * 1024 * 1024
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,9 +169,8 @@ export async function extractWithVision(
  * Gemini to extract content from each image-heavy page by page number.
  * This avoids the need for a canvas/rendering library on Vercel serverless.
  *
- * Falls back to a per-page prompt approach if the PDF exceeds the 20 MB
- * Files API limit — in that case, we request all image-heavy pages in a
- * single prompt with explicit page number references.
+ * Falls back gracefully if the PDF exceeds the 2 GB Files API limit (extremely
+ * unlikely in practice — the Files API is designed for large files).
  *
  * @param buffer            Raw PDF buffer
  * @param visionPageIndices 0-indexed page numbers that need vision extraction
