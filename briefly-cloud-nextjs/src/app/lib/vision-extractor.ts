@@ -17,7 +17,10 @@ import { logger } from '@/app/lib/logger'
 // ─── Configuration ────────────────────────────────────────────────────────────
 
 /** Pages with fewer extracted chars than this threshold are treated as image-heavy. */
-const VISION_THRESHOLD_CHARS = parseInt(process.env.VISION_THRESHOLD_CHARS ?? '50', 10)
+const VISION_THRESHOLD_CHARS = parseInt(process.env.VISION_THRESHOLD_CHARS ?? '200', 10)
+
+/** Number of vision pages to request per Gemini call. Keeps each call under ~15s. */
+const VISION_BATCH_SIZE = parseInt(process.env.VISION_BATCH_SIZE ?? '15', 10)
 
 /** Gemini model used for vision extraction. */
 const VISION_MODEL = 'gemini-2.5-flash'
@@ -184,11 +187,64 @@ export async function extractPdfVisionPages(
 ): Promise<VisionPageResult[]> {
   if (visionPageIndices.length === 0) return []
 
+  if (buffer.length > GEMINI_FILES_API_MAX_BYTES) {
+    logger.warn('[vision-extractor:pdf-too-large]', {
+      fileName,
+      bytes: buffer.length,
+      maxBytes: GEMINI_FILES_API_MAX_BYTES,
+      visionPages: visionPageIndices.length,
+    })
+    return visionPageIndices.map(i => ({
+      pageIndex: i,
+      text: '[Vision extraction skipped: PDF exceeds 2GB Files API limit]',
+      model: VISION_MODEL,
+    }))
+  }
+
   const genai = getGenAI()
 
-  // Build a prompt that requests extraction for each image-heavy page
-  const pageList = visionPageIndices.map(i => `Page ${i + 1}`).join(', ')
-  const prompt = `
+  // Upload the PDF to the Gemini Files API once — reuse the URI across all batches.
+  let fileUri: string
+  try {
+    const uploadResult = await genai.files.upload({
+      file: new Blob([buffer], { type: 'application/pdf' }),
+      config: { mimeType: 'application/pdf', displayName: fileName },
+    })
+    if (!uploadResult.uri) throw new Error('Gemini Files API upload returned no URI')
+    fileUri = uploadResult.uri
+    logger.info('[vision-extractor:pdf-upload]', {
+      fileName,
+      bytes: buffer.length,
+      fileUri,
+      visionPages: visionPageIndices.length,
+      batchSize: VISION_BATCH_SIZE,
+      batches: Math.ceil(visionPageIndices.length / VISION_BATCH_SIZE),
+    })
+  } catch (uploadError) {
+    logger.error('[vision-extractor:pdf-upload-failed]', {
+      fileName,
+      error: uploadError instanceof Error ? uploadError.message : String(uploadError),
+    })
+    return visionPageIndices.map(i => ({
+      pageIndex: i,
+      text: `[Vision extraction failed: upload error — ${uploadError instanceof Error ? uploadError.message : 'Unknown'}]`,
+      model: VISION_MODEL,
+    }))
+  }
+
+  // Split vision pages into batches and process sequentially to stay within
+  // per-call latency budget (~10-15s per batch of 15 pages).
+  const batches: number[][] = []
+  for (let i = 0; i < visionPageIndices.length; i += VISION_BATCH_SIZE) {
+    batches.push(visionPageIndices.slice(i, i + VISION_BATCH_SIZE))
+  }
+
+  const allResults: VisionPageResult[] = []
+
+  for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+    const batch = batches[batchIdx]
+    const pageList = batch.map(i => `Page ${i + 1}`).join(', ')
+    const prompt = `
 This is a PDF document named "${fileName}".
 
 The following pages are image-heavy (contain diagrams, charts, photos, or scanned content
@@ -205,24 +261,12 @@ Format your response as:
 Include a section for every page listed above, even if a page appears blank.
 `.trim()
 
-  try {
-    if (buffer.length <= GEMINI_FILES_API_MAX_BYTES) {
-      // Upload PDF to Files API and process natively
-      const uploadResult = await genai.files.upload({
-        file: new Blob([buffer], { type: 'application/pdf' }),
-        config: { mimeType: 'application/pdf', displayName: fileName },
-      })
-
-      const fileUri = uploadResult.uri
-      if (!fileUri) {
-        throw new Error('Gemini Files API upload returned no URI')
-      }
-
-      logger.info('[vision-extractor:pdf-upload]', {
+    try {
+      logger.info('[vision-extractor:batch-start]', {
         fileName,
-        bytes: buffer.length,
-        fileUri,
-        visionPages: visionPageIndices.length,
+        batch: batchIdx + 1,
+        totalBatches: batches.length,
+        pages: batch.map(i => i + 1),
       })
 
       const result = await genai.models.generateContent({
@@ -239,44 +283,40 @@ Include a section for every page listed above, even if a page appears blank.
       })
 
       const rawText = result.text ?? ''
+      const batchResults = parseVisionResponse(rawText, batch)
+      allResults.push(...batchResults)
 
-      // Clean up uploaded file (fire-and-forget)
-      const fileId = fileUri.split('/').pop()
-      if (fileId) {
-        genai.files.delete({ name: `files/${fileId}` }).catch(err => {
-          logger.warn('[vision-extractor:cleanup-failed]', { fileId, error: err?.message })
+      logger.info('[vision-extractor:batch-done]', {
+        fileName,
+        batch: batchIdx + 1,
+        pagesExtracted: batchResults.length,
+      })
+    } catch (batchError) {
+      logger.error('[vision-extractor:batch-failed]', {
+        fileName,
+        batch: batchIdx + 1,
+        error: batchError instanceof Error ? batchError.message : String(batchError),
+      })
+      // Push placeholder results for failed batch so text-only chunks still assemble
+      for (const pageIndex of batch) {
+        allResults.push({
+          pageIndex,
+          text: `[Vision extraction failed for page ${pageIndex + 1}: ${batchError instanceof Error ? batchError.message : 'Unknown error'}]`,
+          model: VISION_MODEL,
         })
       }
-
-      return parseVisionResponse(rawText, visionPageIndices)
-    } else {
-      // PDF too large for Files API — use inline base64 with pdfjs page rendering
-      // This path is a best-effort fallback: return empty results with a warning
-      // so the router can still assemble text-only chunks for the non-vision pages.
-      logger.warn('[vision-extractor:pdf-too-large]', {
-        fileName,
-        bytes: buffer.length,
-        maxBytes: GEMINI_FILES_API_MAX_BYTES,
-        visionPages: visionPageIndices.length,
-      })
-      return visionPageIndices.map(i => ({
-        pageIndex: i,
-        text: `[Vision extraction skipped: PDF exceeds ${Math.round(GEMINI_FILES_API_MAX_BYTES / 1024 / 1024)}MB Files API limit]`,
-        model: VISION_MODEL,
-      }))
     }
-  } catch (error) {
-    logger.error('[vision-extractor:pdf-vision-failed]', {
-      fileName,
-      error: error instanceof Error ? error.message : String(error),
-    })
-    // Return empty results so the router can still process text pages
-    return visionPageIndices.map(i => ({
-      pageIndex: i,
-      text: `[Vision extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}]`,
-      model: VISION_MODEL,
-    }))
   }
+
+  // Clean up uploaded file (fire-and-forget)
+  const fileId = fileUri.split('/').pop()
+  if (fileId) {
+    genai.files.delete({ name: `files/${fileId}` }).catch(err => {
+      logger.warn('[vision-extractor:cleanup-failed]', { fileId, error: err?.message })
+    })
+  }
+
+  return allResults
 }
 
 // ─── Response Parser ──────────────────────────────────────────────────────────
