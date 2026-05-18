@@ -2,6 +2,7 @@
   "version": 2,
   "name": "briefly-cloud-app",
   "framework": "nextjs",
+  "fluid": true,
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 30

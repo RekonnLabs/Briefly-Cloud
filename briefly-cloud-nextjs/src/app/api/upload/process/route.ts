@@ -2,27 +2,33 @@
  * POST /api/upload/process
  *
  * Spec 10 — Presigned Upload Flow (Step 2 of 2)
+ * Fluid Compute — post-response extraction via Next.js after()
  *
  * Called by the browser AFTER it has PUT the file directly to Supabase Storage
  * via the presigned URL from /api/upload/presign.
  *
- * This route:
- *   1. Downloads the file from Supabase Storage into a Buffer
- *   2. Runs the same extraction + vector pipeline as /api/upload
- *   3. Creates/updates app.files and file_ingest records
- *   4. Returns the same response shape as /api/upload
+ * Flow:
+ *   1. Validate request + security check (storagePath ownership)
+ *   2. Download file from Supabase Storage into Buffer
+ *   3. Compute content hash — deduplicate early
+ *   4. Upsert app.files row with processing_status = 'processing'
+ *   5. Return 202 Accepted immediately (client sees success in ~3s)
+ *   6. after() runs the full extraction + vector pipeline post-response
+ *      — no timeout applies to after() under Fluid Compute
+ *   7. On completion: set processing_status = 'completed'
+ *      On failure:    set processing_status = 'failed'
  *
- * Request body (JSON):
- *   { storagePath: string, fileName: string, mimeType: string, fileSize: number }
- *
- * The extractTextFromBuffer interface is intentionally unchanged (Spec 10 constraint).
- * All extractors (mammoth, xlsx, unpdf) require a complete Buffer — no streaming.
+ * Client polls GET /api/upload/files?fileId=... until processing_status
+ * flips to 'completed' or 'failed'.
  */
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+// maxDuration covers the synchronous portion only (download + hash + DB row).
+// The after() callback runs outside the request lifecycle — no timeout applies.
+export const maxDuration = 60
 
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { z } from 'zod'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
@@ -64,17 +70,12 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
   const { storagePath, fileName, mimeType, fileSize } = parsed.data
 
   // ── Security: ensure storagePath belongs to this user ─────────────────────
-  // Storage paths are always `{userId}/{timestamp}_{random}.{ext}`
   if (!storagePath.startsWith(`${user.id}/`)) {
     return ApiResponse.badRequest('Invalid storage path')
   }
 
-  let ingestStatus: 'pending' | 'processing' | 'ready' | 'error' = 'pending'
-  let createdFileId: string | null = null
-
   try {
     // ── 1. Download from Supabase Storage into Buffer ─────────────────────────
-    // Uses service role — bypasses RLS, works for any path the presign route created.
     const { data: blobData, error: downloadError } = await supabaseAdmin.storage
       .from('documents')
       .download(storagePath)
@@ -85,7 +86,7 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
     }
 
     const fileBuffer = Buffer.from(await blobData.arrayBuffer())
-    console.log('[process:downloaded]', { userId: user.id, storagePath, bytes: fileBuffer.length, rid })
+    logger.info('[process:downloaded]', { userId: user.id, storagePath, bytes: fileBuffer.length, rid })
 
     // ── 2. Compute content hash for deduplication ─────────────────────────────
     const contentHash = computeBufferHash(fileBuffer)
@@ -95,9 +96,9 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
     if (existingFile) {
       // Duplicate: clean up the just-uploaded storage object and return early
       supabaseAdmin.storage.from('documents').remove([storagePath]).catch(err =>
-        console.warn('[process:cleanup-dup-failed]', { storagePath, err: err?.message })
+        logger.warn('[process:cleanup-dup-failed]', { storagePath, err: err?.message })
       )
-      logger.info('Duplicate file detected in presign flow', {
+      logger.info('[process:duplicate]', {
         userId: user.id,
         existingFileId: existingFile.id,
         fileName,
@@ -107,11 +108,12 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
       return ApiResponse.success({
         file: existingFile,
         duplicate: true,
+        status: 'completed',
         message: 'File with identical content already exists',
       })
     }
 
-    // ── 4. Upsert app.files record ────────────────────────────────────────────
+    // ── 4. Upsert app.files row with processing_status = 'processing' ─────────
     const { file: createdFile, isNew } = await filesRepo.ensureFileRow({
       ownerId: user.id,
       name: fileName,
@@ -122,9 +124,14 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
       source: 'upload',
       createdAt: new Date().toISOString(),
     })
-    createdFileId = createdFile.id
 
-    // ── 5. Create ingest record (pending) ─────────────────────────────────────
+    // Set processing_status to 'processing' so the UI can show the indexing state
+    await supabaseAdmin
+      .from('files')
+      .update({ processing_status: 'processing' })
+      .eq('id', createdFile.id)
+
+    // Create ingest record (pending → will be updated to processing in after())
     await fileIngestRepo.upsert({
       file_id: createdFile.id,
       owner_id: user.id,
@@ -139,109 +146,107 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
       },
     })
 
-    // ── 6. Extract text + vector pipeline (identical to /api/upload) ──────────
-    try {
-      ingestStatus = 'processing'
-      await fileIngestRepo.updateStatus(user.id, createdFile.id, 'processing', null)
+    logger.info('[process:queued]', {
+      userId: user.id,
+      fileId: createdFile.id,
+      fileName,
+      bytes: fileBuffer.length,
+      rid,
+    })
 
-      // Route document through Document Intelligence Router (Spec 11)
-      const { routeDocument } = await import('@/app/lib/document-router')
-      const { contents, profile } = await routeDocument(fileBuffer, mimeType, fileName)
-
-      const { processDocumentFromContents } = await import('@/app/lib/vector/document-processor')
-      await processDocumentFromContents(user.id, createdFile.id, fileName, contents, {
-        fileType: mimeType,
-        fileSize: fileBuffer.length,
-        uploadedAt: new Date().toISOString(),
-        source: 'upload',
-        visionPageCount: profile.visionPageCount,
-        totalPages: profile.totalPages,
-      })
-
-      ingestStatus = 'ready'
-      await fileIngestRepo.updateStatus(user.id, createdFile.id, 'ready', null)
-
-      // Update app.files processing_status to completed
-      await supabaseAdmin
-        .from('files')
-        .update({ processing_status: 'completed', processed: true })
-        .eq('id', createdFile.id)
-
-      logger.info('File processed successfully via presign flow', {
-        userId: user.id,
-        fileId: createdFile.id,
-        fileName,
-        bytes: fileBuffer.length,
-        contentHash,
-        rid,
-      })
-    } catch (processingError) {
-      console.error('[process:extraction-failed]', {
-        userId: user.id,
-        fileId: createdFile.id,
-        fileName,
-        error: processingError instanceof Error ? processingError.message : String(processingError),
-        rid,
-      })
-
-      ingestStatus = 'error'
-      await fileIngestRepo.updateStatus(
-        user.id,
-        createdFile.id,
-        'error',
-        processingError instanceof Error ? processingError.message : 'Unknown error'
-      )
-
-      // Sync files.processing_status to 'failed' so the Files tab reflects the error
+    // ── 5. Return 202 immediately — extraction runs post-response ─────────────
+    // after() is a Next.js 15 built-in that defers work until after the response
+    // is sent. Under Vercel Fluid Compute (fluid: true in vercel.json), the
+    // function continues executing without any timeout constraint.
+    after(async () => {
+      const fileId = createdFile.id
       try {
-        await filesRepo.updateProcessingStatus(user.id, createdFile.id, 'failed')
-      } catch (statusSyncError) {
-        console.error('[process:status-sync-failed]', {
-          error: statusSyncError instanceof Error ? statusSyncError.message : String(statusSyncError),
-          fileId: createdFile.id,
+        await fileIngestRepo.updateStatus(user.id, fileId, 'processing', null)
+
+        // Route document through Document Intelligence Router (Spec 11)
+        const { routeDocument } = await import('@/app/lib/document-router')
+        const { contents, profile } = await routeDocument(fileBuffer, mimeType, fileName)
+
+        const { processDocumentFromContents } = await import('@/app/lib/vector/document-processor')
+        await processDocumentFromContents(user.id, fileId, fileName, contents, {
+          fileType: mimeType,
+          fileSize: fileBuffer.length,
+          uploadedAt: new Date().toISOString(),
+          source: 'upload',
+          visionPageCount: profile.visionPageCount,
+          totalPages: profile.totalPages,
+        })
+
+        // Mark completed
+        await fileIngestRepo.updateStatus(user.id, fileId, 'ready', null)
+        await supabaseAdmin
+          .from('files')
+          .update({ processing_status: 'completed', processed: true })
+          .eq('id', fileId)
+
+        // Increment usage counters (fire-and-forget)
+        supabaseAdmin.rpc('increment_document_usage', {
+          p_user_id: user.id,
+          p_bytes: fileBuffer.length,
+        }).then(({ error: usageErr }) => {
+          if (usageErr) {
+            logger.error('[process:usage-sync-failed]', { userId: user.id, error: usageErr.message })
+          }
+        })
+
+        logger.info('[process:completed]', {
+          userId: user.id,
+          fileId,
+          fileName,
+          bytes: fileBuffer.length,
           rid,
         })
-      }
-    }
+      } catch (extractionError) {
+        logger.error('[process:extraction-failed]', {
+          userId: user.id,
+          fileId,
+          fileName,
+          error: extractionError instanceof Error ? extractionError.message : String(extractionError),
+          rid,
+        })
 
-    // ── 7. Increment usage counters (fire-and-forget) ─────────────────────────
-    supabaseAdmin.rpc('increment_document_usage', {
-      p_user_id: user.id,
-      p_bytes: fileBuffer.length,
-    }).then(({ error: usageErr }) => {
-      if (usageErr) {
-        console.error('[process:usage-sync-failed]', { userId: user.id, error: usageErr.message })
+        // Mark failed so the UI can show the error state
+        await fileIngestRepo.updateStatus(
+          user.id,
+          fileId,
+          'error',
+          extractionError instanceof Error ? extractionError.message : 'Unknown error'
+        ).catch(() => { /* best-effort */ })
+
+        await filesRepo.updateProcessingStatus(user.id, fileId, 'failed').catch(() => { /* best-effort */ })
       }
     })
 
-    // Notify quota card to refresh
-    // (client-side: window.dispatchEvent(new CustomEvent('briefly:quota-changed')) is in FileUpload.tsx)
-
-    return ApiResponse.created({
-      file: {
-        id: createdFile.id,
-        name: createdFile.name,
-        size: fileBuffer.length,
-        type: mimeType,
-        uploaded_at: createdFile.created_at,
-        processing_status: ingestStatus,
-        source: 'upload',
+    // Return 202 — client should poll until processing_status = 'completed'
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          file: {
+            id: createdFile.id,
+            name: createdFile.name,
+            size: fileBuffer.length,
+            type: mimeType,
+            uploaded_at: createdFile.created_at,
+            processing_status: 'processing',
+            source: 'upload',
+          },
+          uploaded: true,
+          deduped: !isNew,
+          processed: false,
+          message: 'File uploaded — indexing in progress',
+        },
       },
-      uploaded: true,
-      deduped: !isNew,
-      processed: ingestStatus === 'ready',
-    }, isNew ? 'File uploaded and processed successfully' : 'File already exists (deduplicated)')
+      { status: 202 }
+    )
 
   } catch (error) {
     logErr(rid, 'process-handler', error, { userId: user?.id, storagePath })
-
-    // Best-effort: mark ingest record as error if we have a file ID
-    if (createdFileId) {
-      fileIngestRepo.updateStatus(user.id, createdFileId, 'error',
-        error instanceof Error ? error.message : 'Unknown error'
-      ).catch(() => { /* best-effort */ })
-    }
-
     return ApiResponse.serverError('Failed to process uploaded file', 'PROCESS_ERROR', rid)
   }
 }

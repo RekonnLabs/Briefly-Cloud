@@ -46,10 +46,49 @@ export function FileUpload() {
     return null;
   };
 
-  // ── Presign flow (Spec 10) — for files > 4 MB ─────────────────────────────
+  // ── Presign flow (Spec 10 + Fluid Compute) — for files > 4 MB ───────────────
   // Step 1: POST /api/upload/presign  → { signedUrl, storagePath, token }
   // Step 2: PUT  signedUrl            → raw file body (bypasses Vercel)
-  // Step 3: POST /api/upload/process  → { storagePath, fileName, mimeType, fileSize }
+  // Step 3: POST /api/upload/process  → returns 202 immediately, extraction runs
+  //                                     post-response via after() (Fluid Compute)
+  // Step 4: Poll GET /api/upload/files/[fileId] until processing_status completes
+  const POLL_INTERVAL_MS = 4000
+  const POLL_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes max
+
+  const pollUntilComplete = async (fileDbId: string, uiFileId: string): Promise<void> => {
+    const deadline = Date.now() + POLL_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+      try {
+        const res = await fetch(`/api/upload/files/${fileDbId}`)
+        if (!res.ok) continue
+        const { data } = await res.json()
+        const status: string = data?.file?.processing_status ?? ''
+        if (status === 'completed' || status === 'ready') {
+          // Extraction finished — mark completed in UI
+          setUploadedFiles(prev =>
+            prev.map(f => f.id === uiFileId ? { ...f, status: 'completed', progress: 100 } : f)
+          )
+          window.dispatchEvent(new CustomEvent('briefly:quota-changed'))
+          return
+        }
+        if (status === 'failed' || status === 'error') {
+          throw new Error(data?.file?.error_message || 'Indexing failed — please try again.')
+        }
+        // Still processing — update progress indicator
+        setUploadedFiles(prev =>
+          prev.map(f => f.id === uiFileId ? { ...f, progress: Math.min((f.progress ?? 70) + 2, 95) } : f)
+        )
+      } catch (pollErr) {
+        if (pollErr instanceof Error && (pollErr.message.includes('failed') || pollErr.message.includes('error'))) {
+          throw pollErr
+        }
+        // Network hiccup — keep polling
+      }
+    }
+    throw new Error('Indexing is taking longer than expected. The file will continue processing in the background.')
+  }
+
   const uploadLargeFile = async (file: File, fileId: string): Promise<void> => {
     // Step 1 — get presigned URL
     const presignRes = await fetch('/api/upload/presign', {
@@ -89,7 +128,8 @@ export function FileUpload() {
       prev.map(f => f.id === fileId ? { ...f, status: 'processing', progress: 60 } : f)
     );
 
-    // Step 3 — trigger server-side extraction + vector pipeline
+    // Step 3 — trigger server-side extraction (returns 202 immediately)
+    // The extraction pipeline runs post-response via after() under Fluid Compute.
     const processRes = await fetch('/api/upload/process', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -101,10 +141,26 @@ export function FileUpload() {
       }),
     });
 
+    // 200 = duplicate (already processed), 201 = sync success (small doc), 202 = async processing
     if (!processRes.ok) {
       const err = await processRes.json().catch(() => ({}));
       throw new Error(err.message || err.error || `Processing failed: ${processRes.status}`);
     }
+
+    const processData = await processRes.json();
+    const dbFileId: string | undefined = processData?.data?.file?.id
+
+    if (processRes.status === 202 && dbFileId) {
+      // Step 4 — poll until extraction completes (Fluid Compute runs it in background)
+      setUploadedFiles(prev =>
+        prev.map(f => f.id === fileId ? { ...f, progress: 70 } : f)
+      );
+      await pollUntilComplete(dbFileId, fileId)
+      // pollUntilComplete sets status to 'completed' and dispatches quota event
+      return
+    }
+
+    // 200 duplicate or 201 sync — fall through to the caller's setTimeout completion
   };
 
   const uploadFile = async (file: File) => {
@@ -123,12 +179,16 @@ export function FileUpload() {
       const { captureFileProcessingError, capturePerformanceMetric } = await import('@/app/lib/error-monitoring');
       const startTime = Date.now();
 
+      let largeFileCompleted = false
       if (file.size > PRESIGN_THRESHOLD_BYTES) {
-        // ── Large file: presign → PUT → process ─────────────────────────────
+        // ── Large file: presign → PUT → process → poll ───────────────────────
+        // pollUntilComplete() sets status to 'completed' and fires quota event.
+        // Skip the setTimeout completion block below for this path.
         setUploadedFiles(prev =>
           prev.map(f => f.id === fileId ? { ...f, progress: 10 } : f)
         );
         await uploadLargeFile(file, fileId);
+        largeFileCompleted = true
       } else {
         // ── Small file: existing direct upload flow ──────────────────────────
         const formData = new FormData();
@@ -158,6 +218,8 @@ export function FileUpload() {
       }
 
       // Simulate brief processing indicator before marking complete
+      // (skipped for large files — pollUntilComplete already handled completion)
+      if (largeFileCompleted) return
       setTimeout(() => {
         setUploadedFiles(prev =>
           prev.map(f =>
@@ -265,14 +327,15 @@ export function FileUpload() {
     }
   };
 
-  const getStatusText = (status: UploadedFile['status']) => {
+  const getStatusText = (status: UploadedFile['status'], progress?: number) => {
     switch (status) {
       case 'uploading':
         return 'Uploading...';
       case 'processing':
-        return 'Processing...';
+        // progress >= 60 means the file is in Supabase Storage and extraction is running
+        return (progress ?? 0) >= 60 ? 'Indexing in background...' : 'Processing...';
       case 'completed':
-        return 'Completed';
+        return 'Ready';
       case 'error':
         return 'Error';
     }
@@ -330,7 +393,7 @@ export function FileUpload() {
                     {file.name}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {formatFileSize(file.size)} • {getStatusText(file.status)}
+                    {formatFileSize(file.size)} • {getStatusText(file.status, file.progress)}
                   </p>
                   {(file.status === 'uploading' || file.status === 'processing') && (
                     <div className="mt-2">
