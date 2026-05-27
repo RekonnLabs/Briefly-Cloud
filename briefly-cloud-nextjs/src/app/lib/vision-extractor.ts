@@ -22,6 +22,9 @@ const VISION_THRESHOLD_CHARS = parseInt(process.env.VISION_THRESHOLD_CHARS ?? '2
 /** Number of vision pages to request per Gemini call. Keeps each call under ~15s. */
 const VISION_BATCH_SIZE = parseInt(process.env.VISION_BATCH_SIZE ?? '15', 10)
 
+/** Maximum number of pages to send through vision extraction. Caps total time. */
+const MAX_VISION_PAGES = parseInt(process.env.MAX_VISION_PAGES ?? '30', 10)
+
 /** Gemini model used for vision extraction. */
 const VISION_MODEL = 'gemini-2.5-flash'
 
@@ -186,6 +189,16 @@ export async function extractPdfVisionPages(
   fileName: string
 ): Promise<VisionPageResult[]> {
   if (visionPageIndices.length === 0) return []
+
+  // Cap total vision pages to stay within function timeout budget
+  if (visionPageIndices.length > MAX_VISION_PAGES) {
+    logger.warn('[vision-extractor:pages-capped]', {
+      fileName,
+      total: visionPageIndices.length,
+      processing: MAX_VISION_PAGES,
+    })
+    visionPageIndices = visionPageIndices.slice(0, MAX_VISION_PAGES)
+  }
 
   if (buffer.length > GEMINI_FILES_API_MAX_BYTES) {
     logger.warn('[vision-extractor:pdf-too-large]', {
