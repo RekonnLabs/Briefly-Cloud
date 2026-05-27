@@ -1282,7 +1282,16 @@ export class ImportJobManager {
     }
 
     // ── Phase 1: parallel download + extract ──────────────────────────────────
-    type DownloadOk = { ok: true; file: CloudStorageFile; buffer: Buffer; text: string; mimeType: string }
+    type DownloadOk = {
+      ok: true
+      file: CloudStorageFile
+      buffer: Buffer
+      mimeType: string
+      routeContents: ExtractedContent[]
+      routeProfile: { visionPageCount: number; totalPages: number }
+      visionPageIndices: number[]
+      storagePath: string | null
+    }
     type DownloadFail = { ok: false; file: CloudStorageFile; reason: string }
     type DownloadOutcome = DownloadOk | DownloadFail
 
@@ -1332,17 +1341,60 @@ export class ImportJobManager {
           logger.info('[import:download-ok]', { jobId: job.id, fileId: file.id, fileName: file.name, bytes: buffer.length })
 
           // Route through Document Intelligence Router (Spec 11)
-          const { routeDocument } = await import('@/app/lib/document-router')
+          // PDFs use text-only routing + vision queue; non-PDFs use full routing
           const resolvedMime = file.mimeType || 'application/octet-stream'
-          const routeResult = await routeDocument(buffer, resolvedMime, file.name)
+          let routeContents: ExtractedContent[]
+          let routeProfile: { visionPageCount: number; totalPages: number }
+          let visionPageIndices: number[] = []
+          let storagePath: string | null = null
+
+          if (resolvedMime === 'application/pdf') {
+            const { routeDocumentTextOnly } = await import('@/app/lib/document-router')
+            const result = await routeDocumentTextOnly(buffer, resolvedMime, file.name)
+            routeContents = result.contents
+            routeProfile = result.profile
+            visionPageIndices = result.visionPageIndices
+
+            // Upload PDF to Supabase Storage so cron worker can re-download for vision
+            if (visionPageIndices.length > 0) {
+              const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+              storagePath = `${job.userId}/${Date.now()}_${safeName}`
+              const { error: uploadErr } = await supabaseAdmin.storage
+                .from('documents')
+                .upload(storagePath, buffer, {
+                  contentType: 'application/pdf',
+                  upsert: true,
+                })
+              if (uploadErr) {
+                logger.warn('[import:storage-upload-failed]', {
+                  jobId: job.id, fileId: file.id, fileName: file.name,
+                  error: uploadErr.message,
+                })
+                // Non-fatal: text extraction still works, vision just won't be queued
+                storagePath = null
+                visionPageIndices = []
+              } else {
+                logger.info('[import:storage-uploaded]', {
+                  jobId: job.id, fileId: file.id, fileName: file.name,
+                  storagePath, bytes: buffer.length,
+                })
+              }
+            }
+          } else {
+            const { routeDocument } = await import('@/app/lib/document-router')
+            const result = await routeDocument(buffer, resolvedMime, file.name)
+            routeContents = result.contents
+            routeProfile = result.profile
+          }
 
           logger.info('[import:router-ok]', {
             jobId: job.id, fileId: file.id, fileName: file.name,
-            contentItems: routeResult.contents.length,
-            visionPages: routeResult.profile.visionPageCount,
+            contentItems: routeContents.length,
+            visionPages: routeProfile.visionPageCount,
+            visionQueued: visionPageIndices.length,
           })
 
-          return { ok: true, file, buffer, mimeType: resolvedMime, routeContents: routeResult.contents, routeProfile: routeResult.profile }
+          return { ok: true, file, buffer, mimeType: resolvedMime, routeContents, routeProfile, visionPageIndices, storagePath }
         } catch (err) {
           clearTimeout(tid)
           const raw = err instanceof Error ? err.message : 'Unknown error'
@@ -1383,15 +1435,15 @@ export class ImportJobManager {
         _contentMeta: Pick<ExtractedContent, 'extractionMethod' | 'contentType' | 'sourcePage' | 'sourceSheet' | 'visionModel'>
       }>
       chunkOffset: number
+      visionPageIndices: number[]
+      storagePath: string | null
     }
     const fileGroups: FileGroup[] = []
     const allChunkTexts: string[] = []
 
     for (const outcome of downloadOutcomes) {
       if (!outcome.ok) continue
-      const { file, buffer, mimeType } = outcome
-      const routeContents = (outcome as any).routeContents as ExtractedContent[]
-      const routeProfile = (outcome as any).routeProfile as { visionPageCount: number; totalPages: number }
+      const { file, buffer, mimeType, routeContents, routeProfile, visionPageIndices, storagePath } = outcome
 
       const contentHash = createHash('sha256').update(buffer).digest('hex')
 
@@ -1460,7 +1512,7 @@ export class ImportJobManager {
         continue
       }
 
-      fileGroups.push({ file, buffer, mimeType, appFileId, contentHash, chunks: enrichedChunks, chunkOffset: allChunkTexts.length })
+      fileGroups.push({ file, buffer, mimeType, appFileId, contentHash, chunks: enrichedChunks, chunkOffset: allChunkTexts.length, visionPageIndices: visionPageIndices ?? [], storagePath: storagePath ?? null })
       allChunkTexts.push(...enrichedChunks.map(c => c.content))
     }
 
@@ -1483,6 +1535,8 @@ export class ImportJobManager {
 
     // ── Phase 4: vector write + per-file DB finalization ──────────────────────
     const vectorStore = getVectorStore()
+    let visionQueuedCount = 0
+    let visionFailedCount = 0
 
     for (const group of fileGroups) {
       const { file, buffer, mimeType, appFileId, contentHash, chunks, chunkOffset } = group
@@ -1525,6 +1579,33 @@ export class ImportJobManager {
         supabaseAdmin.rpc('increment_document_usage', { p_user_id: job.userId, p_bytes: buffer.length })
           .then(({ error: e }) => { if (e) logger.warn('increment_document_usage failed', { userId: job.userId, error: e.message }) })
         await this.updateFileStatus(job.id, file.id, { status: 'completed' })
+
+        // Queue vision pages for progressive enrichment by cron worker
+        if (group.visionPageIndices.length > 0 && group.storagePath) {
+          const { error: vqErr } = await supabaseAdmin.schema('app').from('vision_queue').insert({
+            file_id: appFileId,
+            owner_id: job.userId,
+            storage_path: group.storagePath,
+            file_name: file.name,
+            vision_page_indices: group.visionPageIndices,
+            next_batch_start: 0,
+            status: 'pending',
+          })
+          if (vqErr) {
+            logger.warn('[import:vision-queue-insert-failed]', {
+              jobId: job.id, fileId: file.id, fileName: file.name,
+              error: vqErr.message,
+            })
+            visionFailedCount++
+          } else {
+            logger.info('[import:vision-queued]', {
+              jobId: job.id, fileId: file.id, fileName: file.name,
+              visionPages: group.visionPageIndices.length,
+              storagePath: group.storagePath,
+            })
+            visionQueuedCount++
+          }
+        }
       } catch (writeErr) {
         logger.error('Vector write or DB finalization failed', { jobId, fileId: file.id, error: writeErr instanceof Error ? writeErr.message : 'Unknown' })
         await this.updateFileStatus(job.id, file.id, { status: 'failed', error: 'Vector write failed' })
@@ -1546,7 +1627,9 @@ export class ImportJobManager {
       const outputData = {
         totalFiles: progress.total, processedFiles: progress.processed,
         failedFiles: progress.failed, skippedFiles: progress.skipped,
-        duplicateFiles: await this.countFilesByStatus(jobId, 'duplicate')
+        duplicateFiles: await this.countFilesByStatus(jobId, 'duplicate'),
+        visionQueued: visionQueuedCount,
+        visionFailed: visionFailedCount,
       }
       await this.updateJobProgress(jobId, { ...progress, current_file: null })
       await this.updateJobStatus(jobId, 'completed', { completed_at: new Date(), output_data: outputData })

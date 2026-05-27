@@ -3,6 +3,7 @@ import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse, parsePaginationParams, createPaginatedResponse } from '@/app/lib/api-utils'
 import { rateLimitConfigs } from '@/app/lib/rate-limit'
 import { logApiUsage } from '@/app/lib/logger'
+import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { filesRepo, fileIngestRepo } from '@/app/lib/repos'
 import type { FileIngestStatus } from '@/app/lib/repos/file-ingest-repo'
 
@@ -43,6 +44,24 @@ async function listFilesHandler(request: Request, context: ApiContext): Promise<
 
     const ingestMap = await fileIngestRepo.getByFileIds(user.id, searchResult.items.map(file => file.id))
 
+    // Batch-fetch vision queue statuses for all files in this page
+    const fileIds = searchResult.items.map(file => file.id)
+    const visionStatusMap: Record<string, 'enriching' | 'completed' | 'failed'> = {}
+    if (fileIds.length > 0) {
+      const { data: visionJobs } = await supabaseAdmin
+        .schema('app')
+        .from('vision_queue')
+        .select('file_id, status')
+        .in('file_id', fileIds)
+      if (visionJobs) {
+        for (const vj of visionJobs) {
+          if (vj.status === 'completed') visionStatusMap[vj.file_id] = 'completed'
+          else if (vj.status === 'failed') visionStatusMap[vj.file_id] = 'failed'
+          else visionStatusMap[vj.file_id] = 'enriching'
+        }
+      }
+    }
+
     const formattedFiles = searchResult.items.map(file => {
       const ingest = ingestMap[file.id]
       return {
@@ -55,6 +74,7 @@ async function listFilesHandler(request: Request, context: ApiContext): Promise<
         error_message: ingest?.error_msg ?? null,
         created_at: file.created_at,
         metadata: ingest?.meta,
+        vision_status: visionStatusMap[file.id] ?? null,
       }
     })
 

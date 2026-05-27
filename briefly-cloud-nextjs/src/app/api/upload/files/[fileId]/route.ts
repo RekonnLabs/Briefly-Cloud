@@ -46,7 +46,8 @@ function resolveStorageTarget(file: AppFile, ingest?: FileIngestRecord | null): 
 function formatFileResponse(
   file: AppFile,
   ingest: FileIngestRecord | null,
-  processingInfo: ProcessingInfo | null
+  processingInfo: ProcessingInfo | null,
+  visionStatus?: 'enriching' | 'completed' | 'failed' | null
 ) {
   const status = ingest?.status ?? 'pending'
   return {
@@ -64,6 +65,7 @@ function formatFileResponse(
       updated_at: ingest?.updated_at ?? file.created_at,
       metadata: ingest?.meta ?? null,
       processing_info: processingInfo,
+      vision_status: visionStatus ?? null,
     },
   }
 }
@@ -113,12 +115,26 @@ async function getFileHandler(request: Request, context: ApiContext): Promise<Ne
     const ingest = await fileIngestRepo.get(user.id, fileId)
     const processingInfo = ingest?.status === 'ready' ? null : await fetchProcessingInfo(user.id, fileId)
 
+    // Check vision queue status for this file
+    let visionStatus: 'enriching' | 'completed' | 'failed' | null = null
+    const { data: visionJob } = await supabaseAdmin
+      .schema('app')
+      .from('vision_queue')
+      .select('status')
+      .eq('file_id', fileId)
+      .maybeSingle()
+    if (visionJob) {
+      if (visionJob.status === 'completed') visionStatus = 'completed'
+      else if (visionJob.status === 'failed') visionStatus = 'failed'
+      else visionStatus = 'enriching' // pending or processing
+    }
+
     logApiUsage(user.id, '/api/upload/files/[fileId]', 'file_view', {
       file_id: fileId,
       file_name: file.name,
     })
 
-    return ApiResponse.success(formatFileResponse(file, ingest, processingInfo))
+    return ApiResponse.success(formatFileResponse(file, ingest, processingInfo, visionStatus))
   } catch (error) {
     console.error('Get file handler error:', error)
     return ApiResponse.internalError('Failed to get file details')

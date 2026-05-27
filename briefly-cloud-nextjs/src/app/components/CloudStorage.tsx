@@ -94,6 +94,9 @@ interface ImportJob {
     // Spec 11: files excluded due to quota cap
     skippedQuotaCount?: number;
     skippedQuotaFiles?: Array<{ id: string; name: string }>;
+    // Vision queue counts
+    visionQueued?: number;
+    visionFailed?: number;
   };
   errorMessage?: string;
 }
@@ -1528,6 +1531,20 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                               </ul>
                             </details>
                           )}
+                        </div>
+                      )}
+                      {/* Vision queue info */}
+                      {(job.outputData.visionQueued ?? 0) > 0 && (
+                        <div className="mt-2 p-2 bg-blue-900/30 border border-blue-700/50 rounded text-xs text-blue-300">
+                          <span className="font-semibold">{job.outputData.visionQueued} file{job.outputData.visionQueued === 1 ? '' : 's'} queued for visual enrichment</span>
+                          {' '}— image-heavy pages will be indexed in the background (~10 min).
+                        </div>
+                      )}
+                      {/* Vision queue failures */}
+                      {(job.outputData.visionFailed ?? 0) > 0 && (
+                        <div className="mt-2 p-2 bg-orange-900/30 border border-orange-700/50 rounded text-xs text-orange-300">
+                          <span className="font-semibold">{job.outputData.visionFailed} file{job.outputData.visionFailed === 1 ? '' : 's'} could not be queued for visual enrichment</span>
+                          {' '}— text content is fully available.
                         </div>
                       )}
                     </div>

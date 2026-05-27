@@ -15,6 +15,7 @@ interface FileRecord {
   source: string | null
   error_message: string | null
   created_at: string
+  vision_status: 'enriching' | 'completed' | 'failed' | null
 }
 
 export function FileList() {
@@ -208,7 +209,24 @@ export function FileList() {
                   {formatFileSize(file.size, file.source)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  {getStatusBadge(file.processing_status)}
+                  <span className="flex items-center gap-2">
+                    {getStatusBadge(file.processing_status)}
+                    {file.vision_status === 'enriching' && (
+                      <span className="inline-flex items-center gap-1 text-xs text-blue-400" title="Enhancing visuals — image-heavy pages are being indexed in the background">
+                        <svg className="w-3.5 h-3.5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </span>
+                    )}
+                    {file.vision_status === 'failed' && (
+                      <span className="inline-flex items-center gap-1 text-xs text-orange-400" title="Visual extraction failed — text content is fully available">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </span>
+                    )}
+                  </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                   {formatDate(file.created_at)}
