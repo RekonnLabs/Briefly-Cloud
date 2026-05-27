@@ -25,7 +25,7 @@
 export const runtime = 'nodejs'
 // maxDuration covers the synchronous portion only (download + hash + DB row).
 // The after() callback runs outside the request lifecycle — no timeout applies.
-export const maxDuration = 60
+export const maxDuration = 300
 
 import { NextResponse } from 'next/server'
 import { after } from 'next/server'
