@@ -162,6 +162,101 @@ export async function routeDocument(
   }
 }
 
+// ─── Text-Only Router (for queue-based vision) ─────────────────────────────────
+
+/**
+ * Route a document for text extraction only — skip vision entirely.
+ * Returns text contents immediately + the list of vision page indices for
+ * queueing into app.vision_queue.
+ *
+ * Used by the process route's after() callback so that text chunks are
+ * available in ~30s. Vision pages are processed separately by the cron worker.
+ */
+export async function routeDocumentTextOnly(
+  buffer: Buffer,
+  mimeType: string,
+  fileName: string
+): Promise<{
+  contents: ExtractedContent[]
+  profile: DocumentProfile
+  visionPageIndices: number[]
+}> {
+  const category = MIME_TO_CATEGORY[mimeType] ?? 'unknown'
+
+  logger.info('[document-router:text-only-start]', { fileName, mimeType, category })
+
+  // Non-PDF files: no vision needed, route normally
+  if (category !== 'pdf') {
+    const result = await routeDocument(buffer, mimeType, fileName)
+    return { ...result, visionPageIndices: [] }
+  }
+
+  // PDF: classify pages, extract text only, return vision indices for queue
+  const classification = await classifyPdfPages(buffer)
+  const { totalPages, textPageIndices, visionPageIndices, pages } = classification
+
+  logger.info('[document-router:text-only-classified]', {
+    fileName,
+    totalPages,
+    textPages: textPageIndices.length,
+    visionPages: visionPageIndices.length,
+  })
+
+  // Extract text pages only (no vision call)
+  const { extractText } = await import('unpdf')
+  const { text: pageTexts } = await extractText(new Uint8Array(buffer), { mergePages: false })
+
+  const contents: ExtractedContent[] = []
+  for (let i = 0; i < totalPages; i++) {
+    const page = pages[i]
+    if (!page) continue
+    if (!page.isImageHeavy) {
+      const text = (pageTexts[i] ?? '').replace(/\u0000/g, '').trim()
+      if (text) {
+        contents.push({
+          text,
+          extractionMethod: 'text_library',
+          contentType: 'text',
+          sourcePage: i,
+          sourceSheet: null,
+          visionModel: null,
+        })
+      }
+    }
+    // Vision pages are skipped — they'll be processed by the cron worker
+  }
+
+  // Fallback: if no text pages had content, extract with full merged text
+  if (contents.length === 0) {
+    const { extractTextFromBuffer } = await import('@/app/lib/document-extractor')
+    const extraction = await extractTextFromBuffer(buffer, mimeType, fileName)
+    contents.push({
+      text: extraction.text,
+      extractionMethod: 'text_library',
+      contentType: 'text',
+      sourcePage: null,
+      sourceSheet: null,
+      visionModel: null,
+    })
+  }
+
+  const profile: DocumentProfile = {
+    mimeType,
+    category: 'pdf',
+    requiresVision: visionPageIndices.length > 0,
+    visionPageCount: visionPageIndices.length,
+    totalPages,
+  }
+
+  logger.info('[document-router:text-only-complete]', {
+    fileName,
+    textChunks: contents.length,
+    visionPagesQueued: visionPageIndices.length,
+  })
+
+  return { contents, profile, visionPageIndices }
+}
+
 // ─── PDF Router ───────────────────────────────────────────────────────────────
 
 async function routePdf(

@@ -163,10 +163,15 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
       try {
         await fileIngestRepo.updateStatus(user.id, fileId, 'processing', null)
 
-        // Route document through Document Intelligence Router (Spec 11)
-        const { routeDocument } = await import('@/app/lib/document-router')
-        const { contents, profile } = await routeDocument(fileBuffer, mimeType, fileName)
+        // Route document through text-only path (Spec 11 + Vision Queue)
+        // PDFs: extract text pages immediately, return vision page indices for queue
+        // Non-PDFs: extract everything (no vision needed)
+        const { routeDocumentTextOnly } = await import('@/app/lib/document-router')
+        const { contents, profile, visionPageIndices } = await routeDocumentTextOnly(
+          fileBuffer, mimeType, fileName
+        )
 
+        // Embed text chunks immediately — user can query text content in ~30s
         const { processDocumentFromContents } = await import('@/app/lib/vector/document-processor')
         await processDocumentFromContents(user.id, fileId, fileName, contents, {
           fileType: mimeType,
@@ -177,7 +182,25 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
           totalPages: profile.totalPages,
         })
 
-        // Mark completed
+        // Queue vision pages for progressive enrichment by cron worker
+        if (visionPageIndices.length > 0) {
+          await supabaseAdmin.schema('app').from('vision_queue').insert({
+            file_id: fileId,
+            owner_id: user.id,
+            storage_path: storagePath,
+            file_name: fileName,
+            vision_page_indices: visionPageIndices,
+            next_batch_start: 0,
+            status: 'pending',
+          })
+          logger.info('[process:vision-queued]', {
+            userId: user.id,
+            fileId,
+            visionPages: visionPageIndices.length,
+          })
+        }
+
+        // Mark text extraction completed
         await fileIngestRepo.updateStatus(user.id, fileId, 'ready', null)
         await supabaseAdmin
           .from('files')
@@ -199,6 +222,8 @@ async function processHandler(request: Request, context: ApiContext): Promise<Ne
           fileId,
           fileName,
           bytes: fileBuffer.length,
+          textChunks: contents.length,
+          visionPagesQueued: visionPageIndices.length,
           rid,
         })
       } catch (extractionError) {
