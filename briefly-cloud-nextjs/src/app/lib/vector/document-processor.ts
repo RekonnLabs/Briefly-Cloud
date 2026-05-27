@@ -453,7 +453,8 @@ export class DocumentProcessor implements IDocumentProcessor {
     fileId: string,
     fileName: string,
     contents: ExtractedContent[],
-    metadata: Record<string, any> = {}
+    metadata: Record<string, any> = {},
+    options: { appendOnly?: boolean } = {}
   ): Promise<void> {
     try {
       logger.info('[document-processor:from-contents:start]', {
@@ -526,21 +527,25 @@ export class DocumentProcessor implements IDocumentProcessor {
         },
       }))
 
-      // Step 4: Delete old chunks (re-index path)
-      const existingChunks = await supabaseApp
-        .schema('app')
-        .from('document_chunks')
-        .select('id')
-        .eq('file_id', fileId)
-        .eq('owner_id', userId)
-
-      if (existingChunks.data && existingChunks.data.length > 0) {
-        await supabaseApp
+      // Step 4: Delete old chunks (re-index path) — skipped in appendOnly mode
+      // appendOnly is used by the vision cron worker to ADD vision chunks
+      // on top of existing text chunks without wiping them.
+      if (!options.appendOnly) {
+        const existingChunks = await supabaseApp
           .schema('app')
           .from('document_chunks')
-          .delete()
+          .select('id')
           .eq('file_id', fileId)
           .eq('owner_id', userId)
+
+        if (existingChunks.data && existingChunks.data.length > 0) {
+          await supabaseApp
+            .schema('app')
+            .from('document_chunks')
+            .delete()
+            .eq('file_id', fileId)
+            .eq('owner_id', userId)
+        }
       }
 
       // Step 5: Store vectors
@@ -694,10 +699,11 @@ export async function processDocumentFromContents(
   fileId: string,
   fileName: string,
   contents: ExtractedContent[],
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  options?: { appendOnly?: boolean }
 ): Promise<void> {
   const processor = getDocumentProcessor()
-  return processor.processDocumentFromContents(userId, fileId, fileName, contents, metadata ?? {})
+  return processor.processDocumentFromContents(userId, fileId, fileName, contents, metadata ?? {}, options ?? {})
 }
 
 /**

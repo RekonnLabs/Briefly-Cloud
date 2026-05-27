@@ -150,7 +150,8 @@ export async function GET(request: Request) {
           source: 'vision_queue',
           batchStart,
           batchSize: batchPages.length,
-        }
+        },
+        { appendOnly: true }
       )
     }
 
