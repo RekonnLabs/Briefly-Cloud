@@ -67,14 +67,43 @@ export async function GET(request: Request) {
     })
 
     // ── 2. Claim the job (set to processing + increment attempts) ────────────
+    const newAttempts = job.attempts + 1
     await supabaseAdmin
       .schema('app')
       .from('vision_queue')
       .update({
         status: 'processing',
-        attempts: job.attempts + 1,
+        attempts: newAttempts,
       })
       .eq('id', job.id)
+
+    // ── 2b. If this attempt exhausts the retry budget, fail permanently ─────
+    // This prevents zombie jobs that are picked up, incremented, but never
+    // reach the success path — they silently stop being selected by the
+    // .lt('attempts', MAX_ATTEMPTS) filter without a visible failure state.
+    if (newAttempts >= MAX_ATTEMPTS) {
+      await supabaseAdmin
+        .schema('app')
+        .from('vision_queue')
+        .update({
+          status: 'failed',
+          error_msg: `Exhausted ${MAX_ATTEMPTS} attempts — last batch_start: ${job.next_batch_start}`,
+        })
+        .eq('id', job.id)
+
+      logger.error('[cron:vision:max-attempts-reached]', {
+        jobId: job.id,
+        fileId: job.file_id,
+        attempts: newAttempts,
+        lastBatchStart: job.next_batch_start,
+      })
+
+      return NextResponse.json({
+        status: 'failed',
+        fileId: job.file_id,
+        message: `Max attempts (${MAX_ATTEMPTS}) reached — marked as failed`,
+      })
+    }
 
     // ── 3. Determine which pages to process this tick ────────────────────────
     const allVisionPages: number[] = job.vision_page_indices
