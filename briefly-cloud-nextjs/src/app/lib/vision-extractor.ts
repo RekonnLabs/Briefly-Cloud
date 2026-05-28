@@ -332,6 +332,118 @@ Include a section for every page listed above, even if a page appears blank.
   return allResults
 }
 
+// ─── Phase 2c: PDF Vision with cached Gemini URI (for cron batching) ─────────
+
+/**
+ * Same as extractPdfVisionPages but accepts an optional pre-cached Gemini fileUri.
+ * If provided, skips the upload step entirely. Returns the fileUri alongside results
+ * so the caller can persist it for subsequent batches.
+ *
+ * The Gemini Files API URI is valid for 48 hours — safe to reuse across all cron ticks.
+ */
+export async function extractPdfVisionPagesWithUri(
+  buffer: Buffer,
+  visionPageIndices: number[],
+  fileName: string,
+  cachedFileUri?: string | null
+): Promise<{ results: VisionPageResult[]; fileUri: string | null }> {
+  if (visionPageIndices.length === 0) return { results: [], fileUri: cachedFileUri ?? null }
+
+  if (buffer.length > GEMINI_FILES_API_MAX_BYTES) {
+    logger.warn('[vision-extractor:pdf-too-large]', { fileName, bytes: buffer.length })
+    return {
+      results: visionPageIndices.map(i => ({
+        pageIndex: i,
+        text: '[Vision extraction skipped: PDF exceeds 2GB Files API limit]',
+        model: VISION_MODEL,
+      })),
+      fileUri: null,
+    }
+  }
+
+  const genai = getGenAI()
+  let fileUri: string
+
+  if (cachedFileUri) {
+    fileUri = cachedFileUri
+    logger.info('[vision-extractor:reusing-cached-uri]', { fileName, fileUri })
+  } else {
+    try {
+      const uploadResult = await genai.files.upload({
+        file: new Blob([buffer], { type: 'application/pdf' }),
+        config: { mimeType: 'application/pdf', displayName: fileName },
+      })
+      if (!uploadResult.uri) throw new Error('Gemini Files API upload returned no URI')
+      fileUri = uploadResult.uri
+      logger.info('[vision-extractor:pdf-upload-new]', { fileName, bytes: buffer.length, fileUri })
+    } catch (uploadError) {
+      logger.error('[vision-extractor:pdf-upload-failed]', {
+        fileName,
+        error: uploadError instanceof Error ? uploadError.message : String(uploadError),
+      })
+      return {
+        results: visionPageIndices.map(i => ({
+          pageIndex: i,
+          text: `[Vision extraction failed: upload error — ${uploadError instanceof Error ? uploadError.message : 'Unknown'}]`,
+          model: VISION_MODEL,
+        })),
+        fileUri: null,
+      }
+    }
+  }
+
+  // Process the batch (single batch — cron sends one batch per tick)
+  const pageList = visionPageIndices.map(i => `Page ${i + 1}`).join(', ')
+  const prompt = `
+This is a PDF document named "${fileName}".
+
+The following pages are image-heavy (contain diagrams, charts, photos, or scanned content
+rather than extractable text): ${pageList}.
+
+For EACH of these pages, extract all content using the following instructions:
+
+${VISION_EXTRACTION_PROMPT}
+
+Format your response as:
+--- PAGE [number] ---
+[extracted content]
+
+Include a section for every page listed above, even if a page appears blank.
+`.trim()
+
+  try {
+    const result = await genai.models.generateContent({
+      model: VISION_MODEL,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { fileData: { mimeType: 'application/pdf', fileUri } },
+            { text: prompt },
+          ],
+        },
+      ],
+    })
+
+    const rawText = result.text ?? ''
+    const results = parseVisionResponse(rawText, visionPageIndices)
+    return { results, fileUri }
+  } catch (batchError) {
+    logger.error('[vision-extractor:batch-failed]', {
+      fileName,
+      error: batchError instanceof Error ? batchError.message : String(batchError),
+    })
+    return {
+      results: visionPageIndices.map(i => ({
+        pageIndex: i,
+        text: `[Vision extraction failed for page ${i + 1}: ${batchError instanceof Error ? batchError.message : 'Unknown error'}]`,
+        model: VISION_MODEL,
+      })),
+      fileUri, // still return the URI — the upload succeeded, just the extraction failed
+    }
+  }
+}
+
 // ─── Response Parser ──────────────────────────────────────────────────────────
 
 /**

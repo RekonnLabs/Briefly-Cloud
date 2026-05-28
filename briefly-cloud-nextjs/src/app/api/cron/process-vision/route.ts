@@ -143,8 +143,24 @@ export async function GET(request: Request) {
     const fileBuffer = Buffer.from(await blobData.arrayBuffer())
 
     // ── 5. Run vision extraction for this batch ──────────────────────────────
-    const { extractPdfVisionPages } = await import('@/app/lib/vision-extractor')
-    const visionResults = await extractPdfVisionPages(fileBuffer, batchPages, job.file_name)
+    // Reuse cached Gemini Files API URI if available (valid for 48h).
+    // On first batch (or if URI expired), uploads PDF and caches the new URI.
+    const { extractPdfVisionPagesWithUri } = await import('@/app/lib/vision-extractor')
+    const { results: visionResults, fileUri: returnedUri } = await extractPdfVisionPagesWithUri(
+      fileBuffer,
+      batchPages,
+      job.file_name,
+      job.gemini_file_uri ?? null
+    )
+
+    // Persist the Gemini URI for subsequent batches (fire-and-forget)
+    if (returnedUri && returnedUri !== job.gemini_file_uri) {
+      await supabaseAdmin
+        .schema('app')
+        .from('vision_queue')
+        .update({ gemini_file_uri: returnedUri })
+        .eq('id', job.id)
+    }
 
     logger.info('[cron:vision:batch-done]', {
       jobId: job.id,
@@ -152,6 +168,7 @@ export async function GET(request: Request) {
       batchStart,
       pagesProcessed: batchPages.length,
       resultsReturned: visionResults.length,
+      uriCached: !!returnedUri,
     })
 
     // ── 6. Write vision chunks to document_chunks via processDocumentFromContents
