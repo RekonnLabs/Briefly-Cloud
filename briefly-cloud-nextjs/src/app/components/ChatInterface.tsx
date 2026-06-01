@@ -187,7 +187,7 @@ function markdownToHtml(text: string): string {
 
   // Wrap consecutive <li> blocks in a <ul>
   html = html.replace(/(<li[^>]*>[\s\S]*?<\/li>\n?)+/g,
-    (block) => `<ul class="space-y-1 my-2">${block}</ul>`
+    (block) => `<ul class="space-y-0.5 my-2">${block}</ul>`
   )
 
   // Paragraph breaks (two or more newlines)
