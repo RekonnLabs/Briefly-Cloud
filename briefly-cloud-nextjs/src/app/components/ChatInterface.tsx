@@ -160,7 +160,9 @@ function extractAndStrip(text: string): { body: string; sources: string[] } {
       if (name) sources.add(name)
     })
     return ''
-  }).trim()
+  })
+    .replace(/ +([.,;:!?])/g, '$1') // collapse orphaned spaces before punctuation
+    .trim()
   return { body, sources: [...sources] }
 }
 
