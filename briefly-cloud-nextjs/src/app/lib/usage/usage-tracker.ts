@@ -42,6 +42,7 @@ export type UsageAction =
   | 'storage_usage'
   | 'oauth_connection'
   | 'export_request'
+  | 'vision_extraction'
 
 export interface UsageLogEntry {
   userId: string

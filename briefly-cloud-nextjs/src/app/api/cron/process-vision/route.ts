@@ -199,6 +199,28 @@ export async function GET(request: Request) {
         },
         { appendOnly: true }
       )
+
+      // ── 6b. Track vision extraction cost (best-effort, non-blocking) ──────
+      // Gemini 2.5 Flash: ~256 tokens/page × $0.30/1M tokens = $0.000077/page
+      const VISION_COST_PER_PAGE_USD = 0.000077
+      const estimatedCostUsd = batchPages.length * VISION_COST_PER_PAGE_USD
+      const { UsageTracker } = await import('@/app/lib/usage/usage-tracker')
+      const tracker = new UsageTracker()
+      tracker.logUsage(job.owner_id, 'vision_extraction', {
+        resourceType: 'vision_page',
+        resourceId: job.file_id,
+        quantity: batchPages.length,
+        metadata: {
+          model: 'gemini-2.5-flash',
+          pages_processed: batchPages.length,
+          batch_start: batchStart,
+          file_name: job.file_name,
+          estimated_cost_usd: estimatedCostUsd,
+        },
+        costCents: Math.round(estimatedCostUsd * 100 * 100) / 100, // convert to cents with 2dp
+      }).catch(err => {
+        logger.warn('[cron:vision:usage-tracking-failed]', { error: err?.message })
+      })
     }
 
     // ── 7. Update queue row — advance or complete ────────────────────────────
