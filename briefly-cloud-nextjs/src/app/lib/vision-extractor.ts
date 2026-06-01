@@ -95,6 +95,8 @@ FOR TABLES/FORMS: Represent the table using markdown table format exactly:
 Preserve all exact numbers, labels, and cell values. Include every row and
 column — do not summarize or omit rows. If the table has merged cells or
 hierarchical headers, flatten them into the closest accurate representation.
+Always add a brief context label above the table describing what it represents,
+e.g.: "Minimum requirements per partnership tier:"
 
 FOR SCANNED DOCUMENTS: Extract all text verbatim, preserving headings,
 paragraph structure, and form field labels with values. If the document
@@ -119,7 +121,11 @@ function getGenAI(): GoogleGenAI {
 function hasGarbledTable(pageText: string): boolean {
   const lines = pageText.split('\n').map(l => l.trim()).filter(Boolean)
   const numberOnlyLines = lines.filter(l => /^\d+$/.test(l))
-  return numberOnlyLines.length >= 3
+  if (numberOnlyLines.length >= 3) return true
+  // x-mark or checkbox tables — single marker characters at regular intervals
+  const sparseMarkerLines = lines.filter(l => /^[x✓•\-]{1,3}$/.test(l))
+  if (sparseMarkerLines.length >= 3) return true
+  return false
 }
 
 /**
