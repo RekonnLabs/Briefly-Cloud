@@ -106,7 +106,7 @@ function stripUiBadges(content: string): string {
     .replace(/This answer is based on general knowledge, not your uploaded documents\.\s*/gi, '')
     .replace(/Warning: .*(ungrounded|not grounded|not in the retrieved).*\.\s*/gi, '')
     // Remove [Source: ...] citations — the LLM will re-derive these from fresh context
-    .replace(/\[Source:\s*[^\]]+\]/gi, '')
+    .replace(/\s?\[Source:\s*[^\]]+\]/gi, '')
     // Remove "Actionable next step:" blocks that are quest-specific
     .replace(/Actionable next step:.*$/gim, '')
     .trim()

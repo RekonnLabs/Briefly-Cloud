@@ -154,7 +154,7 @@ function detectModeHint(text: string): IntentMode {
  */
 function extractAndStrip(text: string): { body: string; sources: string[] } {
   const sources = new Set<string>()
-  const body = text.replace(/\[Source:\s*([^\]]+)\]/gi, (_, inner) => {
+  const body = text.replace(/\s?\[Source:\s*([^\]]+)\]/gi, (_, inner) => {
     inner.split(/,\s*Source:\s*/i).forEach((s: string) => {
       const name = s.trim()
       if (name) sources.add(name)
