@@ -88,8 +88,17 @@ FOR PHOTOGRAPHS: Describe subject, location (if apparent), visible materials,
 conditions, defects, dimensions (if visible), and overall assessment.
 For property/inspection photos: note any damage, materials, systems visible.
 
+FOR TABLES/FORMS: Represent the table using markdown table format exactly:
+| Header | Header | Header |
+|---|---|---|
+| Data | Data | Data |
+Preserve all exact numbers, labels, and cell values. Include every row and
+column — do not summarize or omit rows. If the table has merged cells or
+hierarchical headers, flatten them into the closest accurate representation.
+
 FOR SCANNED DOCUMENTS: Extract all text verbatim, preserving headings,
-paragraph structure, table contents, and form field labels with values.
+paragraph structure, and form field labels with values. If the document
+contains tables, use markdown table format as described above.
 
 Be exhaustive. Omission means that information becomes unsearchable.
 `.trim()
@@ -101,6 +110,17 @@ function getGenAI(): GoogleGenAI {
 }
 
 // ─── Phase 1: PDF Page Classification ────────────────────────────────────────
+
+/**
+ * Detect garbled table patterns — pages where PDF table extraction produced
+ * orphaned numbers on separate lines (columns lost their structure).
+ * 3+ lines that are just a number indicate a table that text extraction mangled.
+ */
+function hasGarbledTable(pageText: string): boolean {
+  const lines = pageText.split('\n').map(l => l.trim()).filter(Boolean)
+  const numberOnlyLines = lines.filter(l => /^\d+$/.test(l))
+  return numberOnlyLines.length >= 3
+}
 
 /**
  * Scan a PDF buffer page by page using unpdf and return which pages need vision.
@@ -116,11 +136,13 @@ export async function classifyPdfPages(buffer: Buffer): Promise<PdfClassificatio
   const { totalPages, text: pageTexts } = await extractText(uint8, { mergePages: false })
 
   const pages: PageClassification[] = pageTexts.map((pageText, index) => {
-    const charCount = pageText.replace(/\u0000/g, '').trim().length
+    const cleanText = pageText.replace(/\u0000/g, '').trim()
+    const charCount = cleanText.length
+    const needsVision = charCount < VISION_THRESHOLD_CHARS || hasGarbledTable(cleanText)
     return {
       index,
       textCharCount: charCount,
-      isImageHeavy: charCount < VISION_THRESHOLD_CHARS,
+      isImageHeavy: needsVision,
     }
   })
 
