@@ -212,6 +212,7 @@ export async function GET(request: Request) {
         .update({
           status: 'completed',
           next_batch_start: allVisionPages.length,
+          attempts: 0,
         })
         .eq('id', job.id)
 
@@ -222,12 +223,15 @@ export async function GET(request: Request) {
       })
     } else {
       // More pages remain — set back to pending for next tick
+      // Reset attempts to 0 so the retry budget is per-batch, not per-job.
+      // Without this, any document with >5 batches hits MAX_ATTEMPTS and dies.
       await supabaseAdmin
         .schema('app')
         .from('vision_queue')
         .update({
           status: 'pending',
           next_batch_start: newBatchStart,
+          attempts: 0,
           error_msg: null,
         })
         .eq('id', job.id)
