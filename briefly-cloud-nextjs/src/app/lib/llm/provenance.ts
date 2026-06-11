@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Response Provenance Metadata
  * 

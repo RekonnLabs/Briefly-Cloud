@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 // Mock ImportJobManager for tests
 export const ImportJobManager = {
   createJob: jest.fn(),

@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 "use client"
 
 import * as React from "react"

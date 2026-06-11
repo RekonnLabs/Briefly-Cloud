@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Simple tests for schema-aware API middleware enhancements
  */

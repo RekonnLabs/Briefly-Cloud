@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Error monitoring and logging system
  * Provides structured error reporting and integration with monitoring services

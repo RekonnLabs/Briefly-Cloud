@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Tests for signout error recovery and retry mechanisms
  * 

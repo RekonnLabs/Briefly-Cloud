@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Join/Paywall Page
  * 

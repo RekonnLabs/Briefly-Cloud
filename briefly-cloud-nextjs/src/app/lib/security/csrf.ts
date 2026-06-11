@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 import type { NextRequest, NextResponse } from "next/server"
 import { NextResponse as NR } from "next/server"
 

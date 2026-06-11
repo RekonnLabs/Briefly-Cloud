@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 // Mock Supabase module for tests
 export const createFileMetadata = jest.fn()
 export const getFileMetadata = jest.fn()

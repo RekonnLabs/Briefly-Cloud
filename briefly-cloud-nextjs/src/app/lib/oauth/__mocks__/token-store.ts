@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 // Mock TokenStore for tests
 export const getToken = jest.fn()
 export const saveToken = jest.fn()

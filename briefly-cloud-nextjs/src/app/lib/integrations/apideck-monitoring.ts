@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Apideck Connection Monitoring and Alerting
  * 

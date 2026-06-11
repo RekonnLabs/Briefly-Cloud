@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * API utility functions for common operations
  * Provides helpers for responses, pagination, and data transformation

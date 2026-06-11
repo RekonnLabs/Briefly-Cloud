@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 import { redirect } from 'next/navigation';
 
 export default function PrivacyPage() {

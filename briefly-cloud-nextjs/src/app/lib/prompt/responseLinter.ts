@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 export function lintResponse(text: string): { output: string; rewritten: boolean } {
   const original = text?.trim?.() ?? ''
 

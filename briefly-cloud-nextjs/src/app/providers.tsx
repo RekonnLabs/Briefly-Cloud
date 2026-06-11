@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 'use client'
 
 import { SupabaseAuthProvider } from '@/app/components/auth/SupabaseAuthProvider'

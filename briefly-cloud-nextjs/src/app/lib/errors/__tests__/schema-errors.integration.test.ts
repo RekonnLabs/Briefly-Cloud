@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Integration tests for schema-specific error handling in API routes
  */

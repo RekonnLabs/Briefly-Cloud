@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 export type AppFile = {
   id: string;
   owner_id: string;

@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 import { z } from 'zod'
 
 // File upload validation

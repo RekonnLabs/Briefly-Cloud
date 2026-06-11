@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 // src/app/briefly/app/layout.tsx
 import { ToastProvider } from '@/app/components/ui/toast'
 

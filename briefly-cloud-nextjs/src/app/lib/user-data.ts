@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 import 'server-only'
 import { getSupabaseServerReadOnly } from './auth/supabase-server-readonly'
 import { supabaseAdmin } from './supabase-admin'

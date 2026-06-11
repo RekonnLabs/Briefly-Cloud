@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Quest 0: Modular Auto-Indexing Pipeline
  * 

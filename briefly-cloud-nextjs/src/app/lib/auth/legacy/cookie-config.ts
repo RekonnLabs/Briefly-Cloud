@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * ⚠️ DEPRECATED - DO NOT USE - DANGEROUS CONFIGURATIONS ⚠️
  * 

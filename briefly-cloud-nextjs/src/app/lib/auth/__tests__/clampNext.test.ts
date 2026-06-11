@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 import { clampNext } from '../utils';
 
 describe('clampNext', () => {

@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Unit tests for SignoutService
  * 

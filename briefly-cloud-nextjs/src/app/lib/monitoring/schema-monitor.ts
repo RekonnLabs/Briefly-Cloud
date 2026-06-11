@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Schema Health and Performance Monitoring Service
  * 

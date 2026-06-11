@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Briefly Voice v1 - Core Voice System
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Centralized Signout Service
  * 

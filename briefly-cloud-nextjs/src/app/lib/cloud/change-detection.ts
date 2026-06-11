@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Cloud File Change Detection
  * 

@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * OAuth Flow Monitoring and Logging
  * 

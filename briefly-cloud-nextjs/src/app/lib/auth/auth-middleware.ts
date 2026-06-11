@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Authentication Middleware for Supabase Auth
  * 

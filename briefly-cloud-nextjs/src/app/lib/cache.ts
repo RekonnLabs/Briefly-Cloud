@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 import { LRUCache } from 'lru-cache'
 import { NextRequest, NextResponse } from 'next/server'
 

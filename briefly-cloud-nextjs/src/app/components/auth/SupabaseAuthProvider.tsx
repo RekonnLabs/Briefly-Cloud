@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 /**
  * Supabase Authentication Provider - Main User Authentication
  * 

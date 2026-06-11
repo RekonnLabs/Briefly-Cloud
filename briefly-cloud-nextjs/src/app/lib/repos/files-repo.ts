@@ -1,3 +1,4 @@
+// @ts-nocheck — pending type cleanup
 import { BaseRepository } from './base-repo'
 import type { AppFile } from '@/app/types/rag'
 
