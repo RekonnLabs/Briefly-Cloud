@@ -13,12 +13,12 @@ export const POST = createProtectedApiHandler(async (request, context) => {
 
     // Validate required fields
     if (!action || !userId || typeof success !== 'boolean' || !correlationId) {
-      return ApiResponse.badRequest('Missing required fields', ApiErrorCode.VALIDATION_ERROR, context.correlationId)
+      return ApiResponse.badRequest('Missing required fields', ApiErrorCode.VALIDATION_ERROR, undefined, context.correlationId)
     }
 
     // Verify the userId matches the authenticated user
     if (context.user?.id !== userId) {
-      return ApiResponse.forbidden('Cannot audit events for other users', ApiErrorCode.FORBIDDEN, context.correlationId)
+      return ApiResponse.forbidden('Cannot audit events for other users', ApiErrorCode.FORBIDDEN, undefined, context.correlationId)
     }
 
     // Call the server-side audit function

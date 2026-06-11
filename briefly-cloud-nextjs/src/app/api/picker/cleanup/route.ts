@@ -13,12 +13,12 @@ export const POST = createProtectedApiHandler(async (request, context) => {
 
     // Validate required fields
     if (!userId) {
-      return ApiResponse.badRequest('Missing userId', ApiErrorCode.VALIDATION_ERROR, context.correlationId)
+      return ApiResponse.badRequest('Missing userId', ApiErrorCode.VALIDATION_ERROR, undefined, context.correlationId)
     }
 
     // Verify the userId matches the authenticated user
     if (context.user?.id !== userId) {
-      return ApiResponse.forbidden('Cannot cleanup tokens for other users', ApiErrorCode.FORBIDDEN, context.correlationId)
+      return ApiResponse.forbidden('Cannot cleanup tokens for other users', ApiErrorCode.FORBIDDEN, undefined, context.correlationId)
     }
 
     // Call the server-side cleanup function
