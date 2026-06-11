@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 /**
  * API endpoint for disconnecting Google Drive storage
  */

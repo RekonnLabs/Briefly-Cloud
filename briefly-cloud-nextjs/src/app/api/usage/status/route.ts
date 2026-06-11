@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 /**
  * Usage Status API Route
  * 

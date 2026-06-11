@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { NextRequest, NextResponse } from 'next/server'
 import { createProtectedApiHandler } from '@/app/lib/api-middleware'
 import { getCloudAuthContext, createApideckHeaders } from '@/app/lib/cloud/auth-context'

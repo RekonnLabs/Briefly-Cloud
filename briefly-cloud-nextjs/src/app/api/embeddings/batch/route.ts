@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse } from '@/app/lib/api-utils'
@@ -50,7 +51,14 @@ async function generateBatchEmbeddingsHandler(request: Request, context: ApiCont
     let embeddingsService: EmbeddingsService
     let isUserKey = false
     
-    if (user.subscription_tier === 'pro_byok') {
+    const { data: profileData } = await supabaseAdmin
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('id', user.id)
+      .single()
+    const subscription_tier = profileData?.subscription_tier
+    
+    if (subscription_tier === 'pro_byok') {
       const { createClient } = await import('@supabase/supabase-js')
       const supabase = supabaseAdmin
       

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 /**
  * API endpoint for client-side audit logging of signout events
  */

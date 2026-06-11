@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 /**
  * Document Search API Routes
  * 

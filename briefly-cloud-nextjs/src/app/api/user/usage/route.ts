@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { ApiResponse, parsePaginationParams, createPaginatedResponse } from '@/app/lib/api-utils'

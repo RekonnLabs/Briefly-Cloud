@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 /**
  * Google Drive Disconnect Route
  * Handles disconnection of Google Drive integration

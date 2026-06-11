@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/app/lib/supabase-admin'

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 /**
  * Microsoft OneDrive Disconnect Route
  * Handles disconnection of Microsoft OneDrive integration

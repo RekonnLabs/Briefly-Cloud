@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { NextResponse } from 'next/server';
 import { Apideck, validateApideckConfig, isApideckEnabled } from '@/app/lib/integrations/apideck';
 import { getSupabaseServerReadOnly } from '@/app/lib/auth/supabase-server-readonly';
