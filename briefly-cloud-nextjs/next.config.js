@@ -197,8 +197,8 @@ const nextConfig = {
 
   // TypeScript configuration
   typescript: {
-    // Type checking is handled by CI/CD in production
-    ignoreBuildErrors: isProduction(),
+    // Type errors now block production builds — dead routes excluded via tsconfig
+    ignoreBuildErrors: false,
   },
 
   // ESLint configuration (moved to eslintrc.json for Next.js 16+)

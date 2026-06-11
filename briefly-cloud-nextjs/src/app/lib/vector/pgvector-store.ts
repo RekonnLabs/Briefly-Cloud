@@ -279,10 +279,10 @@ export class PgVectorStore implements IVectorStore {
 
       let filteredResults = results
       if (fileIds && fileIds.length > 0) {
-        filteredResults = results.filter(result => fileIds.includes(result.file_id))
+        filteredResults = results.filter((result: any) => fileIds.includes(result.file_id))
       }
 
-      const uniqueFileIds = Array.from(new Set(filteredResults.map(result => result.file_id).filter(Boolean)))
+      const uniqueFileIds = Array.from(new Set(filteredResults.map((result: any) => result.file_id).filter(Boolean)))
       const fileNameMap = new Map<string, string>()
 
       if (uniqueFileIds.length > 0) {
@@ -314,7 +314,7 @@ export class PgVectorStore implements IVectorStore {
         })
       }
 
-      const searchResults: VectorSearchResult[] = filteredResults.map(result => {
+      const searchResults: VectorSearchResult[] = filteredResults.map((result: any) => {
         // Coerce similarity to number - PostgREST may return it as a string
         const rawSimilarity = result.similarity
         const similarity = typeof rawSimilarity === 'number' 

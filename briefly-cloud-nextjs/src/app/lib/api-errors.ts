@@ -57,6 +57,9 @@ export class AppError extends Error {
 
 // Predefined error creators
 export const createError = {
+  badRequest: (message = 'Bad request') => 
+    new AppError(ErrorCode.VALIDATION_ERROR, message, 400),
+    
   unauthorized: (message = 'Unauthorized access') => 
     new AppError(ErrorCode.UNAUTHORIZED, message, 401),
     

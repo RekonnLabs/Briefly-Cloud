@@ -69,7 +69,8 @@ function normalizeSource(raw: string): string {
     .trim()
     .replace(/\s*#\d+$/i, '')              // strip chunk index: "doc.txt #3" → "doc.txt"
     .replace(/\.[a-z]{2,5}$/i, '')          // strip extension: "doc.docx" → "doc"
-    .replace(/[_\s-]?\d{4}[_\s-]?/g, '') // strip year: "report_2026" → "report"
+    // NOTE: year-stripping removed — it merged "report_2025" and "report_2026" into
+    // the same source, causing wrong-attribution for CY25/CY26 program decks.
     .replace(/[_\s]+/g, '_')               // normalize separators
     .replace(/^_+|_+$/g, '')               // trim leading/trailing underscores
     .toLowerCase()
@@ -361,7 +362,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
 
       // Declare routing OUTSIDE the stream so NextResponse headers can reference it.
       // The default is overwritten inside start() once routeModel() runs.
-      let routing: ReturnType<typeof routeModel> = { model: 'gpt-5-mini', reason: 'default' }
+      let routing: ReturnType<typeof routeModel> = { model: 'gpt-5-mini', reason: 'default', estimatedCost: 0 }
 
       const readable = new ReadableStream({
         async start(controller) {
@@ -374,7 +375,7 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
             memoryCandidates: 0,
             memoryIncluded: 0,
             memoryTokensEstimated: 0,
-            memoryGate: 'none' as const
+            memoryGate: 'none' as 'embedding' | 'heuristic' | 'none'
           }
           let effectiveIntentMode = intent.mode
           let effectiveTaskInstruction: string | undefined
@@ -842,11 +843,11 @@ async function chatHandler(request: Request, context: ApiContext): Promise<NextR
     if (error.name === 'SchemaError') {
       logSchemaError(error)
       logErr(rid, 'chat-handler-schema', error, { userId: user?.id, message: message?.slice(0, 100) })
-      return ApiResponse.serverError(`Chat processing failed: ${error.message}`, 'CHAT_SCHEMA_ERROR', rid)
+      return ApiResponse.serverError(`Chat processing failed: ${error.message}`, 'CHAT_SCHEMA_ERROR', undefined, rid)
     }
     
     logErr(rid, 'chat-handler', error, { userId: user?.id, message: message?.slice(0, 100) })
-    return ApiResponse.serverError('Chat processing failed', 'CHAT_ERROR', rid)
+    return ApiResponse.serverError('Chat processing failed', 'CHAT_ERROR', undefined, rid)
   }
 }
 

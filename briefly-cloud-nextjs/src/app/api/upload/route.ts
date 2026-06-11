@@ -75,7 +75,7 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     
     // Get user's current tier and usage with caching
     const userProfileKey = CACHE_KEYS.USER_PROFILE(user.id)
-    let userProfile = cacheManager.get(userProfileKey)
+    let userProfile = cacheManager.get(userProfileKey) as { subscription_tier: string; documents_uploaded: number; documents_limit: number; storage_used_bytes: number; storage_limit_bytes: number } | undefined
     
     if (!userProfile) {
       const profileData = await withSchemaErrorHandling(
@@ -113,10 +113,8 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     const currentFileCount = userProfile.documents_uploaded || 0
     if (currentFileCount >= tierLimits.maxFiles) {
       throw createError.usageLimitExceeded(
-        'documents',
-        tier,
-        currentFileCount,
-        tierLimits.maxFiles
+        `Document limit reached (${currentFileCount}/${tierLimits.maxFiles}) for ${tier} tier`,
+        { resource: 'documents', tier, current: currentFileCount, limit: tierLimits.maxFiles }
       )
     }
     
@@ -124,10 +122,8 @@ async function uploadHandler(request: Request, context: ApiContext): Promise<Nex
     const currentStorage = userProfile.storage_used_bytes || 0
     if (currentStorage + file.size > tierLimits.totalStorage) {
       throw createError.usageLimitExceeded(
-        'storage',
-        tier,
-        currentStorage,
-        tierLimits.totalStorage
+        `Storage limit reached for ${tier} tier`,
+        { resource: 'storage', tier, current: currentStorage, limit: tierLimits.totalStorage }
       )
     }
     

@@ -100,8 +100,11 @@ export async function embedPdfPages(
     const genai = getGenAI()
 
     // Upload the PDF buffer to Gemini Files API
-    const blob = new Blob([buffer], { type: 'application/pdf' })
-    const uploadedFile = await genai.files.upload(blob, { mimeType: 'application/pdf' })
+    const blob = new Blob([new Uint8Array(buffer)], { type: 'application/pdf' })
+    const uploadedFile = await genai.files.upload({
+      file: blob,
+      config: { mimeType: 'application/pdf' },
+    })
 
     if (!uploadedFile.uri) {
       throw new Error('Gemini Files API did not return a URI for the uploaded PDF')

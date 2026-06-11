@@ -1623,7 +1623,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                     <GooglePicker
                       onFilesSelected={handleGoogleFilesSelected}
                       onError={handlePickerError}
-                      disabled={isProcessingPickerFiles || (planStatus && !planStatus.hasStorageAccess)}
+                      disabled={isProcessingPickerFiles || !!(planStatus && !planStatus.hasStorageAccess)}
                       userId={userId}
                     />
                   </div>

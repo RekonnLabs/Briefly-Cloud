@@ -103,7 +103,9 @@ export const CHAT_MODELS = {
   boost:    process.env.CHAT_MODEL_BOOST || BOOST_CHAT_MODEL,
 } as const
 
-export type SubscriptionTier = keyof typeof CHAT_MODELS
+// Base tier from CHAT_MODELS keys: 'free' | 'pro' | 'pro_byok' | 'boost'
+// Extended to include UserTier values that map to existing tiers at runtime
+export type SubscriptionTier = keyof typeof CHAT_MODELS | 'team' | 'enterprise'
 
 export function resolveChatModel(tier: SubscriptionTier): string {
   switch (tier) {

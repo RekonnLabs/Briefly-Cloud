@@ -248,7 +248,7 @@ export async function extractPdfVisionPages(
   let fileUri: string
   try {
     const uploadResult = await genai.files.upload({
-      file: new Blob([buffer], { type: 'application/pdf' }),
+      file: new Blob([new Uint8Array(buffer)], { type: 'application/pdf' }),
       config: { mimeType: 'application/pdf', displayName: fileName },
     })
     if (!uploadResult.uri) throw new Error('Gemini Files API upload returned no URI')
@@ -398,7 +398,7 @@ export async function extractPdfVisionPagesWithUri(
   } else {
     try {
       const uploadResult = await genai.files.upload({
-        file: new Blob([buffer], { type: 'application/pdf' }),
+        file: new Blob([new Uint8Array(buffer)], { type: 'application/pdf' }),
         config: { mimeType: 'application/pdf', displayName: fileName },
       })
       if (!uploadResult.uri) throw new Error('Gemini Files API upload returned no URI')

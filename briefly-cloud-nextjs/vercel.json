@@ -76,10 +76,6 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/gdpr-cleanup", 
-      "schedule": "0 2 * * *"
-    },
-    {
       "path": "/api/cron/process-vision",
       "schedule": "* * * * *"
     }

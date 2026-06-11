@@ -1548,6 +1548,7 @@ export class ImportJobManager {
         content: chunk.content,
         embedding: embeddings[i].embedding,
         metadata: {
+          ...chunk.metadata,
           fileId: appFileId, fileName: file.name, chunkIndex: chunk.chunkIndex,
           userId: job.userId, source: job.provider, externalId: file.id,
           createdAt: new Date().toISOString(),
@@ -1560,7 +1561,6 @@ export class ImportJobManager {
           sourcePage: (chunk as any)._contentMeta?.sourcePage,
           sourceSheet: (chunk as any)._contentMeta?.sourceSheet,
           visionModel: (chunk as any)._contentMeta?.visionModel,
-          ...chunk.metadata
         }
       }))
 
@@ -1689,7 +1689,7 @@ export class ImportJobManager {
       const userProfile = await usersRepo.getById(userId)
       if (userProfile) {
         const tierLimits: Record<string, number> = { free: 25, pro: 500, pro_byok: 5000 }
-        const maxFiles = tierLimits[userProfile.tier ?? 'free'] ?? 25
+        const maxFiles = tierLimits[userProfile.subscription_tier ?? 'free'] ?? 25
         const { data: existingCount } = await supabaseAdmin
           .from('files')
           .select('id', { count: 'exact', head: true })

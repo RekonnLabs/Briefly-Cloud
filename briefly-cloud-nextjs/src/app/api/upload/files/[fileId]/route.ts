@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 import { logApiUsage } from '@/app/lib/logger'
 import { filesRepo, fileIngestRepo, chunksRepo } from '@/app/lib/repos'
 import type { FileIngestRecord } from '@/app/lib/repos/file-ingest-repo'
-import type { AppFile } from '@/app/types/rag'
+import type { FileRecord } from '@/app/lib/repos/files-repo'
 
 type ProcessingInfo = {
   job_id: string
@@ -33,7 +33,7 @@ function resolveExternalUrl(ingest?: FileIngestRecord | null): string | null {
   return null
 }
 
-function resolveStorageTarget(file: AppFile, ingest?: FileIngestRecord | null): { bucket: string | null; path: string | null } {
+function resolveStorageTarget(file: FileRecord, ingest?: FileIngestRecord | null): { bucket: string | null; path: string | null } {
   const meta = (ingest?.meta ?? null) as Record<string, unknown> | null
   const bucket = (meta?.storageBucket as string | undefined) ?? (ingest?.source === UPLOAD_SOURCE ? DEFAULT_STORAGE_BUCKET : null)
   const path = (meta?.storagePath as string | undefined) ?? file.path ?? null
@@ -44,7 +44,7 @@ function resolveStorageTarget(file: AppFile, ingest?: FileIngestRecord | null): 
 }
 
 function formatFileResponse(
-  file: AppFile,
+  file: FileRecord,
   ingest: FileIngestRecord | null,
   processingInfo: ProcessingInfo | null,
   visionStatus?: 'enriching' | 'completed' | 'failed' | null
@@ -54,7 +54,7 @@ function formatFileResponse(
     file: {
       id: file.id,
       name: file.name,
-      size: file.size_bytes,
+      size: file.size,
       mime_type: file.mime_type,
       source: ingest?.source ?? null,
       processed: status === 'ready',
@@ -197,7 +197,7 @@ async function deleteFileHandler(request: Request, context: ApiContext): Promise
         .from('users')
         .update({
           documents_uploaded: Math.max(0, (userProfile.documents_uploaded || 0) - 1),
-          storage_used_bytes: Math.max(0, (userProfile.storage_used_bytes || 0) - file.size_bytes),
+          storage_used_bytes: Math.max(0, (userProfile.storage_used_bytes || 0) - (file.size || 0)),
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id)
@@ -206,7 +206,7 @@ async function deleteFileHandler(request: Request, context: ApiContext): Promise
     logApiUsage(user.id, '/api/upload/files/[fileId]', 'file_delete', {
       file_id: fileId,
       file_name: file.name,
-      file_size: file.size_bytes,
+      file_size: file.size,
     })
 
     return ApiResponse.success(null, 'File deleted successfully')

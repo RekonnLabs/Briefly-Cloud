@@ -94,6 +94,7 @@ export interface BatchEmbeddingResult {
   totalCost: number
   processingTime: number
   model: string
+  dimensions?: number
 }
 
 // ─── Gemini client (lazy) ─────────────────────────────────────────────────────

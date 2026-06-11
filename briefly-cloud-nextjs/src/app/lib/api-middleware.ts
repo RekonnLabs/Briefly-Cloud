@@ -94,7 +94,7 @@ function extractJwtFromCookies(request: Request): string | null {
  * Validates JWT tokens and extracts user information with detailed logging
  */
 async function extractUserContext(request: Request, correlationId: string): Promise<{
-  user: { id: string } | null
+  user: { id: string; email?: string } | null
   supabase: ReturnType<typeof createServerClient>
   authError?: {
     code: string
@@ -266,7 +266,7 @@ async function extractUserContext(request: Request, correlationId: string): Prom
     })
 
     return {
-      user: { id: user.id },
+      user: { id: user.id, email: user.email },
       supabase
     }
 
@@ -343,7 +343,7 @@ export interface SchemaOperationMetrics {
 }
 
 export interface ApiContext {
-  user: { id: string } | null
+  user: { id: string; email?: string } | null
   supabase: ReturnType<typeof createServerClient>
   correlationId: string
   startTime: number
@@ -358,7 +358,8 @@ export interface ApiContext {
 
 export interface RateLimitConfig {
   windowMs: number
-  maxRequests: number
+  maxRequests?: number
+  max?: number
   skipSuccessfulRequests?: boolean
   skipFailedRequests?: boolean
 }

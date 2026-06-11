@@ -41,7 +41,7 @@ export interface ChromaConfig {
 }
 
 // Legacy VectorStorageService interface for backward compatibility
-export interface VectorStorageService {
+export interface IVectorStorageService {
   storeVectors: (documents: any[], userId: string) => Promise<void>
   searchVectors: (queryEmbedding: number[], userId: string, options?: any) => Promise<any[]>
   deleteFileVectors: (fileId: string, userId: string) => Promise<void>
@@ -53,7 +53,7 @@ export interface VectorStorageService {
 /**
  * Legacy VectorStorageService class for backward compatibility
  */
-export class VectorStorageService {
+export class VectorStorageService implements IVectorStorageService {
   private vectorStore = getVectorStore()
 
   async storeVectors(documents: any[], userId: string): Promise<void> {
@@ -130,16 +130,16 @@ export function chunksToVectorDocuments(
   }
 
   return chunks.map((chunk, index) => ({
-    id: `${chunk.fileId}_${chunk.chunkIndex}`,
+    id: `${chunk.metadata.fileId}_${chunk.chunkIndex}`,
     content: chunk.content,
     embedding: embeddings[index],
     metadata: {
-      fileId: chunk.fileId,
+      ...chunk.metadata,
+      fileId: chunk.metadata.fileId,
       fileName,
       chunkIndex: chunk.chunkIndex,
       userId,
       createdAt: new Date().toISOString(),
-      ...chunk.metadata,
     },
   }))
 }

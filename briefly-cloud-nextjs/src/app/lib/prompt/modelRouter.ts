@@ -1,4 +1,4 @@
-export type UserTier = 'free' | 'pro' | 'team' | 'enterprise'
+export type UserTier = 'free' | 'pro' | 'pro_byok' | 'boost' | 'team' | 'enterprise'
 
 type RouteOpts = { budget?: 'fast' | 'balanced' | 'quality'; tier?: UserTier }
 

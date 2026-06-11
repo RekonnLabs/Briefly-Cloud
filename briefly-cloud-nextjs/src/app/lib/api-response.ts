@@ -86,7 +86,12 @@ export enum ApiErrorCode {
   // System (500, 503)
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
-  METHOD_NOT_ALLOWED = 'METHOD_NOT_ALLOWED'
+  METHOD_NOT_ALLOWED = 'METHOD_NOT_ALLOWED',
+
+  // Chat-specific
+  CHAT_LIMIT_REACHED = 'CHAT_LIMIT_REACHED',
+  CHAT_SCHEMA_ERROR = 'CHAT_SCHEMA_ERROR',
+  CHAT_ERROR = 'CHAT_ERROR'
 }
 
 /**
@@ -227,7 +232,7 @@ export const ApiResponse = {
     })
   },
 
-  forbidden: (message = 'Access forbidden', code = ApiErrorCode.FORBIDDEN, details?: Record<string, unknown>, correlationId?: string): NextResponse => {
+  forbidden: (message = 'Access forbidden', code: ApiErrorCode | string = ApiErrorCode.FORBIDDEN, details?: Record<string, unknown>, correlationId?: string): NextResponse => {
     const id = correlationId || generateCorrelationId()
     const response: StandardApiResponse = {
       success: false,
@@ -377,7 +382,7 @@ export const ApiResponse = {
   },
 
   // Server error responses (5xx)
-  serverError: (message = 'Internal server error', code = ApiErrorCode.INTERNAL_ERROR, details?: Record<string, unknown>, correlationId?: string): NextResponse => {
+  serverError: (message = 'Internal server error', code: ApiErrorCode | string = ApiErrorCode.INTERNAL_ERROR, details?: Record<string, unknown>, correlationId?: string): NextResponse => {
     const id = correlationId || generateCorrelationId()
     const response: StandardApiResponse = {
       success: false,
@@ -436,6 +441,15 @@ export const ApiResponse = {
       status: 503,
       headers: { 'X-Correlation-ID': id }
     })
+  },
+
+  // Aliases for backward compatibility
+  tooManyRequests: (message = 'Too many requests', details?: Record<string, unknown>, correlationId?: string): NextResponse => {
+    return ApiResponse.rateLimitExceeded(message, details, correlationId)
+  },
+
+  internalError: (message = 'Internal server error', code: ApiErrorCode | string = ApiErrorCode.INTERNAL_ERROR, details?: Record<string, unknown>, correlationId?: string): NextResponse => {
+    return ApiResponse.serverError(message, code, details, correlationId)
   },
 
   // Specialized error responses for common scenarios

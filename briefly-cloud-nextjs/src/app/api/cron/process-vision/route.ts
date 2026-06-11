@@ -31,9 +31,9 @@ const STALE_THRESHOLD_MINUTES = 5
 const CRON_SECRET = process.env.CRON_SECRET
 
 export async function GET(request: Request) {
-  // Verify cron secret (Vercel sends this header for cron jobs)
+  // Verify cron secret — fail-closed: reject if secret is missing or mismatched
   const authHeader = request.headers.get('authorization')
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
