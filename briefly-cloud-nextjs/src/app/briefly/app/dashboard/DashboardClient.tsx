@@ -429,14 +429,14 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                 </button>
               )}
             </div>
-            {process.env.NODE_ENV === "development" && error.details && (
+            {process.env.NODE_ENV === "development" && error.details ? (
               <details className="mt-4 text-left">
                 <summary className="text-sm text-gray-400 cursor-pointer">Debug Info</summary>
                 <pre className="text-xs text-gray-500 mt-2 overflow-auto">
                   {JSON.stringify(error.details, null, 2)}
                 </pre>
               </details>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
