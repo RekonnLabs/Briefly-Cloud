@@ -11,9 +11,9 @@ import { getAuditLogger } from '@/app/lib/stubs/audit/audit-logger'
 import { logger } from '@/app/lib/logger'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     token: string
-  }
+  }>
 }
 
 /**
@@ -23,7 +23,7 @@ interface RouteParams {
  */
 export const GET = async (request: NextRequest, { params }: RouteParams) => {
   try {
-    const { token } = params
+    const { token } = await params
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action') || 'info' // info, download, view
 
