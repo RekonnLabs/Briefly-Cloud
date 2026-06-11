@@ -9,7 +9,7 @@ import { supabaseAdmin } from '@/app/lib/supabase-admin'
 let _stripe: Stripe | null = null
 const getStripe = () => {
   if (!_stripe) {
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-07-30.basil' })
   }
   return _stripe
 }

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: Request) {
   const sig = request.headers.get('stripe-signature')
   const secret = process.env.STRIPE_WEBHOOK_SECRET!
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-07-30.basil' })
 
   const body = await request.text()
 
