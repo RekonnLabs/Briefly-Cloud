@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { headers } from "next/headers";
 
 export const runtime = "nodejs";

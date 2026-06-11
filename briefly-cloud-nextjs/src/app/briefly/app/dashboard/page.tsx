@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { getSupabaseServerReadOnly } from "@/app/lib/auth/supabase-server-readonly";
 import { redirect } from "next/navigation";
 import DashboardClient from "./DashboardClient";

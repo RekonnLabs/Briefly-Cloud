@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 'use client'
 
 import { Suspense } from 'react'

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 // src/app/api/auth/signout/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'

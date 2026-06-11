@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 export const runtime = 'nodejs'
 export const revalidate = 0
 

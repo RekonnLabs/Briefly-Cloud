@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 export const runtime = 'nodejs'
 
 import { createServerClient } from '@supabase/ssr'

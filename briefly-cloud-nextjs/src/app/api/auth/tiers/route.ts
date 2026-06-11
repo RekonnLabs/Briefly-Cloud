@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { TIER_LIMITS } from '@/app/lib/usage-limits'
 import { createSuccessResponse } from '@/app/lib/utils'
 

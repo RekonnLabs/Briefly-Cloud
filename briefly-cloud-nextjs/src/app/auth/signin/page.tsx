@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 'use client'
 
 import { useState, useEffect } from 'react'

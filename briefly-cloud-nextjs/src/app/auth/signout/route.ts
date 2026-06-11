@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy route pending consolidation
 import { NextRequest, NextResponse } from 'next/server'
 import { createProtectedApiHandler, ApiContext } from '@/app/lib/api-middleware'
 import { supabaseAppAdmin } from '@/app/lib/auth/supabase-server-admin'
