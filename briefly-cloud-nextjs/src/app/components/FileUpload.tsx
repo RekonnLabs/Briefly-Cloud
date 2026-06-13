@@ -349,17 +349,17 @@ export function FileUpload() {
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           isDragOver 
             ? 'border-accent bg-ai-card' 
-            : 'border-gray-300 hover:border-gray-400'
+            : 'border-border hover:border-border-strong'
         }`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
-        <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <Upload className="w-12 h-12 mx-auto mb-4 text-text-secondary" />
+        <h3 className="text-lg font-medium text-text-primary mb-2">
           Drop files here or click to upload
         </h3>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-text-secondary mb-4">
           Supported formats: PDF, DOCX, XLSX, PPTX, TXT, MD, CSV (up to 100 MB)
         </p>
         <button
@@ -381,24 +381,24 @@ export function FileUpload() {
       {/* Uploaded Files */}
       {uploadedFiles.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-medium text-gray-900">Uploaded Files</h3>
+          <h3 className="text-lg font-medium text-text-primary">Uploaded Files</h3>
           {uploadedFiles.map((file) => (
             <div
               key={file.id}
-              className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between"
+              className="bg-surface-input border border-border rounded-lg p-4 flex items-center justify-between"
             >
               <div className="flex items-center space-x-3 flex-1">
-                <File className="w-5 h-5 text-gray-400" />
+                <File className="w-5 h-5 text-text-secondary" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-text-primary truncate">
                     {file.name}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-text-secondary">
                     {formatFileSize(file.size)} • {getStatusText(file.status, file.progress)}
                   </p>
                   {(file.status === 'uploading' || file.status === 'processing') && (
                     <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-border rounded-full h-2">
                         <div 
                           className="bg-accent h-2 rounded-full transition-all duration-300"
                           style={{ width: `${file.progress}%` }}

@@ -149,7 +149,7 @@ export function UsageDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Usage Dashboard</h1>
-          <p className="text-gray-600">Monitor your usage, limits, and performance</p>
+          <p className="text-text-secondary">Monitor your usage, limits, and performance</p>
         </div>
         <div className="flex items-center space-x-2">
           <Badge className={getTierColor(usageData.subscription.tier)}>
@@ -187,7 +187,7 @@ export function UsageDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">
               {usageData.subscription.limits.chatMessages.current}
-              <span className="text-sm text-gray-500">/{usageData.subscription.limits.chatMessages.limit === Infinity ? '∞' : usageData.subscription.limits.chatMessages.limit}</span>
+              <span className="text-sm text-text-tertiary">/{usageData.subscription.limits.chatMessages.limit === Infinity ? '∞' : usageData.subscription.limits.chatMessages.limit}</span>
             </div>
             <Progress
               value={usageData.subscription.limits.chatMessages.percentUsed}
@@ -207,7 +207,7 @@ export function UsageDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">
               {usageData.subscription.limits.documents.current}
-              <span className="text-sm text-gray-500">/{usageData.subscription.limits.documents.limit === Infinity ? '∞' : usageData.subscription.limits.documents.limit}</span>
+              <span className="text-sm text-text-tertiary">/{usageData.subscription.limits.documents.limit === Infinity ? '∞' : usageData.subscription.limits.documents.limit}</span>
             </div>
             <Progress
               value={usageData.subscription.limits.documents.percentUsed}
@@ -227,7 +227,7 @@ export function UsageDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">
               {usageData.subscription.limits.apiCalls.current}
-              <span className="text-sm text-gray-500">/{usageData.subscription.limits.apiCalls.limit === Infinity ? '∞' : usageData.subscription.limits.apiCalls.limit}</span>
+              <span className="text-sm text-text-tertiary">/{usageData.subscription.limits.apiCalls.limit === Infinity ? '∞' : usageData.subscription.limits.apiCalls.limit}</span>
             </div>
             <Progress
               value={usageData.subscription.limits.apiCalls.percentUsed}
@@ -276,7 +276,7 @@ export function UsageDashboard() {
                     <Badge variant="secondary">×{activity.quantity}</Badge>
                   )}
                 </div>
-                <div className="flex items-center text-sm text-gray-500">
+                <div className="flex items-center text-sm text-text-tertiary">
                   <Clock className="h-3 w-3 mr-1" />
                   {new Date(activity.timestamp).toLocaleString()}
                 </div>

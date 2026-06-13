@@ -52,9 +52,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // Default error UI
       return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
-            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
+        <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
+          <div className="max-w-md w-full bg-surface-input rounded-lg shadow-lg border border-border p-6">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-900/30 rounded-full">
               <svg
                 className="w-6 h-6 text-red-600"
                 fill="none"
@@ -70,10 +70,10 @@ export class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
             <div className="mt-4 text-center">
-              <h3 className="text-lg font-medium text-gray-900">
+              <h3 className="text-lg font-medium text-text-primary">
                 Something went wrong
               </h3>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-sm text-text-secondary">
                 We're sorry, but something unexpected happened. Please try refreshing the page.
               </p>
               <div className="mt-4">
@@ -86,10 +86,10 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
               {process.env.NODE_ENV === 'development' && this.state.error && (
                 <details className="mt-4 text-left">
-                  <summary className="text-sm font-medium text-gray-700 cursor-pointer">
+                  <summary className="text-sm font-medium text-text-secondary cursor-pointer">
                     Error Details (Development)
                   </summary>
-                  <pre className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded overflow-auto">
+                  <pre className="mt-2 text-xs text-red-400 bg-red-900/20 p-2 rounded overflow-auto">
                     {this.state.error.stack}
                   </pre>
                 </details>

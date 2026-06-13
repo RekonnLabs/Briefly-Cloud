@@ -20,17 +20,17 @@
   /* Chat panel background — dark charcoal-slate */
   --chat-bg: #2A2F38;
 
-  /* Canvas / surfaces */
-  --canvas: #DCDEE3;
-  --surface: #E8EAEE;
-  --surface-input: #D4D7DD;
-  --border: #C2C6CE;
-  --border-strong: #AEB3BC;
+  /* Canvas / surfaces — dark to match chat panel */
+  --canvas: #2A2F38;
+  --surface: #2A2F38;
+  --surface-input: #353B45;
+  --border: #3D4451;
+  --border-strong: #4A5260;
 
-  /* Text */
-  --text-primary: #1E2742;
-  --text-secondary: #6A707B;
-  --text-tertiary: #878D97;
+  /* Text — light for dark backgrounds */
+  --text-primary: #E8EAED;
+  --text-secondary: #9CA3AF;
+  --text-tertiary: #6B7280;
 
   /* Sidebar (dark slate) */
   --sidebar-bg: #1E2742;

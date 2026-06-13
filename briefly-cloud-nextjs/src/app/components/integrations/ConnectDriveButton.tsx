@@ -31,8 +31,8 @@ export function ConnectDriveButton({
   
   const variantClasses = {
     primary: 'bg-accent text-white hover:brightness-110 focus:ring-accent',
-    secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500',
-    outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-accent'
+    secondary: 'bg-surface-input text-text-primary hover:brightness-110 focus:ring-gray-500',
+    outline: 'border border-border text-text-primary hover:bg-surface-input focus:ring-accent'
   }
   
   const sizeClasses = {

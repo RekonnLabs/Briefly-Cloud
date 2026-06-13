@@ -23,18 +23,18 @@ export default async function BillingPage() {
       <div className="max-w-2xl mx-auto bg-surface rounded-lg shadow-sm border border-border p-8">
         <div className="text-center space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Upgrade to Briefly Pro</h1>
-            <p className="text-gray-600">Unlock premium features and higher usage limits</p>
+            <h1 className="text-3xl font-bold text-text-primary mb-2">Upgrade to Briefly Pro</h1>
+            <p className="text-text-secondary">Unlock premium features and higher usage limits</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 mt-8">
             {/* Pro Plan */}
-            <div className="border border-gray-200 rounded-lg p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Pro Plan</h3>
-              <div className="text-3xl font-bold text-gray-900 mb-4">
-                $19<span className="text-lg font-normal text-gray-600">/month</span>
+            <div className="border border-border rounded-lg p-6">
+              <h3 className="text-xl font-semibold text-text-primary mb-2">Pro Plan</h3>
+              <div className="text-3xl font-bold text-text-primary mb-4">
+                $19<span className="text-lg font-normal text-text-secondary">/month</span>
               </div>
-              <ul className="space-y-2 text-sm text-gray-600 mb-6">
+              <ul className="space-y-2 text-sm text-text-secondary mb-6">
                 <li>✓ 1,000 AI chat messages</li>
                 <li>✓ 500 document uploads</li>
                 <li>✓ 1GB storage</li>
@@ -54,11 +54,11 @@ export default async function BillingPage() {
 
             {/* Pro BYOK Plan */}
             <div className="border border-nav-active/20 rounded-lg p-6 bg-ai-card">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Pro BYOK</h3>
-              <div className="text-3xl font-bold text-gray-900 mb-4">
-                $39<span className="text-lg font-normal text-gray-600">/month</span>
+              <h3 className="text-xl font-semibold text-text-primary mb-2">Pro BYOK</h3>
+              <div className="text-3xl font-bold text-text-primary mb-4">
+                $39<span className="text-lg font-normal text-text-secondary">/month</span>
               </div>
-              <ul className="space-y-2 text-sm text-gray-600 mb-6">
+              <ul className="space-y-2 text-sm text-text-secondary mb-6">
                 <li>✓ 5,000 AI chat messages</li>
                 <li>✓ 5,000 document uploads</li>
                 <li>✓ 10GB storage</li>
@@ -78,8 +78,8 @@ export default async function BillingPage() {
             </div>
           </div>
 
-          <div className="pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-500">
+          <div className="pt-6 border-t border-border">
+            <p className="text-sm text-text-tertiary">
               Current plan: <span className="font-medium capitalize">{user.subscription_tier || 'free'}</span>
               {user.subscription_status !== 'active' && (
                 <span className="text-red-600 ml-2">({user.subscription_status || 'inactive'})</span>
