@@ -436,16 +436,16 @@ export function ChatInterface() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-surface rounded-2xl border border-border shadow-xl">
+    <div className="h-full flex flex-col bg-chat-bg rounded-2xl border border-border shadow-xl">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
+      <div className="p-4 border-b border-white/10 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-text-primary">AI Chat</h2>
-          <p className="text-sm text-text-secondary">Ask questions about your documents</p>
+          <h2 className="text-lg font-semibold text-white">AI Chat</h2>
+          <p className="text-sm text-gray-400">Ask questions about your documents</p>
         </div>
         <button
           onClick={handleNewChat}
-          className="text-sm text-text-secondary hover:text-text-primary px-3 py-1 rounded border border-border hover:border-border-strong bg-surface"
+          className="text-sm text-gray-300 hover:text-white px-3 py-1 rounded border border-white/20 hover:border-white/40 bg-white/5"
         >
           + New Chat
         </button>
@@ -454,9 +454,9 @@ export function ChatInterface() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && !isWaitingForFirstToken && !streamingContent && (
-          <div className="text-center text-text-secondary py-8">
-            <FileText className="w-12 h-12 mx-auto mb-4 p-2 rounded-xl bg-ai-card text-accent" />
-            <p className="text-lg font-medium mb-2 text-text-primary">Get started</p>
+          <div className="text-center text-gray-400 py-8">
+            <FileText className="w-12 h-12 mx-auto mb-4 p-2 rounded-xl bg-white/10 text-accent" />
+            <p className="text-lg font-medium mb-2 text-white">Get started</p>
             <p className="text-sm">Connect Google Drive to import your documents, or upload files directly. Then ask questions in the chat.</p>
           </div>
         )}
@@ -497,10 +497,10 @@ export function ChatInterface() {
                       dangerouslySetInnerHTML={{ __html: bodyHtml }}
                     />
                     {sources.length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-border flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
-                        <span className="text-xs text-text-tertiary font-medium shrink-0">Sources:</span>
+                      <div className="mt-3 pt-2 border-t border-primary/10 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+                        <span className="text-xs text-accent font-medium shrink-0">Sources:</span>
                         {sources.map((src, i) => (
-                          <span key={i} className="text-xs font-mono text-text-tertiary">
+                          <span key={i} className="text-xs font-mono text-accent">
                             {src}{i < sources.length - 1 ? ' ·' : ''}
                           </span>
                         ))}
@@ -554,7 +554,7 @@ export function ChatInterface() {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-border bg-surface">
+      <div className="p-4 border-t border-white/10 bg-chat-bg">
         <div className="flex space-x-4">
           <div className="flex-1">
             <textarea
@@ -562,7 +562,7 @@ export function ChatInterface() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask a question about your documents..."
-              className="w-full px-4 py-3 border border-border bg-surface-input text-text-primary placeholder-text-tertiary rounded-xl resize-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all duration-200"
+              className="w-full px-4 py-3 border border-white/15 bg-white/5 text-white placeholder-gray-500 rounded-xl resize-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all duration-200"
               rows={3}
               disabled={isLoading}
             />
@@ -575,7 +575,7 @@ export function ChatInterface() {
             <Send className="w-5 h-5" />
           </button>
         </div>
-        <div className="mt-2 flex items-center text-xs text-text-tertiary">
+        <div className="mt-2 flex items-center text-xs text-gray-500">
           <span>Press Enter to send, Shift+Enter for new line</span>
           {/* Mode hint badge — read-only for MVP */}
           <ModeBadge mode={detectedMode} />

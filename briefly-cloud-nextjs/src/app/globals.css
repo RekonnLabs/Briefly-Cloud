@@ -17,6 +17,9 @@
   /* 5. CTA / Pro badge — warm orange (high signal, low usage) */
   --cta: #E5A970;
 
+  /* Chat panel background — dark charcoal-slate */
+  --chat-bg: #2A2F38;
+
   /* Canvas / surfaces */
   --canvas: #DCDEE3;
   --surface: #E8EAEE;
@@ -54,6 +57,8 @@
   --color-surface-input: var(--surface-input);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+
+  --color-chat-bg: var(--chat-bg);
 
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
