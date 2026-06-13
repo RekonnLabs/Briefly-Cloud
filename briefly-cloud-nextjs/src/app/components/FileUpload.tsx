@@ -348,7 +348,7 @@ export function FileUpload() {
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           isDragOver 
-            ? 'border-accent bg-accent-tint-bg' 
+            ? 'border-accent bg-ai-card' 
             : 'border-gray-300 hover:border-gray-400'
         }`}
         onDrop={handleDrop}
@@ -364,7 +364,7 @@ export function FileUpload() {
         </p>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="bg-accent hover:bg-accent-hover text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          className="bg-accent hover:brightness-110 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
         >
           Choose Files
         </button>

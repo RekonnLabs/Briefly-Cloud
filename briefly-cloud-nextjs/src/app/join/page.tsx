@@ -50,7 +50,7 @@ export default function JoinPage() {
           {/* Free Trial Plan */}
           <div className="relative bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-8">
             <div className="text-center mb-6">
-              <div className="mx-auto w-16 h-16 bg-accent-tint-bg rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center mb-4">
                 <Zap className="w-8 h-8 text-accent" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Free Trial</h2>
@@ -93,29 +93,29 @@ export default function JoinPage() {
             <button 
               onClick={() => { setBusy('trial'); void call('/api/plan/start-trial') }}
               disabled={!!busy}
-              className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
+              className="w-full bg-accent hover:brightness-110 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
             >
               {busy === 'trial' ? 'Starting trial…' : 'Start Free Trial'}
             </button>
           </div>
 
           {/* Pro Plan */}
-          <div className="relative bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-purple-500/50 shadow-2xl p-8">
+          <div className="relative bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-cta/50 shadow-2xl p-8">
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-              <span className="bg-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium">
+              <span className="bg-cta text-white px-4 py-1 rounded-full text-sm font-medium">
                 Most Popular
               </span>
             </div>
             
             <div className="text-center mb-6">
-              <div className="mx-auto w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mb-4">
-                <Crown className="w-8 h-8 text-purple-400" />
+              <div className="mx-auto w-16 h-16 bg-cta/20 rounded-full flex items-center justify-center mb-4">
+                <Crown className="w-8 h-8 text-cta" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Pro</h2>
               <p className="text-gray-400 mb-4">
                 For power users and professionals
               </p>
-              <div className="text-4xl font-bold text-purple-400">
+              <div className="text-4xl font-bold text-cta">
                 $30
                 <span className="text-lg font-normal text-gray-500">/month</span>
               </div>
@@ -151,23 +151,23 @@ export default function JoinPage() {
             <button 
               onClick={() => { setBusy('pro'); void call('/api/plan/upgrade') }}
               disabled={!!busy}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
+              className="w-full bg-cta hover:brightness-110 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
             >
               {busy === 'pro' ? 'Upgrading…' : 'Upgrade to Pro'}
             </button>
           </div>
 
           {/* Pro BYOK Plan */}
-          <div className="relative bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-yellow-500/50 shadow-2xl p-8">
+          <div className="relative bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-nav-active/50 shadow-2xl p-8">
             <div className="text-center mb-6">
-              <div className="mx-auto w-16 h-16 bg-yellow-600/20 rounded-full flex items-center justify-center mb-4">
-                <Crown className="w-8 h-8 text-yellow-400" />
+              <div className="mx-auto w-16 h-16 bg-nav-active/20 rounded-full flex items-center justify-center mb-4">
+                <Crown className="w-8 h-8 text-accent" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Pro BYOK</h2>
               <p className="text-gray-400 mb-4">
                 Bring Your Own Key - Maximum control
               </p>
-              <div className="text-4xl font-bold text-yellow-400">
+              <div className="text-4xl font-bold text-accent">
                 $15
                 <span className="text-lg font-normal text-gray-500">/month</span>
               </div>
@@ -203,7 +203,7 @@ export default function JoinPage() {
             <button 
               onClick={() => { setBusy('byok'); void call('/api/plan/upgrade') }}
               disabled={!!busy}
-              className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
+              className="w-full bg-nav-active hover:brightness-110 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
             >
               {busy === 'byok' ? 'Upgrading…' : 'Choose Pro BYOK'}
             </button>
@@ -220,7 +220,7 @@ export default function JoinPage() {
           </div>
           
           <p className="text-gray-400">
-            Questions? <a href="mailto:support@briefly.cloud" className="text-accent hover:text-accent-hover underline">Contact our team</a>
+            Questions? <a href="mailto:support@briefly.cloud" className="text-accent hover:brightness-110 underline">Contact our team</a>
           </p>
           
           <div className="mt-4">

@@ -134,7 +134,7 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
         <div className="flex items-center space-x-2">
           <span className="text-xs text-gray-400 capitalize">{quota.tier} Plan</span>
           {quota.trial.active && (
-            <span className="px-2 py-0.5 bg-accent-tint-bg text-accent-tint-text text-xs rounded-full">
+            <span className="px-2 py-0.5 bg-ai-card text-primary text-xs rounded-full">
               Trial: {quota.trial.daysRemaining}d left
             </span>
           )}
@@ -195,7 +195,7 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
 
       {/* Upgrade CTA for free tier */}
       {quota.tier === 'free' && (quota.files.percentage >= 70 || quota.storage.percentage >= 70) && (
-        <div className="bg-accent-tint-bg border border-accent/20 rounded-lg p-3">
+        <div className="bg-ai-card border border-accent/20 rounded-lg p-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
@@ -208,7 +208,7 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
             </div>
             <button
               onClick={() => window.location.href = '/pricing'}
-              className="flex items-center space-x-1 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
+              className="flex items-center space-x-1 px-3 py-1.5 text-xs bg-cta text-white rounded-lg hover:brightness-110 transition-colors"
             >
               <Zap className="w-3 h-3" />
               <span>Upgrade</span>

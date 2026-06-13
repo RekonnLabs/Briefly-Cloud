@@ -1238,7 +1238,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                   alert('Test failed. Check console for details.');
                 }
               }}
-              className="px-3 py-1 text-xs bg-accent text-white rounded hover:bg-accent-hover transition-colors"
+              className="px-3 py-1 text-xs bg-accent text-white rounded hover:brightness-110 transition-colors"
             >
               Run Apideck Test
             </button>
@@ -1359,7 +1359,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                   className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-colors shadow-lg ${
                     (planStatus && !planStatus.hasStorageAccess) || isVaultLoading
                       ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                      : 'bg-accent text-white hover:bg-accent-hover'
+                      : 'bg-accent text-white hover:brightness-110'
                   }`}
                 >
                   {isVaultLoading ? (
@@ -1535,7 +1535,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                       )}
                       {/* Vision queue info */}
                       {(job.outputData.visionQueued ?? 0) > 0 && (
-                        <div className="mt-2 p-2 bg-accent-tint-bg border border-accent/20 rounded text-xs text-accent-tint-text">
+                        <div className="mt-2 p-2 bg-ai-card border border-accent/20 rounded text-xs text-primary">
                           <span className="font-semibold">{job.outputData.visionQueued} file{job.outputData.visionQueued === 1 ? '' : 's'} queued for visual enrichment</span>
                           {' '}— image-heavy pages will be indexed in the background (~10 min).
                         </div>
@@ -1659,8 +1659,8 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                           onClick={() => handleFolderClick(provider.id, folder)}
                         >
                           <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <div className="w-8 h-8 bg-accent-tint-bg rounded flex items-center justify-center">
-                              <Folder className="w-4 h-4 text-accent-tint-text" />
+                            <div className="w-8 h-8 bg-ai-card rounded flex items-center justify-center">
+                              <Folder className="w-4 h-4 text-primary" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-white truncate">
@@ -1730,7 +1730,7 @@ export function CloudStorage({ userId }: CloudStorageProps = {}) {
                         <button
                           onClick={() => importFile(provider.id, file.id, file.name, file.mimeType)}
                           disabled={importingFiles.has(file.id)}
-                          className="flex items-center space-x-1 px-3 py-1 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="flex items-center space-x-1 px-3 py-1 text-sm bg-accent text-white rounded-lg hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {importingFiles.has(file.id) ? (
                             <>

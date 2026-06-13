@@ -107,8 +107,8 @@ export function UsageDashboard() {
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'free': return 'bg-gray-100 text-gray-800'
-      case 'pro': return 'bg-accent-tint-bg text-accent-tint-text'
-      case 'pro_byok': return 'bg-purple-100 text-purple-800'
+      case 'pro': return 'bg-cta/20 text-cta'
+      case 'pro_byok': return 'bg-nav-active/20 text-accent'
       default: return 'bg-gray-100 text-gray-800'
     }
   }

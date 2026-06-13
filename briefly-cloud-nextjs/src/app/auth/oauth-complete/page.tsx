@@ -84,7 +84,7 @@ function OAuthCompleteInner() {
             </div>
             <button
               onClick={() => window.close()}
-              className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg transition-colors"
+              className="px-6 py-2.5 bg-accent hover:brightness-110 text-white text-sm font-medium rounded-lg transition-colors"
             >
               Close Window
             </button>

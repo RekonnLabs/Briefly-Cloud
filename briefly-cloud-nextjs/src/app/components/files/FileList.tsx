@@ -132,7 +132,7 @@ export function FileList() {
   function getStatusBadge(status: string) {
     const statusColors: Record<string, string> = {
       pending: 'bg-yellow-500/20 text-yellow-400',
-      processing: 'bg-accent-tint-bg text-accent-tint-text',
+      processing: 'bg-ai-card text-primary',
       ready: 'bg-green-500/20 text-green-400',
       completed: 'bg-green-500/20 text-green-400',
       failed: 'bg-red-500/20 text-red-400',
@@ -255,7 +255,7 @@ export function FileList() {
                     <span className="flex items-center gap-4 justify-end">
                       <button
                         onClick={() => handleReplace(file.id)}
-                        className="text-accent hover:text-accent-hover text-sm transition-colors"
+                        className="text-accent hover:brightness-110 text-sm transition-colors"
                       >
                         Replace
                       </button>

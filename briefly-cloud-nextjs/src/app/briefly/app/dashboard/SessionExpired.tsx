@@ -13,7 +13,7 @@ export default function SessionExpired() {
           <p className="text-text-secondary mb-4">Your session has expired. Please sign in again.</p>
           <a
             href="/auth/signin"
-            className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors"
+            className="bg-accent hover:brightness-110 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Sign In Again
           </a>

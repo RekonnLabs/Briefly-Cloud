@@ -39,22 +39,22 @@ interface Message {
 function ProvenanceBadge({ provenance }: { provenance: Provenance }) {
   if (provenance.type === 'grounded') {
     return (
-      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent text-white border border-accent/30">
         <ShieldCheck className="w-3.5 h-3.5" />
         <span>Grounded in documents</span>
-        <span className="text-emerald-500/60">·</span>
-        <span className="text-emerald-500/80">{provenance.citationsFound} citation{provenance.citationsFound !== 1 ? 's' : ''}</span>
+        <span className="text-white/60">·</span>
+        <span className="text-white/80">{provenance.citationsFound} citation{provenance.citationsFound !== 1 ? 's' : ''}</span>
       </div>
     )
   }
 
   if (provenance.type === 'general') {
     return (
-      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent-tint-bg text-accent-tint-text border border-accent/20">
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-500/15 text-gray-300 border border-gray-500/20">
         <Globe className="w-3.5 h-3.5" />
         <span>General answer</span>
-        <span className="text-accent-tint-text/60">·</span>
-        <span className="text-accent-tint-text/80">not from documents</span>
+        <span className="text-gray-400/60">·</span>
+        <span className="text-gray-400/80">not from documents</span>
       </div>
     )
   }
@@ -119,7 +119,7 @@ function UngroundedBanner({ provenance }: { provenance: Provenance }) {
 function TypingIndicator() {
   return (
     <div className="flex justify-start">
-      <div className="rounded-2xl px-4 py-3 bg-surface text-text-primary border border-border">
+        <div className="rounded-2xl px-4 py-3 bg-ai-card text-primary border border-border">
         <div className="flex items-center gap-1 h-5">
           <span className="text-xs text-text-tertiary mr-1">Briefly is thinking</span>
           <span className="typing-dot" />
@@ -455,7 +455,7 @@ export function ChatInterface() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && !isWaitingForFirstToken && !streamingContent && (
           <div className="text-center text-text-secondary py-8">
-            <FileText className="w-12 h-12 mx-auto mb-4 p-2 rounded-xl bg-accent-tint-bg text-accent" />
+            <FileText className="w-12 h-12 mx-auto mb-4 p-2 rounded-xl bg-ai-card text-accent" />
             <p className="text-lg font-medium mb-2 text-text-primary">Get started</p>
             <p className="text-sm">Connect Google Drive to import your documents, or upload files directly. Then ask questions in the chat.</p>
           </div>
@@ -470,7 +470,7 @@ export function ChatInterface() {
               className={`max-w-3xl rounded-2xl px-4 py-3 ${
                 message.role === 'user'
                   ? 'bg-accent text-white shadow-lg'
-                  : 'bg-surface text-text-primary border border-border'
+                  : 'bg-ai-card text-primary border border-border'
               }`}
             >
               {/* Provenance badge + mode badge */}
@@ -493,7 +493,7 @@ export function ChatInterface() {
                 return (
                   <>
                     <div
-                      className="text-sm text-text-primary leading-relaxed"
+                      className="text-sm leading-relaxed [&_ul_li]:text-primary [&_ol_li]:text-primary [&_p]:text-primary" style={{ color: '#1E2742' }}
                       dangerouslySetInnerHTML={{ __html: bodyHtml }}
                     />
                     {sources.length > 0 && (
@@ -517,7 +517,7 @@ export function ChatInterface() {
 
               {/* General answer disclaimer */}
               {message.role === 'assistant' && message.provenance?.type === 'general' && message.provenance.disclaimer && (
-                <div className="mt-2 p-2 rounded-lg bg-accent-tint-bg border border-accent/15 text-xs text-accent-tint-text">
+                <div className="mt-2 p-2 rounded-lg bg-ai-card border border-accent/15 text-xs text-primary">
                   {message.provenance.disclaimer}
                 </div>
               )}
@@ -535,12 +535,12 @@ export function ChatInterface() {
         {/* Streaming bubble — progressive token render with cursor blink */}
         {streamingContent && !isWaitingForFirstToken && (
           <div className="flex justify-start">
-            <div className="max-w-3xl rounded-2xl px-4 py-3 bg-surface text-text-primary border border-border">
+            <div className="max-w-3xl rounded-2xl px-4 py-3 bg-ai-card text-primary border border-border">
               {(() => {
                 const { bodyHtml } = formatMessageWithSources(streamingContent)
                 return (
                   <div
-                    className="text-sm text-text-primary leading-relaxed"
+                    className="text-sm leading-relaxed [&_ul_li]:text-primary [&_ol_li]:text-primary [&_p]:text-primary" style={{ color: '#1E2742' }}
                     dangerouslySetInnerHTML={{ __html: bodyHtml }}
                   />
                 )
@@ -570,7 +570,7 @@ export function ChatInterface() {
           <button
             onClick={sendMessage}
             disabled={!input.trim() || isLoading}
-            className="px-6 py-3 bg-accent text-white rounded-xl hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg"
+            className="px-6 py-3 bg-cta text-white rounded-xl hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg"
           >
             <Send className="w-5 h-5" />
           </button>

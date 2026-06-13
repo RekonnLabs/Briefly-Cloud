@@ -72,7 +72,7 @@ export class AuthErrorBoundary extends Component<Props, State> {
                 
                 <button
                   onClick={() => window.location.reload()}
-                  className="w-full px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg transition-colors"
+                  className="w-full px-4 py-2 bg-accent hover:brightness-110 text-white rounded-lg transition-colors"
                 >
                   Refresh Page
                 </button>

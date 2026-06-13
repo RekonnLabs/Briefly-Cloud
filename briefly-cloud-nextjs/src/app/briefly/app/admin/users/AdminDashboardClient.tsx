@@ -73,7 +73,7 @@ export default function AdminDashboardClient({ users, limits, recentMessages, as
 
   const tierColor = (tier: string, trial: boolean) => {
     if (tier === 'pro' && !trial) return 'bg-green-500/20 text-green-400 border border-green-500/30'
-    if (trial) return 'bg-accent-tint-bg text-accent-tint-text border border-accent/30'
+    if (trial) return 'bg-ai-card text-primary border border-accent/30'
     return 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
   }
 

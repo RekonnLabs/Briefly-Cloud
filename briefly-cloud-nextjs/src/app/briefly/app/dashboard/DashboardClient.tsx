@@ -417,14 +417,14 @@ export default function DashboardClient({ user }: DashboardClientProps) {
               {isAuthError ? (
                 <a
                   href="/auth/signin"
-                  className="inline-block bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors"
+                  className="inline-block bg-accent hover:brightness-110 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Sign In
                 </a>
               ) : (
                 <button
                   onClick={handleRetry}
-                  className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors"
+                  className="bg-accent hover:brightness-110 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Retry Loading Dashboard
                 </button>
@@ -460,7 +460,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             </p>
             <button
               onClick={handleRetry}
-              className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors"
+              className="bg-accent hover:brightness-110 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Retry Loading
             </button>

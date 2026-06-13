@@ -1,32 +1,40 @@
 @import "tailwindcss";
 
-/* ── Briefly Cloud — Design Tokens ──────────────────────────────────────────── */
+/* ── Briefly Cloud — Design Tokens (5-color palette) ────────────────────────── */
 :root {
-  /* Canvas / surfaces (light, low-glare) */
+  /* 1. Primary / sidebar text — dark navy */
+  --primary: #1E2742;
+
+  /* 2. Active nav / hover — mid-blue */
+  --nav-active: #375E82;
+
+  /* 3. Accent — sky blue (badges, user messages) */
+  --accent: #579EBF;
+
+  /* 4. AI response cards — blush */
+  --ai-card: #DCCBD2;
+
+  /* 5. CTA / Pro badge — warm orange (high signal, low usage) */
+  --cta: #E5A970;
+
+  /* Canvas / surfaces */
   --canvas: #DCDEE3;
   --surface: #E8EAEE;
   --surface-input: #D4D7DD;
   --border: #C2C6CE;
   --border-strong: #AEB3BC;
 
-  /* Text (softened, never pure black) */
-  --text-primary: #232830;
+  /* Text */
+  --text-primary: #1E2742;
   --text-secondary: #6A707B;
   --text-tertiary: #878D97;
 
   /* Sidebar (dark slate) */
-  --sidebar-bg: #15181E;
-  --sidebar-panel: #1E222A;
+  --sidebar-bg: #1E2742;
+  --sidebar-panel: #263352;
   --sidebar-text: #E8EAED;
   --sidebar-text-muted: #8B9099;
-  --sidebar-divider: #262B33;
-
-  /* Accent (indigo) */
-  --accent: #5B5BD6;
-  --accent-hover: #4F4FCB;
-  --accent-tint-bg: #E3E3F6;
-  --accent-tint-text: #3B3AC0;
-  --accent-on-dark: #A5A5F2;
+  --sidebar-divider: #375E82;
 
   /* Legacy compat */
   --background: var(--canvas);
@@ -35,7 +43,12 @@
 
 /* ── Tailwind v4 theme tokens ───────────────────────────────────────────────── */
 @theme inline {
-  /* Map CSS vars → Tailwind utilities */
+  --color-primary: var(--primary);
+  --color-nav-active: var(--nav-active);
+  --color-accent: var(--accent);
+  --color-ai-card: var(--ai-card);
+  --color-cta: var(--cta);
+
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-surface-input: var(--surface-input);
@@ -52,11 +65,9 @@
   --color-sidebar-text-muted: var(--sidebar-text-muted);
   --color-sidebar-divider: var(--sidebar-divider);
 
-  --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-tint-bg: var(--accent-tint-bg);
-  --color-accent-tint-text: var(--accent-tint-text);
-  --color-accent-on-dark: var(--accent-on-dark);
+  /* Aliases for backward compat with previous commit */
+  /* Legacy compat aliases — kept for any missed references */
+  --color-accent-hover: #4889A8;
 
   /* Keep legacy references working */
   --color-background: var(--canvas);

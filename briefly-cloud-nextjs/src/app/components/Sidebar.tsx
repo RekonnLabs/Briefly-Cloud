@@ -67,7 +67,7 @@ function barText(pct: number, reached: boolean) {
   if (reached || pct >= 100) return 'text-red-400';
   if (pct >= 90) return 'text-orange-400';
   if (pct >= 70) return 'text-yellow-400';
-  return 'text-accent-on-dark';
+  return 'text-accent';
 }
 
 interface SidebarProps {
@@ -171,7 +171,7 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
               onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
                 isActive
-                  ? 'bg-accent text-white shadow-lg'
+                  ? 'bg-nav-active text-white shadow-lg'
                   : 'text-sidebar-text-muted hover:bg-sidebar-panel hover:text-sidebar-text'
               }`}
             >
@@ -195,7 +195,7 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
                   {quota.trial.active ? 'Pro Trial' : `${quota.tier} Plan`}
                 </span>
                 {quota.trial.active && (
-                  <span className="text-xs text-accent-on-dark">{quota.trial.daysRemaining}d left</span>
+                  <span className="text-xs text-cta font-semibold">{quota.trial.daysRemaining}d left</span>
                 )}
               </div>
               {/* Files bar */}
@@ -259,7 +259,7 @@ export function Sidebar({ activeTab, setActiveTab, user }: SidebarProps) {
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left hover:bg-sidebar-panel transition-colors"
           >
             <div className="w-8 h-8 bg-sidebar-panel rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-accent-on-dark" />
+              <User className="w-4 h-4 text-accent" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-medium text-sidebar-text truncate">

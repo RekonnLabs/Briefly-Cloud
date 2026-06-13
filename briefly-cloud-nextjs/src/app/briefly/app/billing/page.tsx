@@ -19,8 +19,8 @@ export default async function BillingPage() {
   // Render; no redirects here
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="max-w-2xl mx-auto bg-surface rounded-lg shadow-sm border border-border p-8">
         <div className="text-center space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Upgrade to Briefly Pro</h1>
@@ -45,7 +45,7 @@ export default async function BillingPage() {
                 <input type="hidden" name="priceId" value={process.env.STRIPE_PRICE_PRO} />
                 <button 
                   type="submit"
-                  className="w-full bg-accent text-white py-3 px-4 rounded-lg font-medium hover:bg-accent-hover transition-colors"
+                  className="w-full bg-cta text-white py-3 px-4 rounded-lg font-medium hover:brightness-110 transition-colors"
                 >
                   Upgrade to Pro
                 </button>
@@ -53,7 +53,7 @@ export default async function BillingPage() {
             </div>
 
             {/* Pro BYOK Plan */}
-            <div className="border border-accent/20 rounded-lg p-6 bg-accent-tint-bg">
+            <div className="border border-nav-active/20 rounded-lg p-6 bg-ai-card">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Pro BYOK</h3>
               <div className="text-3xl font-bold text-gray-900 mb-4">
                 $39<span className="text-lg font-normal text-gray-600">/month</span>
@@ -70,7 +70,7 @@ export default async function BillingPage() {
                 <input type="hidden" name="priceId" value={process.env.STRIPE_PRICE_PRO_BYOK} />
                 <button 
                   type="submit"
-                  className="w-full bg-accent text-white py-3 px-4 rounded-lg font-medium hover:bg-accent-hover transition-colors"
+                  className="w-full bg-cta text-white py-3 px-4 rounded-lg font-medium hover:brightness-110 transition-colors"
                 >
                   Upgrade to Pro BYOK
                 </button>
@@ -87,7 +87,7 @@ export default async function BillingPage() {
             </p>
             <a 
               href="/briefly/app/dashboard" 
-              className="inline-block mt-4 text-accent hover:text-accent-hover text-sm font-medium"
+              className="inline-block mt-4 text-accent hover:brightness-110 text-sm font-medium"
             >
               ← Back to Dashboard
             </a>

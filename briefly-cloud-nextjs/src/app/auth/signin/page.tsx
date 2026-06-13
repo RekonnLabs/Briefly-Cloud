@@ -208,11 +208,11 @@ export default function SignInPage() {
             <div className="text-center">
               <p className="text-xs text-gray-400">
                 By signing in, you agree to our{' '}
-                <a href="/terms" className="text-accent hover:text-accent-hover underline">
+                <a href="/terms" className="text-accent hover:brightness-110 underline">
                   Terms of Service
                 </a>{' '}
                 and{' '}
-                <a href="/privacy" className="text-accent hover:text-accent-hover underline">
+                <a href="/privacy" className="text-accent hover:brightness-110 underline">
                   Privacy Policy
                 </a>
               </p>

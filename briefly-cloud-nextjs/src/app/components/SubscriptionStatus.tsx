@@ -41,16 +41,16 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
     const baseInfo = {
       free: {
         name: 'Pro Trial',  // All free-tier users are in trial — no permanent free tier
-        icon: '⏳',
-        color: 'text-accent-tint-text',
-        bgColor: 'bg-accent-tint-bg',
+        icon: '⌛',
+        color: 'text-primary',
+        bgColor: 'bg-ai-card',
         description: '14-day trial'
       },
       pro: {
         name: 'Pro',
         icon: '⭐',
-        color: 'text-accent-tint-text',
-        bgColor: 'bg-accent-tint-bg',
+        color: 'text-white',
+        bgColor: 'bg-cta',
         description: 'Advanced features'
       },
       pro_byok: {
@@ -157,7 +157,7 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
         {tier === 'free' && (
           <button
             onClick={() => setShowUpgradeModal(true)}
-            className="flex items-center space-x-1 px-3 py-1 text-xs bg-accent text-white rounded-full hover:bg-accent-hover transition-colors shadow-lg"
+            className="flex items-center space-x-1 px-3 py-1 text-xs bg-cta text-white rounded-full hover:brightness-110 transition-colors shadow-lg"
           >
             <Zap className="w-3 h-3" />
             <span>Upgrade</span>
@@ -221,7 +221,7 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
               <div className="border border-gray-700/50 bg-gray-800/50 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-3">
-                    <Crown className="w-5 h-5 text-accent" />
+                    <Crown className="w-5 h-5 text-cta" />
                     <h4 className="font-medium text-white">Pro Plan</h4>
                   </div>
                   <div className="text-right">
@@ -246,7 +246,7 @@ export function SubscriptionStatus({ user }: SubscriptionStatusProps) {
                 <button
                   onClick={() => startCheckout('pro', billingPeriod)}
                   disabled={isLoading}
-                  className="w-full bg-accent text-white py-2 px-4 rounded-xl hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                  className="w-full bg-cta text-white py-2 px-4 rounded-xl hover:brightness-110 disabled:opacity-50 transition-colors"
                 >
                   {isLoading ? 'Processing...' : `Upgrade to Pro — ${billingPeriod === 'annual' ? '$300/yr' : '$30/mo'}`}
                 </button>
