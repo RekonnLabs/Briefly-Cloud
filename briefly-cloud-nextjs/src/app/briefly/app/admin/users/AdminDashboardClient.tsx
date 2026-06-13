@@ -73,14 +73,14 @@ export default function AdminDashboardClient({ users, limits, recentMessages, as
 
   const tierColor = (tier: string, trial: boolean) => {
     if (tier === 'pro' && !trial) return 'bg-green-500/20 text-green-400 border border-green-500/30'
-    if (trial) return 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+    if (trial) return 'bg-accent-tint-bg text-accent-tint-text border border-accent/30'
     return 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
   }
 
   const provenanceColor = (p: any) => {
     if (!p) return 'text-gray-500'
     if (p.type === 'grounded') return 'text-green-400'
-    if (p.type === 'general') return 'text-blue-400'
+    if (p.type === 'general') return 'text-accent'
     return 'text-yellow-400'
   }
 
@@ -137,7 +137,7 @@ export default function AdminDashboardClient({ users, limits, recentMessages, as
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
               activeTab === tab
-                ? 'bg-blue-600 text-white'
+                ? 'bg-accent text-white'
                 : 'bg-gray-800 text-gray-400 hover:text-gray-200'
             }`}
           >

@@ -63,7 +63,7 @@ function OAuthCompleteInner() {
       <div className="text-center space-y-6 max-w-sm">
         {status === 'connecting' && (
           <>
-            <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="text-gray-400 text-sm">Connecting {providerName}…</p>
           </>
         )}
@@ -84,7 +84,7 @@ function OAuthCompleteInner() {
             </div>
             <button
               onClick={() => window.close()}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+              className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg transition-colors"
             >
               Close Window
             </button>
@@ -119,7 +119,7 @@ export default function OAuthCompletePage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <OAuthCompleteInner />

@@ -100,7 +100,7 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
     return (
       <div className={`bg-gray-800/50 border border-gray-700/50 rounded-xl p-4 ${className}`}>
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
         </div>
       </div>
     );
@@ -134,7 +134,7 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
         <div className="flex items-center space-x-2">
           <span className="text-xs text-gray-400 capitalize">{quota.tier} Plan</span>
           {quota.trial.active && (
-            <span className="px-2 py-0.5 bg-blue-900/50 text-blue-300 text-xs rounded-full">
+            <span className="px-2 py-0.5 bg-accent-tint-bg text-accent-tint-text text-xs rounded-full">
               Trial: {quota.trial.daysRemaining}d left
             </span>
           )}
@@ -195,11 +195,11 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
 
       {/* Upgrade CTA for free tier */}
       {quota.tier === 'free' && (quota.files.percentage >= 70 || quota.storage.percentage >= 70) && (
-        <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-700/50 rounded-lg p-3">
+        <div className="bg-accent-tint-bg border border-accent/20 rounded-lg p-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
-                <TrendingUp className="w-4 h-4 text-blue-400" />
+                <TrendingUp className="w-4 h-4 text-accent" />
                 <span className="text-sm font-medium text-white">Upgrade to Pro</span>
               </div>
               <p className="text-xs text-gray-300">
@@ -208,7 +208,7 @@ export function QuotaStatus({ className = '' }: QuotaStatusProps) {
             </div>
             <button
               onClick={() => window.location.href = '/pricing'}
-              className="flex items-center space-x-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center space-x-1 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors"
             >
               <Zap className="w-3 h-3" />
               <span>Upgrade</span>

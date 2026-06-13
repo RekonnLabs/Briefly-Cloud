@@ -389,7 +389,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
     const isAuthError = error.code === "AUTH_REQUIRED";
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div
             className={`border rounded-lg p-6 ${
@@ -417,14 +417,14 @@ export default function DashboardClient({ user }: DashboardClientProps) {
               {isAuthError ? (
                 <a
                   href="/auth/signin"
-                  className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="inline-block bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Sign In
                 </a>
               ) : (
                 <button
                   onClick={handleRetry}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Retry Loading Dashboard
                 </button>
@@ -446,7 +446,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
 
   if (!userData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-6">
             <div className="text-yellow-400 mb-4">
@@ -460,7 +460,7 @@ export default function DashboardClient({ user }: DashboardClientProps) {
             </p>
             <button
               onClick={handleRetry}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors"
             >
               Retry Loading
             </button>
@@ -473,13 +473,13 @@ export default function DashboardClient({ user }: DashboardClientProps) {
   const displayName = userData.name || userData.full_name || userData.email;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex">
+    <div className="min-h-screen bg-canvas flex">
       <ErrorBoundary>
         <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} user={userData} />
       </ErrorBoundary>
 
       <div className="flex-1 flex flex-col">
-        <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50 px-6 py-4">
+        <header className="bg-surface border-b border-border px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <img
@@ -488,8 +488,8 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                 className="w-10 h-10"
               />
               <div>
-                <h1 className="text-2xl font-bold text-white">Briefly Cloud</h1>
-                <p className="text-sm text-gray-300">AI-Powered Document Assistant</p>
+                <h1 className="text-2xl font-bold text-text-primary">Briefly Cloud</h1>
+                <p className="text-sm text-text-secondary">AI-Powered Document Assistant</p>
               </div>
             </div>
 
@@ -502,14 +502,14 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                   <img
                     src={userData.image || "/default-avatar.png"}
                     alt="Profile"
-                    className="w-8 h-8 rounded-full border-2 border-gray-600"
+                    className="w-8 h-8 rounded-full border-2 border-border-strong"
                     onError={(event) => {
                       (event.currentTarget as HTMLImageElement).src = "/default-avatar.png";
                     }}
                   />
-                  <div className="text-sm font-medium text-gray-200">
+                  <div className="text-sm font-medium text-text-primary">
                     <div className="truncate max-w-[12rem]">{displayName}</div>
-                    <div className="text-xs text-gray-400 truncate max-w-[12rem]">{userData.email}</div>
+                    <div className="text-xs text-text-secondary truncate max-w-[12rem]">{userData.email}</div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end space-y-2">
@@ -531,8 +531,8 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                     disabled={isSigningOut}
                     className={`text-sm transition-colors px-3 py-1 rounded border flex items-center space-x-2 ${
                       isSigningOut
-                        ? 'text-gray-500 border-gray-700 cursor-not-allowed'
-                        : 'text-gray-400 hover:text-white border-gray-600 hover:border-gray-500'
+                        ? 'text-text-tertiary border-border cursor-not-allowed'
+                        : 'text-text-secondary hover:text-text-primary border-border hover:border-border-strong'
                     }`}
                   >
                     {isSigningOut ? (
@@ -599,13 +599,13 @@ export default function DashboardClient({ user }: DashboardClientProps) {
           {activeTab === "files" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Upload Documents</h2>
+                <h2 className="text-xl font-semibold text-text-primary mb-4">Upload Documents</h2>
                 <ErrorBoundary>
                   <FileUpload />
                 </ErrorBoundary>
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-white mb-4">Your Documents</h2>
+                <h2 className="text-xl font-semibold text-text-primary mb-4">Your Documents</h2>
                 <ErrorBoundary>
                   <FileList />
                 </ErrorBoundary>

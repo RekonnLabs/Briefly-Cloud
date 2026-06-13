@@ -27,7 +27,7 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
       <div className="max-w-4xl w-full">
         {/* Header with Logo */}
         <div className="text-center mb-8">
@@ -50,14 +50,14 @@ export default function JoinPage() {
           {/* Free Trial Plan */}
           <div className="relative bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-8">
             <div className="text-center mb-6">
-              <div className="mx-auto w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mb-4">
-                <Zap className="w-8 h-8 text-blue-400" />
+              <div className="mx-auto w-16 h-16 bg-accent-tint-bg rounded-full flex items-center justify-center mb-4">
+                <Zap className="w-8 h-8 text-accent" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Free Trial</h2>
               <p className="text-gray-400 mb-4">
                 Try Briefly Cloud free for 14 days
               </p>
-              <div className="text-4xl font-bold text-blue-400">
+              <div className="text-4xl font-bold text-accent">
                 $0
                 <span className="text-lg font-normal text-gray-500">/14 days</span>
               </div>
@@ -93,7 +93,7 @@ export default function JoinPage() {
             <button 
               onClick={() => { setBusy('trial'); void call('/api/plan/start-trial') }}
               disabled={!!busy}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
+              className="w-full bg-accent hover:bg-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
             >
               {busy === 'trial' ? 'Starting trial…' : 'Start Free Trial'}
             </button>
@@ -220,7 +220,7 @@ export default function JoinPage() {
           </div>
           
           <p className="text-gray-400">
-            Questions? <a href="mailto:support@briefly.cloud" className="text-blue-400 hover:text-blue-300 underline">Contact our team</a>
+            Questions? <a href="mailto:support@briefly.cloud" className="text-accent hover:text-accent-hover underline">Contact our team</a>
           </p>
           
           <div className="mt-4">

@@ -45,7 +45,7 @@ export default async function BillingPage() {
                 <input type="hidden" name="priceId" value={process.env.STRIPE_PRICE_PRO} />
                 <button 
                   type="submit"
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  className="w-full bg-accent text-white py-3 px-4 rounded-lg font-medium hover:bg-accent-hover transition-colors"
                 >
                   Upgrade to Pro
                 </button>
@@ -53,7 +53,7 @@ export default async function BillingPage() {
             </div>
 
             {/* Pro BYOK Plan */}
-            <div className="border border-blue-200 rounded-lg p-6 bg-blue-50">
+            <div className="border border-accent/20 rounded-lg p-6 bg-accent-tint-bg">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Pro BYOK</h3>
               <div className="text-3xl font-bold text-gray-900 mb-4">
                 $39<span className="text-lg font-normal text-gray-600">/month</span>
@@ -70,7 +70,7 @@ export default async function BillingPage() {
                 <input type="hidden" name="priceId" value={process.env.STRIPE_PRICE_PRO_BYOK} />
                 <button 
                   type="submit"
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  className="w-full bg-accent text-white py-3 px-4 rounded-lg font-medium hover:bg-accent-hover transition-colors"
                 >
                   Upgrade to Pro BYOK
                 </button>
@@ -87,7 +87,7 @@ export default async function BillingPage() {
             </p>
             <a 
               href="/briefly/app/dashboard" 
-              className="inline-block mt-4 text-blue-600 hover:text-blue-700 text-sm font-medium"
+              className="inline-block mt-4 text-accent hover:text-accent-hover text-sm font-medium"
             >
               ← Back to Dashboard
             </a>

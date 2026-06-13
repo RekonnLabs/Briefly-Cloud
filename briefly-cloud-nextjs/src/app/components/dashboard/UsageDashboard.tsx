@@ -107,7 +107,7 @@ export function UsageDashboard() {
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'free': return 'bg-gray-100 text-gray-800'
-      case 'pro': return 'bg-blue-100 text-blue-800'
+      case 'pro': return 'bg-accent-tint-bg text-accent-tint-text'
       case 'pro_byok': return 'bg-purple-100 text-purple-800'
       default: return 'bg-gray-100 text-gray-800'
     }
@@ -122,7 +122,7 @@ export function UsageDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
         <span className="ml-2">Loading usage data...</span>
       </div>
     )
@@ -270,7 +270,7 @@ export function UsageDashboard() {
             {usageData.recentActivity.slice(0, 10).map((activity, index) => (
               <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
                 <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                  <div className="w-2 h-2 bg-accent rounded-full"></div>
                   <span className="capitalize">{activity.action.replace('_', ' ')}</span>
                   {activity.quantity > 1 && (
                     <Badge variant="secondary">×{activity.quantity}</Badge>

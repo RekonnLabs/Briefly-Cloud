@@ -44,7 +44,7 @@ export class AuthErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       // Fallback UI
       return this.props.fallback || (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
           <div className="w-full max-w-md">
             <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-2xl p-8 lg:p-10">
               <div className="text-center space-y-4">
@@ -72,7 +72,7 @@ export class AuthErrorBoundary extends Component<Props, State> {
                 
                 <button
                   onClick={() => window.location.reload()}
-                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  className="w-full px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg transition-colors"
                 >
                   Refresh Page
                 </button>

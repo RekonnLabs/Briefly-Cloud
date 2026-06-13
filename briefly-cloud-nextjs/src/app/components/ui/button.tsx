@@ -26,7 +26,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         "h-11 rounded-md px-8": size === 'lg',
         "h-10 w-10": size === 'icon',
       },
-      "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300",
+      "bg-accent text-white hover:bg-accent-hover disabled:bg-border-strong disabled:text-text-tertiary",
       className
     )
 

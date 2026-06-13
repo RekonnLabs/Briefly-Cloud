@@ -132,7 +132,7 @@ export function FileList() {
   function getStatusBadge(status: string) {
     const statusColors: Record<string, string> = {
       pending: 'bg-yellow-500/20 text-yellow-400',
-      processing: 'bg-blue-500/20 text-blue-400',
+      processing: 'bg-accent-tint-bg text-accent-tint-text',
       ready: 'bg-green-500/20 text-green-400',
       completed: 'bg-green-500/20 text-green-400',
       failed: 'bg-red-500/20 text-red-400',
@@ -148,7 +148,7 @@ export function FileList() {
 
   if (loading) {
     return (
-      <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-xl p-6 text-gray-400 text-center">
+      <div className="bg-surface rounded-2xl border border-border shadow-xl p-6 text-text-secondary text-center">
         Loading files...
       </div>
     )
@@ -156,7 +156,7 @@ export function FileList() {
 
   if (error) {
     return (
-      <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-red-700/50 shadow-xl p-6 text-red-400 text-center">
+      <div className="bg-surface rounded-2xl border border-red-700/50 shadow-xl p-6 text-red-400 text-center">
         {error}
       </div>
     )
@@ -164,55 +164,55 @@ export function FileList() {
 
   if (files.length === 0) {
     return (
-      <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-xl p-6 text-gray-400 text-center">
+      <div className="bg-surface rounded-2xl border border-border shadow-xl p-6 text-text-secondary text-center">
         No files uploaded yet. Upload a file to get started.
       </div>
     )
   }
 
   return (
-    <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl border border-gray-700/50 shadow-xl overflow-hidden">
+    <div className="bg-surface rounded-2xl border border-border shadow-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-800/50 border-b border-gray-700">
+          <thead className="bg-canvas border-b border-border">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Name
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Type
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Size
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Uploaded
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-700/50">
+          <tbody className="divide-y divide-border">
             {files.map((file) => (
-              <tr key={file.id} className="hover:bg-gray-800/30 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+              <tr key={file.id} className="hover:bg-canvas/50 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
                   {file.name}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
                   {file.mime_type}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
                   {formatFileSize(file.size, file.source)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <span className="flex items-center gap-2">
                     {getStatusBadge(file.processing_status)}
                     {file.vision_status === 'enriching' && (
-                      <span className="inline-flex items-center gap-1 text-xs text-blue-400" title="Enhancing visuals — image-heavy pages are being indexed in the background">
+                      <span className="inline-flex items-center gap-1 text-xs text-accent" title="Enhancing visuals — image-heavy pages are being indexed in the background">
                         <svg className="w-3.5 h-3.5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -228,7 +228,7 @@ export function FileList() {
                     )}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
                   {formatDate(file.created_at)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -255,7 +255,7 @@ export function FileList() {
                     <span className="flex items-center gap-4 justify-end">
                       <button
                         onClick={() => handleReplace(file.id)}
-                        className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                        className="text-accent hover:text-accent-hover text-sm transition-colors"
                       >
                         Replace
                       </button>

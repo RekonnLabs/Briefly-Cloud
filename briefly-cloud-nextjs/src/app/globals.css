@@ -1,27 +1,73 @@
 @import "tailwindcss";
 
+/* ── Briefly Cloud — Design Tokens ──────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Canvas / surfaces (light, low-glare) */
+  --canvas: #DCDEE3;
+  --surface: #E8EAEE;
+  --surface-input: #D4D7DD;
+  --border: #C2C6CE;
+  --border-strong: #AEB3BC;
+
+  /* Text (softened, never pure black) */
+  --text-primary: #232830;
+  --text-secondary: #6A707B;
+  --text-tertiary: #878D97;
+
+  /* Sidebar (dark slate) */
+  --sidebar-bg: #15181E;
+  --sidebar-panel: #1E222A;
+  --sidebar-text: #E8EAED;
+  --sidebar-text-muted: #8B9099;
+  --sidebar-divider: #262B33;
+
+  /* Accent (indigo) */
+  --accent: #5B5BD6;
+  --accent-hover: #4F4FCB;
+  --accent-tint-bg: #E3E3F6;
+  --accent-tint-text: #3B3AC0;
+  --accent-on-dark: #A5A5F2;
+
+  /* Legacy compat */
+  --background: var(--canvas);
+  --foreground: var(--text-primary);
 }
 
+/* ── Tailwind v4 theme tokens ───────────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Map CSS vars → Tailwind utilities */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-input: var(--surface-input);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-panel: var(--sidebar-panel);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-text-muted: var(--sidebar-text-muted);
+  --color-sidebar-divider: var(--sidebar-divider);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-tint-bg: var(--accent-tint-bg);
+  --color-accent-tint-text: var(--accent-tint-text);
+  --color-accent-on-dark: var(--accent-on-dark);
+
+  /* Keep legacy references working */
+  --color-background: var(--canvas);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--canvas);
+  color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -32,7 +78,7 @@ body {
   display: inline-block;
   width: 2px;
   height: 1em;
-  background-color: #60a5fa; /* blue-400 */
+  background-color: var(--accent);
   margin-left: 2px;
   vertical-align: text-bottom;
   border-radius: 1px;
@@ -49,7 +95,7 @@ body {
   display: inline-block;
   width: 5px;
   height: 5px;
-  background-color: #9ca3af; /* gray-400 */
+  background-color: var(--text-tertiary);
   border-radius: 50%;
   animation: dot-pulse 1.2s ease-in-out infinite;
 }

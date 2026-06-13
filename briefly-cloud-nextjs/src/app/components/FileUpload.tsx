@@ -318,7 +318,7 @@ export function FileUpload() {
   const getStatusIcon = (status: UploadedFile['status']) => {
     switch (status) {
       case 'uploading':
-        return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />;
+        return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent" />;
       case 'processing':
         return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600" />;
       case 'completed':
@@ -348,7 +348,7 @@ export function FileUpload() {
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           isDragOver 
-            ? 'border-blue-500 bg-blue-50' 
+            ? 'border-accent bg-accent-tint-bg' 
             : 'border-gray-300 hover:border-gray-400'
         }`}
         onDrop={handleDrop}
@@ -364,7 +364,7 @@ export function FileUpload() {
         </p>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          className="bg-accent hover:bg-accent-hover text-white font-semibold py-2 px-4 rounded-lg transition-colors"
         >
           Choose Files
         </button>
@@ -400,7 +400,7 @@ export function FileUpload() {
                     <div className="mt-2">
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          className="bg-accent h-2 rounded-full transition-all duration-300"
                           style={{ width: `${file.progress}%` }}
                         />
                       </div>
