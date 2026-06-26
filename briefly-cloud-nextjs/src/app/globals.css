@@ -8,11 +8,11 @@
   /* 2. Active nav / hover — mid-blue */
   --nav-active: #375E82;
 
-  /* 3. Accent — sky blue (badges, user messages) */
-  --accent: #579EBF;
+  /* 3. Accent — indigo (interactive elements, user messages) */
+  --accent: #5B5BD6;
 
-  /* 4. AI response cards — blush */
-  --ai-card: #DCCBD2;
+  /* 4. AI response cards — neutral light gray */
+  --ai-card: #E8EAEE;
 
   /* 5. CTA / Pro badge — warm orange (high signal, low usage) */
   --cta: #E5A970;

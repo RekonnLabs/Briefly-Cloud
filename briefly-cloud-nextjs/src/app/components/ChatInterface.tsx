@@ -39,11 +39,11 @@ interface Message {
 function ProvenanceBadge({ provenance }: { provenance: Provenance }) {
   if (provenance.type === 'grounded') {
     return (
-      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-accent text-white border border-accent/30">
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
         <ShieldCheck className="w-3.5 h-3.5" />
         <span>Grounded in documents</span>
-        <span className="text-white/60">·</span>
-        <span className="text-white/80">{provenance.citationsFound} citation{provenance.citationsFound !== 1 ? 's' : ''}</span>
+        <span className="text-emerald-400/60">·</span>
+        <span className="text-emerald-300/80">{provenance.citationsFound} citation{provenance.citationsFound !== 1 ? 's' : ''}</span>
       </div>
     )
   }
@@ -470,7 +470,7 @@ export function ChatInterface() {
               className={`max-w-3xl rounded-2xl px-4 py-3 ${
                 message.role === 'user'
                   ? 'bg-accent text-white shadow-lg'
-                  : 'bg-ai-card text-primary border border-border'
+                  : 'bg-ai-card text-[#1E2742] border border-[#D1D5DB]'
               }`}
             >
               {/* Provenance badge + mode badge */}
@@ -497,10 +497,10 @@ export function ChatInterface() {
                       dangerouslySetInnerHTML={{ __html: bodyHtml }}
                     />
                     {sources.length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-primary/10 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
-                        <span className="text-xs text-accent font-medium shrink-0">Sources:</span>
+                      <div className="mt-3 pt-2 border-t border-[#D1D5DB] flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+                        <span className="text-xs text-[#4B5563] font-medium shrink-0">Sources:</span>
                         {sources.map((src, i) => (
-                          <span key={i} className="text-xs font-mono text-accent">
+                          <span key={i} className="text-xs font-mono text-[#4B5563]">
                             {src}{i < sources.length - 1 ? ' ·' : ''}
                           </span>
                         ))}
@@ -517,7 +517,7 @@ export function ChatInterface() {
 
               {/* General answer disclaimer */}
               {message.role === 'assistant' && message.provenance?.type === 'general' && message.provenance.disclaimer && (
-                <div className="mt-2 p-2 rounded-lg bg-ai-card border border-accent/15 text-xs text-primary">
+                <div className="mt-2 p-2 rounded-lg bg-[#F3F4F6] border border-[#D1D5DB] text-xs text-[#1E2742]">
                   {message.provenance.disclaimer}
                 </div>
               )}
@@ -535,7 +535,7 @@ export function ChatInterface() {
         {/* Streaming bubble — progressive token render with cursor blink */}
         {streamingContent && !isWaitingForFirstToken && (
           <div className="flex justify-start">
-            <div className="max-w-3xl rounded-2xl px-4 py-3 bg-ai-card text-primary border border-border">
+            <div className="max-w-3xl rounded-2xl px-4 py-3 bg-ai-card text-[#1E2742] border border-[#D1D5DB]">
               {(() => {
                 const { bodyHtml } = formatMessageWithSources(streamingContent)
                 return (
