@@ -209,7 +209,7 @@ jobs:
         "
 
     - name: Upload Security Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         name: security-reports
@@ -221,7 +221,7 @@ jobs:
         retention-days: 30
 
     - name: Upload Test Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         name: test-results
@@ -348,7 +348,7 @@ jobs:
         echo "- Semgrep: $([ -f semgrep-report.json ] && echo 'Completed' || echo 'Not available')" >> security-audit-report.md
 
     - name: Upload Security Audit Report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v5
       with:
         name: security-audit-report
         path: |
